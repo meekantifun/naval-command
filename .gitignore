@@ -22,7 +22,9 @@ pm2-logs/
 
 # Player data (sensitive)
 player_data/
-*.json
+servers/**/*.json
+playerData.json
+**/playerData.json
 
 # OS files
 .DS_Store

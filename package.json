@@ -1,0 +1,32 @@
+{
+  "name": "naval-command-discord-bot",
+  "version": "1.0.0",
+  "description": "Advanced Naval Warfare Discord Bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "naval",
+    "warfare",
+    "game"
+  ],
+  "author": "MeekANTIFUN",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "discord.js": "^14.14.1",
+    "dotenv": "^17.2.0",
+    "express": "^5.2.1",
+    "googleapis": "^165.0.0",
+    "puppeteer": "^24.22.0",
+    "sharp": "^0.34.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
