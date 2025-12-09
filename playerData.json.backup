@@ -1,0 +1,3070 @@
+{
+  "136268653187301376": {
+    "characters": {
+      "{DD} USS Johnston (DD-557)": {
+        "id": "136268653187301376",
+        "username": "{DD} USS Johnston (DD-557)",
+        "shipClass": "Destroyer",
+        "tonnage": 2100,
+        "speedKnots": 38,
+        "armorThickness": {
+          "belt": 19,
+          "deck": 13,
+          "turret": 19
+        },
+        "calculatedHP": 65,
+        "calculatedArmor": 18,
+        "calculatedSpeed": 8,
+        "calculatedEvasion": {
+          "evasionPercentage": 45.1,
+          "speedFactor": 2.31,
+          "sizeFactor": 1.95,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.451
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 65,
+          "armor": 18,
+          "speed": 8,
+          "evasion": 45.1,
+          "range": 14,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753293442291": {
+            "name": "127 mm/38-caliber Mark 12",
+            "type": "main",
+            "caliber": "127mm",
+            "damage": 95,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 80,
+            "barrels": 1,
+            "accuracy": 75,
+            "configuration": "single",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 1
+          },
+          "torpedo_1753293465807": {
+            "name": "Mark 15 Torpedo",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 2090,
+            "range": 12,
+            "reload": 38,
+            "penetration": 999,
+            "ammo": 20,
+            "barrels": 5,
+            "accuracy": 75,
+            "configuration": "quin",
+            "quality": "standard",
+            "shellWeight": 2200,
+            "barrelCount": 5
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Oerlikon",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 7,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 17,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          },
+          {
+            "name": "Bofors",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 10,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 107,
+            "accuracy": 48,
+            "rateOfFire": 7,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "127 mm/38-caliber Mark 12",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 5,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 96,
+            "accuracy": 37.8,
+            "rateOfFire": 1,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{DD} USS Johnston (DD-557)",
+    "maxCharacters": 2
+  },
+  "557971365412601866": {
+    "characters": {
+      "{BB} KMS Bismarck": {
+        "id": "557971365412601866",
+        "username": "{BB} KMS Bismarck",
+        "shipClass": "Battleship",
+        "tonnage": 50300,
+        "speedKnots": 30,
+        "armorThickness": {
+          "belt": 320,
+          "deck": 120,
+          "turret": 360
+        },
+        "calculatedHP": 552,
+        "calculatedArmor": 276,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 5.7,
+          "speedFactor": 1.44,
+          "sizeFactor": 0.4,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.057
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 552,
+          "armor": 276,
+          "speed": 6,
+          "evasion": 5.7,
+          "range": 38,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753294450163": {
+            "name": "38 cm SK C/34",
+            "type": "main",
+            "caliber": "380mm",
+            "damage": 864,
+            "range": 38,
+            "reload": 17,
+            "penetration": 400,
+            "ammo": 36,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 1920,
+            "barrelCount": 2
+          },
+          "secondary_1753294466360": {
+            "name": "15 cm SK C/28",
+            "type": "secondary",
+            "caliber": "150mm",
+            "damage": 212,
+            "range": 17,
+            "reload": 5,
+            "penetration": 122,
+            "ammo": 124,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 472,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "2cm FlaK 30",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 12,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 24,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          },
+          {
+            "name": "3.7 cm SK C/30",
+            "type": "medium",
+            "caliber": "37mm",
+            "fullName": "37mm M1 Gun",
+            "barrels": 16,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 123,
+            "accuracy": 45,
+            "rateOfFire": 9,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American medium AA gun with good accuracy"
+          },
+          {
+            "name": "10.5 cm SK C/33",
+            "type": "long",
+            "caliber": "105mm",
+            "fullName": "105mm FlaK 38",
+            "barrels": 16,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 8,
+            "damage": 316,
+            "accuracy": 40.8,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "German heavy AA gun with superior ballistics"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} KMS Bismarck",
+    "maxCharacters": 2
+  },
+  "282396672938737666": {
+    "characters": {
+      "{BB} HMS Prince of Wales": {
+        "id": "282396672938737666",
+        "username": "{BB} HMS Prince of Wales",
+        "shipClass": "Battleship",
+        "tonnage": 43786,
+        "speedKnots": 28,
+        "armorThickness": {
+          "belt": 370,
+          "deck": 152,
+          "turret": 324
+        },
+        "calculatedHP": 519,
+        "calculatedArmor": 309,
+        "calculatedSpeed": 5,
+        "calculatedEvasion": {
+          "evasionPercentage": 5.4,
+          "speedFactor": 1.25,
+          "sizeFactor": 0.43,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.054
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 519,
+          "armor": 309,
+          "speed": 5,
+          "evasion": 5.4,
+          "range": 36,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753324295740": {
+            "name": "BL 14-inch Mk VII",
+            "type": "main",
+            "caliber": "356mm",
+            "damage": 1440,
+            "range": 36,
+            "reload": 14,
+            "penetration": 380,
+            "ammo": 80,
+            "barrels": 4,
+            "accuracy": 75,
+            "configuration": "quad",
+            "quality": "standard",
+            "shellWeight": 1800,
+            "barrelCount": 4
+          },
+          "secondary_1753324320261": {
+            "name": "QF 5.25-inch Mark I",
+            "type": "secondary",
+            "caliber": "133mm",
+            "damage": 180,
+            "range": 15,
+            "reload": 5,
+            "penetration": 108,
+            "ammo": 150,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 400,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Bofors",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 1,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 25,
+            "accuracy": 48,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "QF 2 pdr Mark VIII",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 32,
+            "mountType": "octuple",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 783,
+            "accuracy": 48,
+            "rateOfFire": 22,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "QF 5.25-inch Mark I",
+            "type": "long",
+            "caliber": "133mm",
+            "fullName": "133mm QF Mark I",
+            "barrels": 16,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 369,
+            "accuracy": 36.6,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "British heavy dual-purpose gun with superior range and penetration"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} HMS Prince of Wales",
+    "maxCharacters": 2
+  },
+  "405396333650903042": {
+    "characters": {
+      "{CV} USS Enterprise": {
+        "id": "405396333650903042",
+        "username": "{CV} USS Enterprise",
+        "shipClass": "Aircraft Carrier",
+        "tonnage": 32060,
+        "speedKnots": 32,
+        "armorThickness": {
+          "belt": 101,
+          "deck": 101,
+          "turret": 19
+        },
+        "calculatedHP": 392,
+        "calculatedArmor": 89,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 8.2,
+          "speedFactor": 1.64,
+          "sizeFactor": 0.5,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.082
+          }
+        },
+        "hangar": 96,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "availableAircraft": {
+          "fighter": {
+            "name": "F6F Hellcat",
+            "count": 12,
+            "maxCount": 12,
+            "range": 10,
+            "damage": 45,
+            "quality": "Standard",
+            "specialAbility": "fighter",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "fighter"
+          },
+          "bomber": {
+            "name": "SB2C Helldiver",
+            "count": 12,
+            "maxCount": 12,
+            "range": 8,
+            "damage": 80,
+            "quality": "Standard",
+            "specialAbility": "bomb",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "bomber"
+          },
+          "torpedo": {
+            "name": "TBF Avenger",
+            "count": 12,
+            "maxCount": 12,
+            "range": 7,
+            "damage": 120,
+            "quality": "Standard",
+            "specialAbility": "torpedo",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "torpedo"
+          }
+        },
+        "activeSquadrons": {
+          "squadron_1": {
+            "name": "TBF Avenger Squadron 1",
+            "count": 12,
+            "maxCount": 12,
+            "range": 7,
+            "damage": 120,
+            "quality": "Standard",
+            "specialAbility": "torpedo",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "torpedo"
+          },
+          "squadron_2": {
+            "name": "TBF Avenger Squadron 2",
+            "count": 12,
+            "maxCount": 12,
+            "range": 7,
+            "damage": 120,
+            "quality": "Standard",
+            "specialAbility": "torpedo",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "torpedo"
+          },
+          "squadron_3": {
+            "name": "TBF Avenger Squadron 3",
+            "count": 12,
+            "maxCount": 12,
+            "range": 7,
+            "damage": 120,
+            "quality": "Standard",
+            "specialAbility": "torpedo",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "torpedo"
+          }
+        },
+        "stats": {
+          "health": 392,
+          "armor": 89,
+          "speed": 7,
+          "evasion": 8.2,
+          "range": 14,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "secondary_1753332792357": {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 95,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 80,
+            "barrels": 1,
+            "accuracy": 75,
+            "configuration": "single",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 1
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Oerlikons",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 32,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 92,
+            "accuracy": 39,
+            "rateOfFire": 18,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          },
+          {
+            "name": "Bofors",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 54,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 722,
+            "accuracy": 48,
+            "rateOfFire": 13,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 8,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 123,
+            "accuracy": 37.8,
+            "rateOfFire": 1,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          }
+        ],
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{CV} USS Enterprise",
+    "maxCharacters": 2
+  },
+  "274598337376944129": {
+    "characters": {
+      "{CV} IJN Akagi": {
+        "id": "274598337376944129",
+        "username": "{CV} IJN Akagi",
+        "shipClass": "Aircraft Carrier",
+        "tonnage": 41300,
+        "speedKnots": 31,
+        "armorThickness": {
+          "belt": 152,
+          "deck": 79,
+          "turret": 19
+        },
+        "calculatedHP": 448,
+        "calculatedArmor": 114,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 6.8,
+          "speedFactor": 1.54,
+          "sizeFactor": 0.44,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.068
+          }
+        },
+        "hangar": 110,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "availableAircraft": {
+          "fighter": {
+            "name": "A6M Zero",
+            "count": 12,
+            "maxCount": 12,
+            "range": 10,
+            "damage": 45,
+            "quality": "Standard",
+            "specialAbility": "fighter",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "fighter"
+          },
+          "bomber": {
+            "name": "Aichi D3A",
+            "count": 12,
+            "maxCount": 12,
+            "range": 8,
+            "damage": 80,
+            "quality": "Standard",
+            "specialAbility": "bomb",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "bomber"
+          },
+          "torpedo": {
+            "name": "Nakajima B5N",
+            "count": 12,
+            "maxCount": 12,
+            "range": 7,
+            "damage": 120,
+            "quality": "Standard",
+            "specialAbility": "torpedo",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "torpedo"
+          }
+        },
+        "activeSquadrons": {},
+        "stats": {
+          "health": 448,
+          "armor": 114,
+          "speed": 6,
+          "evasion": 6.8,
+          "range": 23,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "secondary_1753332351601": {
+            "name": "20 cm/50 3rd Year Type",
+            "type": "secondary",
+            "caliber": "200mm",
+            "damage": 175,
+            "range": 23,
+            "reload": 8,
+            "penetration": 175,
+            "ammo": 41,
+            "barrels": 1,
+            "accuracy": 75,
+            "configuration": "single",
+            "quality": "standard",
+            "shellWeight": 700,
+            "barrelCount": 1
+          },
+          "secondary_1753332392757": {
+            "name": "12.7 cm/40 Type 89",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Type 96",
+            "type": "short",
+            "caliber": "25mm",
+            "fullName": "25mm Type 96",
+            "barrels": 28,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 120,
+            "accuracy": 42,
+            "rateOfFire": 14,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Japanese light AA gun with good sustained fire"
+          }
+        ],
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{CV} IJN Akagi",
+    "maxCharacters": 2
+  },
+  "258887434849353730": {
+    "characters": {
+      "{BB} KMS Tirpitz": {
+        "id": "258887434849353730",
+        "username": "{BB} KMS Tirpitz",
+        "shipClass": "Battleship",
+        "tonnage": 52600,
+        "speedKnots": 30,
+        "armorThickness": {
+          "belt": 320,
+          "deck": 120,
+          "turret": 360
+        },
+        "calculatedHP": 563,
+        "calculatedArmor": 276,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 5.6,
+          "speedFactor": 1.44,
+          "sizeFactor": 0.39,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.056
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 563,
+          "armor": 276,
+          "speed": 6,
+          "evasion": 5.6,
+          "range": 38,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753333027586": {
+            "name": "38 cm SK C/34",
+            "type": "main",
+            "caliber": "380mm",
+            "damage": 864,
+            "range": 38,
+            "reload": 17,
+            "penetration": 400,
+            "ammo": 36,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 1920,
+            "barrelCount": 2
+          },
+          "secondary_1753333050086": {
+            "name": "15 cm SK C/28",
+            "type": "secondary",
+            "caliber": "150mm",
+            "damage": 212,
+            "range": 17,
+            "reload": 5,
+            "penetration": 122,
+            "ammo": 124,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 472,
+            "barrelCount": 2
+          },
+          "torpedo_1753333118507": {
+            "name": "G7a T1 Torpedo",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 1760,
+            "range": 12,
+            "reload": 40,
+            "penetration": 999,
+            "ammo": 16,
+            "barrels": 4,
+            "accuracy": 75,
+            "configuration": "quad",
+            "quality": "standard",
+            "shellWeight": 2200,
+            "barrelCount": 4
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "2 cm Flak 30/38",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 58,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 86,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          },
+          {
+            "name": "3.7 cm SK C/30",
+            "type": "medium",
+            "caliber": "37mm",
+            "fullName": "37mm M1 Gun",
+            "barrels": 16,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 123,
+            "accuracy": 45,
+            "rateOfFire": 9,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American medium AA gun with good accuracy"
+          },
+          {
+            "name": "10.5 cm SK C/33",
+            "type": "long",
+            "caliber": "105mm",
+            "fullName": "105mm FlaK 38",
+            "barrels": 16,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 8,
+            "damage": 316,
+            "accuracy": 40.8,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "German heavy AA gun with superior ballistics"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} KMS Tirpitz",
+    "maxCharacters": 2
+  },
+  "337153075187941376": {
+    "characters": {
+      "{BB} HMS Nelson": {
+        "id": "337153075187941376",
+        "username": "{BB} HMS Nelson",
+        "shipClass": "Battleship",
+        "tonnage": 37780,
+        "speedKnots": 23,
+        "armorThickness": {
+          "belt": 356,
+          "deck": 159,
+          "turret": 406
+        },
+        "calculatedHP": 489,
+        "calculatedArmor": 314,
+        "calculatedSpeed": 4,
+        "calculatedEvasion": {
+          "evasionPercentage": 3.9,
+          "speedFactor": 0.85,
+          "sizeFactor": 0.46,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.039
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 489,
+          "armor": 314,
+          "speed": 4,
+          "evasion": 3.9,
+          "range": 40,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753337891709": {
+            "name": "BL 16 inch Mark I",
+            "type": "main",
+            "caliber": "406mm",
+            "damage": 1508,
+            "range": 40,
+            "reload": 19,
+            "penetration": 480,
+            "ammo": 45,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2320,
+            "barrelCount": 3
+          },
+          "secondary_1753337906187": {
+            "name": "BL 6-inch gun Mk XXII",
+            "type": "secondary",
+            "caliber": "152mm",
+            "damage": 216,
+            "range": 18,
+            "reload": 5,
+            "penetration": 125,
+            "ammo": 120,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 480,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "QF 2 pdr Mark VIII",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 8,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 52,
+            "accuracy": 48,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "QF 4.7 inch Gun Mk VIII",
+            "type": "long",
+            "caliber": "120mm",
+            "fullName": "QF 4.7-inch Mk VIII",
+            "barrels": 6,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 97,
+            "accuracy": 39.6,
+            "rateOfFire": 1,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "British heavy dual-purpose gun with excellent high-angle capability"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} HMS Nelson",
+    "maxCharacters": 2
+  },
+  "710655364239982633": {
+    "characters": {
+      "{BB} IJN Yamato": {
+        "id": "710655364239982633",
+        "username": "{BB} IJN Yamato",
+        "shipClass": "Battleship",
+        "tonnage": 71659,
+        "speedKnots": 27,
+        "armorThickness": {
+          "belt": 410,
+          "deck": 226,
+          "turret": 650
+        },
+        "calculatedHP": 658,
+        "calculatedArmor": 400,
+        "calculatedSpeed": 5,
+        "calculatedEvasion": {
+          "evasionPercentage": 3.9,
+          "speedFactor": 1.17,
+          "sizeFactor": 0.33,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.039
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 658,
+          "armor": 400,
+          "speed": 5,
+          "evasion": 3.9,
+          "range": 45,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753341735627": {
+            "name": "46 cm/45 Type 94",
+            "type": "main",
+            "caliber": "460mm",
+            "damage": 1950,
+            "range": 45,
+            "reload": 26,
+            "penetration": 600,
+            "ammo": 24,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 3000,
+            "barrelCount": 3
+          },
+          "secondary_1753341761884": {
+            "name": "15.5 cm/60 3rd Year Type",
+            "type": "secondary",
+            "caliber": "155mm",
+            "damage": 325,
+            "range": 19,
+            "reload": 6,
+            "penetration": 130,
+            "ammo": 165,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 500,
+            "barrelCount": 3
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Type 93 HMG",
+            "type": "short",
+            "caliber": "12.7mm",
+            "fullName": "12.7mm M2 Browning",
+            "barrels": 4,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 1,
+            "damage": 7,
+            "accuracy": 36,
+            "rateOfFire": 12,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Heavy machine gun, rapid-fire close defense"
+          },
+          {
+            "name": "Type 96",
+            "type": "short",
+            "caliber": "25mm",
+            "fullName": "25mm Type 96",
+            "barrels": 162,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 598,
+            "accuracy": 42,
+            "rateOfFire": 14,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Japanese light AA gun with good sustained fire"
+          },
+          {
+            "name": "12.7 cm/40 Type 89",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 12,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 286,
+            "accuracy": 37.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} IJN Yamato",
+    "maxCharacters": 2
+  },
+  "509387410862243842": {
+    "characters": {
+      "{DD} Maillé-Brézé": {
+        "id": "509387410862243842",
+        "username": "{DD} Maillé-Brézé",
+        "shipClass": "Destroyer",
+        "tonnage": 3740,
+        "speedKnots": 34,
+        "armorThickness": {
+          "belt": 19,
+          "deck": 19,
+          "turret": 19
+        },
+        "calculatedHP": 85,
+        "calculatedArmor": 19,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 27.1,
+          "speedFactor": 1.85,
+          "sizeFactor": 1.46,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.271
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 85,
+          "armor": 19,
+          "speed": 7,
+          "evasion": 27.1,
+          "range": 14,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753342340837": {
+            "name": "Model 1948 127-millimetre",
+            "type": "main",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          },
+          "torpedo_1753342360013": {
+            "name": "550 mm Modèle 1928D torpedo",
+            "type": "torpedo",
+            "caliber": "550mm",
+            "damage": 1352,
+            "range": 10.5,
+            "reload": 44,
+            "penetration": 1150,
+            "ammo": 18,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2080,
+            "barrelCount": 3
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Hotchkiss M1929",
+            "type": "short",
+            "caliber": "12.7mm",
+            "fullName": "12.7mm M2 Browning",
+            "barrels": 4,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 1,
+            "damage": 13,
+            "accuracy": 36,
+            "rateOfFire": 22,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Heavy machine gun, rapid-fire close defense"
+          },
+          {
+            "name": "37 mm/50 Modèle 1925 guns",
+            "type": "medium",
+            "caliber": "37mm",
+            "fullName": "37mm M1 Gun",
+            "barrels": 2,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 24,
+            "accuracy": 45,
+            "rateOfFire": 5,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American medium AA gun with good accuracy"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{DD} Maillé-Brézé",
+    "maxCharacters": 2
+  },
+  "657417127107624980": {
+    "characters": {
+      "{BC} KMS Prinz Heinrich": {
+        "id": "657417127107624980",
+        "username": "{BC} KMS Prinz Heinrich",
+        "shipClass": "Battleship",
+        "tonnage": 25689,
+        "speedKnots": 33,
+        "armorThickness": {
+          "belt": 120,
+          "deck": 70,
+          "turret": 100
+        },
+        "calculatedHP": 428,
+        "calculatedArmor": 105,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 9.7,
+          "speedFactor": 1.74,
+          "sizeFactor": 0.56,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.097
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 428,
+          "armor": 105,
+          "speed": 7,
+          "evasion": 9.7,
+          "range": 28,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753342850593": {
+            "name": "28 cm SK C/28",
+            "type": "main",
+            "caliber": "283mm",
+            "damage": 728,
+            "range": 28,
+            "reload": 10,
+            "penetration": 250,
+            "ammo": 90,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 1120,
+            "barrelCount": 3
+          },
+          "secondary_1753342901598": {
+            "name": "15 cm/L55",
+            "type": "secondary",
+            "caliber": "150mm",
+            "damage": 212,
+            "range": 17,
+            "reload": 5,
+            "penetration": 122,
+            "ammo": 124,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 472,
+            "barrelCount": 2
+          },
+          "torpedo_1753343005993": {
+            "name": "Type G7a (T1)",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 1300,
+            "range": 10,
+            "reload": 43,
+            "penetration": 1100,
+            "ammo": 18,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2000,
+            "barrelCount": 3
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "3.7 cm SK C/30",
+            "type": "medium",
+            "caliber": "37mm",
+            "fullName": "37mm M1 Gun",
+            "barrels": 4,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 30,
+            "accuracy": 45,
+            "rateOfFire": 5,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American medium AA gun with good accuracy"
+          },
+          {
+            "name": "10.5 cm Flak 38",
+            "type": "long",
+            "caliber": "105mm",
+            "fullName": "105mm FlaK 38",
+            "barrels": 4,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 8,
+            "damage": 78,
+            "accuracy": 40.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "German heavy AA gun with superior ballistics"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BC} KMS Prinz Heinrich",
+    "maxCharacters": 2
+  },
+  "389932983026450445": {
+    "characters": {
+      "{CA} USS Rockford": {
+        "id": "389932983026450445",
+        "username": "{CA} USS Rockford",
+        "shipClass": "Heavy Cruiser",
+        "tonnage": 20933,
+        "speedKnots": 33,
+        "armorThickness": {
+          "belt": 152,
+          "deck": 89,
+          "turret": 203
+        },
+        "calculatedHP": 277,
+        "calculatedArmor": 144,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 10.8,
+          "speedFactor": 1.74,
+          "sizeFactor": 0.62,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.108
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 277,
+          "armor": 144,
+          "speed": 7,
+          "evasion": 10.8,
+          "range": 24,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753343263083": {
+            "name": "8\"/55 caliber",
+            "type": "main",
+            "caliber": "203mm",
+            "damage": 468,
+            "range": 24,
+            "reload": 8,
+            "penetration": 180,
+            "ammo": 120,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 720,
+            "barrelCount": 3
+          },
+          "secondary_1753343287064": {
+            "name": "5\"/38-caliber Mark 12",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Oerlikon",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 12,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 24,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          },
+          {
+            "name": "3-inch/50 caliber",
+            "type": "long",
+            "caliber": "76mm",
+            "fullName": "76mm DP Gun",
+            "barrels": 12,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 6,
+            "damage": 186,
+            "accuracy": 45,
+            "rateOfFire": 5,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Dual-purpose gun, long range with high-explosive shells"
+          },
+          {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 12,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 286,
+            "accuracy": 37.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{CA} USS Rockford",
+    "maxCharacters": 2
+  },
+  "559110252692373515": {
+    "characters": {
+      "{CV} IJN Shinano": {
+        "id": "559110252692373515",
+        "username": "{CV} IJN Shinano",
+        "shipClass": "Aircraft Carrier",
+        "tonnage": 65800,
+        "speedKnots": 28,
+        "armorThickness": {
+          "belt": 400,
+          "deck": 75,
+          "turret": 19
+        },
+        "calculatedHP": 595,
+        "calculatedArmor": 262,
+        "calculatedSpeed": 5,
+        "calculatedEvasion": {
+          "evasionPercentage": 4.4,
+          "speedFactor": 1.25,
+          "sizeFactor": 0.35,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.044
+          }
+        },
+        "hangar": 110,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "availableAircraft": {
+          "fighter": {
+            "name": "A7M Reppū",
+            "count": 12,
+            "maxCount": 12,
+            "range": 10,
+            "damage": 45,
+            "quality": "Standard",
+            "specialAbility": "fighter",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "fighter"
+          },
+          "bomber": {
+            "name": "B7A Ryusei",
+            "count": 12,
+            "maxCount": 12,
+            "range": 8,
+            "damage": 80,
+            "quality": "Standard",
+            "specialAbility": "bomb",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "bomber"
+          },
+          "torpedo": {
+            "name": "B7A Ryusei",
+            "count": 12,
+            "maxCount": 12,
+            "range": 7,
+            "damage": 120,
+            "quality": "Standard",
+            "specialAbility": "torpedo",
+            "fuel": 100,
+            "readiness": 100,
+            "aircraftType": "torpedo"
+          }
+        },
+        "activeSquadrons": {},
+        "stats": {
+          "health": 595,
+          "armor": 262,
+          "speed": 5,
+          "evasion": 4.4,
+          "range": 14,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "secondary_1753373107024": {
+            "name": "12.7 cm/40 Type 89",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "12.7 cm/40 Type 89",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 16,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 351,
+            "accuracy": 37.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          },
+          {
+            "name": "Type 96",
+            "type": "short",
+            "caliber": "25mm",
+            "fullName": "25mm Type 96",
+            "barrels": 105,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 394,
+            "accuracy": 42,
+            "rateOfFire": 14,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Japanese light AA gun with good sustained fire"
+          }
+        ],
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{CV} IJN Shinano",
+    "maxCharacters": 2
+  },
+  "339645056879165441": {
+    "characters": {
+      "{CL} IJN Sakawa": {
+        "id": "339645056879165441",
+        "username": "{CL} IJN Sakawa",
+        "shipClass": "Light Cruiser",
+        "tonnage": 8534,
+        "speedKnots": 35,
+        "armorThickness": {
+          "belt": 60,
+          "deck": 20,
+          "turret": 25
+        },
+        "calculatedHP": 168,
+        "calculatedArmor": 45,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 19,
+          "speedFactor": 1.96,
+          "sizeFactor": 0.97,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.19
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 168,
+          "armor": 45,
+          "speed": 7,
+          "evasion": 19,
+          "range": 18,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753373541866": {
+            "name": "15 cm/50 41 Year Type",
+            "type": "main",
+            "caliber": "152mm",
+            "damage": 216,
+            "range": 18,
+            "reload": 5,
+            "penetration": 125,
+            "ammo": 120,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 480,
+            "barrelCount": 2
+          },
+          "torpedo_1753373597382": {
+            "name": "Type 93 Long Lance Torpedo",
+            "type": "torpedo",
+            "caliber": "610mm",
+            "damage": 2240,
+            "range": 20,
+            "reload": 48,
+            "penetration": 1400,
+            "ammo": 24,
+            "barrels": 4,
+            "accuracy": 75,
+            "configuration": "quad",
+            "quality": "standard",
+            "shellWeight": 2800,
+            "barrelCount": 4
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "8 cm/60 Type 98",
+            "type": "long",
+            "caliber": "76mm",
+            "fullName": "76mm DP Gun",
+            "barrels": 4,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 6,
+            "damage": 102,
+            "accuracy": 45,
+            "rateOfFire": 5,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Dual-purpose gun, long range with high-explosive shells"
+          },
+          {
+            "name": "Type 96",
+            "type": "short",
+            "caliber": "25mm",
+            "fullName": "25mm Type 96",
+            "barrels": 48,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 340,
+            "accuracy": 42,
+            "rateOfFire": 26,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Japanese light AA gun with good sustained fire"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{CL} IJN Sakawa",
+    "maxCharacters": 2
+  },
+  "1214407747324481567": {
+    "characters": {
+      "{CL} HNLMS Java": {
+        "id": "1214407747324481567",
+        "username": "{CL} HNLMS Java",
+        "shipClass": "Light Cruiser",
+        "tonnage": 8339,
+        "speedKnots": 31,
+        "armorThickness": {
+          "belt": 45,
+          "deck": 50,
+          "turret": 100
+        },
+        "calculatedHP": 167,
+        "calculatedArmor": 55,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 15.1,
+          "speedFactor": 1.54,
+          "sizeFactor": 0.98,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.151
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 167,
+          "armor": 55,
+          "speed": 6,
+          "evasion": 15.1,
+          "range": 18,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753373996673": {
+            "name": "15 cm Bofors Model 1913",
+            "type": "main",
+            "caliber": "152mm",
+            "damage": 120,
+            "range": 18,
+            "reload": 6,
+            "penetration": 125,
+            "ammo": 60,
+            "barrels": 1,
+            "accuracy": 75,
+            "configuration": "single",
+            "quality": "standard",
+            "shellWeight": 480,
+            "barrelCount": 1
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Bofors L/60",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 8,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 52,
+            "accuracy": 48,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "M2 Browning",
+            "type": "short",
+            "caliber": "12.7mm",
+            "fullName": "12.7mm M2 Browning",
+            "barrels": 4,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 1,
+            "damage": 7,
+            "accuracy": 36,
+            "rateOfFire": 12,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Heavy machine gun, rapid-fire close defense"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{CL} HNLMS Java",
+    "maxCharacters": 2
+  },
+  "436061224052981781": {
+    "characters": {
+      "{BB} USS New Jersey": {
+        "id": "436061224052981781",
+        "username": "{BB} USS New Jersey",
+        "shipClass": "Battleship",
+        "tonnage": 60000,
+        "speedKnots": 33,
+        "armorThickness": {
+          "belt": 307,
+          "deck": 152,
+          "turret": 495
+        },
+        "calculatedHP": 600,
+        "calculatedArmor": 296,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 6.4,
+          "speedFactor": 1.74,
+          "sizeFactor": 0.37,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.064
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 600,
+          "armor": 296,
+          "speed": 7,
+          "evasion": 6.4,
+          "range": 40,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753374442484": {
+            "name": "16\"/50 caliber Mark 7",
+            "type": "main",
+            "caliber": "406mm",
+            "damage": 1508,
+            "range": 40,
+            "reload": 19,
+            "penetration": 480,
+            "ammo": 45,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2320,
+            "barrelCount": 3
+          },
+          "secondary_1753374476487": {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 20,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 416,
+            "accuracy": 37.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          },
+          {
+            "name": "Bofors L/60",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 80,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 1036,
+            "accuracy": 48,
+            "rateOfFire": 13,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "Oerlikon",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 49,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 74,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} USS New Jersey",
+    "maxCharacters": 2
+  },
+  "338376921039765504": {
+    "characters": {
+      "{BB} KMS Scharnhorst": {
+        "id": "338376921039765504",
+        "username": "{BB} KMS Scharnhorst",
+        "shipClass": "Battleship",
+        "tonnage": 38100,
+        "speedKnots": 31,
+        "armorThickness": {
+          "belt": 320,
+          "deck": 105,
+          "turret": 360
+        },
+        "calculatedHP": 491,
+        "calculatedArmor": 272,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 7,
+          "speedFactor": 1.54,
+          "sizeFactor": 0.46,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.07
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 491,
+          "armor": 272,
+          "speed": 6,
+          "evasion": 7,
+          "range": 28,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753374643488": {
+            "name": "28 cm SK C/34",
+            "type": "main",
+            "caliber": "283mm",
+            "damage": 728,
+            "range": 28,
+            "reload": 10,
+            "penetration": 250,
+            "ammo": 90,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 1120,
+            "barrelCount": 3
+          },
+          "secondary_1753374697885": {
+            "name": "15 cm SK C/28",
+            "type": "secondary",
+            "caliber": "150mm",
+            "damage": 212,
+            "range": 17,
+            "reload": 5,
+            "penetration": 122,
+            "ammo": 124,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 472,
+            "barrelCount": 2
+          },
+          "torpedo_1753374772288": {
+            "name": "G7a (T1) Torpedo",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 1300,
+            "range": 10,
+            "reload": 43,
+            "penetration": 1100,
+            "ammo": 18,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2000,
+            "barrelCount": 3
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "10.5 cm Flak 38",
+            "type": "long",
+            "caliber": "105mm",
+            "fullName": "105mm FlaK 38",
+            "barrels": 14,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 8,
+            "damage": 287,
+            "accuracy": 40.8,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "German heavy AA gun with superior ballistics"
+          },
+          {
+            "name": "3.7 cm SK C/30",
+            "type": "medium",
+            "caliber": "37mm",
+            "fullName": "37mm M1 Gun",
+            "barrels": 14,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 112,
+            "accuracy": 45,
+            "rateOfFire": 9,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American medium AA gun with good accuracy"
+          },
+          {
+            "name": "2 cm Flak 30/38",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 15,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 28,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} KMS Scharnhorst",
+    "maxCharacters": 2
+  },
+  "422489823648022528": {
+    "characters": {
+      "{BB} USS Georgia": {
+        "id": "422489823648022528",
+        "username": "{BB} USS Georgia",
+        "shipClass": "Battleship",
+        "tonnage": 59060,
+        "speedKnots": 33,
+        "armorThickness": {
+          "belt": 310,
+          "deck": 152,
+          "turret": 457
+        },
+        "calculatedHP": 595,
+        "calculatedArmor": 293,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 6.4,
+          "speedFactor": 1.74,
+          "sizeFactor": 0.37,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.064
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 595,
+          "armor": 293,
+          "speed": 7,
+          "evasion": 6.4,
+          "range": 44,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753375370227": {
+            "name": "18\"/48 caliber Mark 1",
+            "type": "main",
+            "caliber": "457mm",
+            "damage": 1296,
+            "range": 44,
+            "reload": 25,
+            "penetration": 580,
+            "ammo": 20,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 2880,
+            "barrelCount": 2
+          },
+          "secondary_1753375419548": {
+            "name": "5\"/38-caliber Mark 38 Mod.12",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "5\"/38-caliber Mark 38 Mod.12",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 20,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 416,
+            "accuracy": 37.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          },
+          {
+            "name": "Bofors",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 64,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 843,
+            "accuracy": 48,
+            "rateOfFire": 13,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "Oerlikon",
+            "type": "short",
+            "caliber": "20mm",
+            "fullName": "20mm Oerlikon",
+            "barrels": 40,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 62,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Light cannon, excellent against low-flying aircraft"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "USS Georgia",
+    "maxCharacters": 2
+  },
+  "756043790300741663": {
+    "characters": {
+      "{BB} IJN Musashi": {
+        "id": "756043790300741663",
+        "username": "{BB} IJN Musashi",
+        "shipClass": "Battleship",
+        "tonnage": 63000,
+        "speedKnots": 27,
+        "armorThickness": {
+          "belt": 410,
+          "deck": 230,
+          "turret": 650
+        },
+        "calculatedHP": 615,
+        "calculatedArmor": 401,
+        "calculatedSpeed": 5,
+        "calculatedEvasion": {
+          "evasionPercentage": 4.2,
+          "speedFactor": 1.17,
+          "sizeFactor": 0.36,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.042
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 615,
+          "armor": 401,
+          "speed": 5,
+          "evasion": 4.2,
+          "range": 45,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753375755402": {
+            "name": "46 cm/45 Type 94",
+            "type": "main",
+            "caliber": "460mm",
+            "damage": 1950,
+            "range": 45,
+            "reload": 26,
+            "penetration": 600,
+            "ammo": 24,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 3000,
+            "barrelCount": 3
+          },
+          "secondary_1753375771574": {
+            "name": "15.5 cm/60 3rd Year Type",
+            "type": "secondary",
+            "caliber": "155mm",
+            "damage": 325,
+            "range": 19,
+            "reload": 6,
+            "penetration": 130,
+            "ammo": 165,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 500,
+            "barrelCount": 3
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "12.7 cm/40 Type 89",
+            "type": "long",
+            "caliber": "127mm",
+            "fullName": "127mm DP Gun",
+            "barrels": 12,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 10,
+            "damage": 286,
+            "accuracy": 37.8,
+            "rateOfFire": 2,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "American heavy dual-purpose gun, devastating at long range"
+          },
+          {
+            "name": "Type 96",
+            "type": "short",
+            "caliber": "25mm",
+            "fullName": "25mm Type 96",
+            "barrels": 36,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 149,
+            "accuracy": 42,
+            "rateOfFire": 14,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Japanese light AA gun with good sustained fire"
+          },
+          {
+            "name": "Hotchkiss MG",
+            "type": "short",
+            "caliber": "12.7mm",
+            "fullName": "12.7mm M2 Browning",
+            "barrels": 4,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 1,
+            "damage": 13,
+            "accuracy": 36,
+            "rateOfFire": 22,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Heavy machine gun, rapid-fire close defense"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} IJN Musashi",
+    "maxCharacters": 2
+  },
+  "566929354244751363": {
+    "characters": {
+      "{BB} HMS Hood": {
+        "id": "566929354244751363",
+        "username": "{BB} HMS Hood",
+        "shipClass": "Battleship",
+        "tonnage": 46680,
+        "speedKnots": 30,
+        "armorThickness": {
+          "belt": 305,
+          "deck": 76,
+          "turret": 381
+        },
+        "calculatedHP": 533,
+        "calculatedArmor": 259,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 6,
+          "speedFactor": 1.44,
+          "sizeFactor": 0.41,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.06
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 533,
+          "armor": 259,
+          "speed": 6,
+          "evasion": 6,
+          "range": 38,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753376072089": {
+            "name": "BL 15-inch Mark I",
+            "type": "main",
+            "caliber": "381mm",
+            "damage": 900,
+            "range": 38,
+            "reload": 18,
+            "penetration": 420,
+            "ammo": 34,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 2000,
+            "barrelCount": 2
+          },
+          "secondary_1753376162417": {
+            "name": "QF 4 inch Mk XVI",
+            "type": "secondary",
+            "caliber": "102mm",
+            "damage": 140,
+            "range": 11,
+            "reload": 4,
+            "penetration": 82,
+            "ammo": 190,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 312,
+            "barrelCount": 2
+          },
+          "torpedo_1753376321099": {
+            "name": "Mark V Torpedo",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 500,
+            "range": 10,
+            "reload": 50,
+            "penetration": 1100,
+            "ammo": 6,
+            "barrels": 1,
+            "accuracy": 75,
+            "configuration": "single",
+            "quality": "standard",
+            "shellWeight": 2000,
+            "barrelCount": 1
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "QF 4 inch gun Mk XVI",
+            "type": "long",
+            "caliber": "102mm",
+            "fullName": "102mm QF Mark XVI",
+            "barrels": 8,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 8,
+            "damage": 188,
+            "accuracy": 42,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "British heavy dual-purpose gun with time-fuzed shells"
+          },
+          {
+            "name": "QF 2 pdr Mark VIII",
+            "type": "medium",
+            "caliber": "40mm",
+            "fullName": "40mm Bofors",
+            "barrels": 24,
+            "mountType": "octuple",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 4,
+            "damage": 617,
+            "accuracy": 48,
+            "rateOfFire": 22,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Swedish design, widely considered the best medium AA gun"
+          },
+          {
+            "name": "Vickers .50 MG",
+            "type": "short",
+            "caliber": "12.7mm",
+            "fullName": "12.7mm M2 Browning",
+            "barrels": 16,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 1,
+            "damage": 50,
+            "accuracy": 36,
+            "rateOfFire": 38,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Heavy machine gun, rapid-fire close defense"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} HMS Hood",
+    "maxCharacters": 2
+  },
+  "178487089715740684": {
+    "characters": {
+      "{DD} HMS Electra": {
+        "id": "178487089715740684",
+        "username": "{DD} HMS Electra",
+        "shipClass": "Destroyer",
+        "tonnage": 1940,
+        "speedKnots": 35,
+        "armorThickness": {
+          "belt": 19,
+          "deck": 19,
+          "turret": 19
+        },
+        "calculatedHP": 63,
+        "calculatedArmor": 19,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 39.8,
+          "speedFactor": 1.96,
+          "sizeFactor": 2.03,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.398
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 63,
+          "armor": 19,
+          "speed": 7,
+          "evasion": 39.8,
+          "range": 12,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753376589143": {
+            "name": "QF 4.7 inch Mark IX",
+            "type": "main",
+            "caliber": "120mm",
+            "damage": 85,
+            "range": 12,
+            "reload": 4,
+            "penetration": 90,
+            "ammo": 90,
+            "barrels": 1,
+            "accuracy": 75,
+            "configuration": "single",
+            "quality": "standard",
+            "shellWeight": 340,
+            "barrelCount": 1
+          },
+          "torpedo_1753376629573": {
+            "name": "Mark IX Torpedo",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 1600,
+            "range": 10,
+            "reload": 40,
+            "penetration": 1100,
+            "ammo": 24,
+            "barrels": 4,
+            "accuracy": 75,
+            "configuration": "quad",
+            "quality": "standard",
+            "shellWeight": 2000,
+            "barrelCount": 4
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "Vickers .50 MG",
+            "type": "short",
+            "caliber": "12.7mm",
+            "fullName": "12.7mm M2 Browning",
+            "barrels": 8,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 1,
+            "damage": 31,
+            "accuracy": 36,
+            "rateOfFire": 38,
+            "ammo": 500,
+            "maxAmmo": 500,
+            "description": "Heavy machine gun, rapid-fire close defense"
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{DD} HMS Electra",
+    "maxCharacters": 2
+  },
+  "562889332839677973": {
+    "characters": {
+      "{BB} USS Missouri": {
+        "id": "562889332839677973",
+        "username": "{BB} USS Missouri",
+        "shipClass": "Battleship",
+        "tonnage": 58460,
+        "speedKnots": 32,
+        "armorThickness": {
+          "belt": 307,
+          "deck": 157,
+          "turret": 495
+        },
+        "calculatedHP": 592,
+        "calculatedArmor": 298,
+        "calculatedSpeed": 7,
+        "calculatedEvasion": {
+          "evasionPercentage": 6.1,
+          "speedFactor": 1.64,
+          "sizeFactor": 0.37,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.061
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 592,
+          "armor": 298,
+          "speed": 7,
+          "evasion": 6.1,
+          "range": 40,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753547199799": {
+            "name": "16\"/50 caliber Mark 7",
+            "type": "main",
+            "caliber": "406mm",
+            "damage": 1508,
+            "range": 40,
+            "reload": 19,
+            "penetration": 480,
+            "ammo": 45,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2320,
+            "barrelCount": 3
+          },
+          "secondary_1753547228718": {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "secondary",
+            "caliber": "127mm",
+            "damage": 171,
+            "range": 14,
+            "reload": 5,
+            "penetration": 100,
+            "ammo": 160,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 380,
+            "barrelCount": 2
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "5\"/38 caliber Mark 12",
+            "type": "long",
+            "caliber": "127mm",
+            "barrels": 20,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 8,
+            "damage": 283,
+            "accuracy": 49.8,
+            "rateOfFire": 4,
+            "ammo": 500,
+            "maxAmmo": 500
+          },
+          {
+            "name": "Bofors",
+            "type": "medium",
+            "caliber": "40mm",
+            "barrels": 80,
+            "mountType": "quad",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 3,
+            "damage": 543,
+            "accuracy": 42,
+            "rateOfFire": 19,
+            "ammo": 500,
+            "maxAmmo": 500
+          },
+          {
+            "name": "Oerlikon",
+            "type": "short",
+            "caliber": "20mm",
+            "barrels": 49,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 59,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 500,
+            "maxAmmo": 500
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{BB} USS Missouri",
+    "maxCharacters": 2
+  },
+  "127813230943928320": {
+    "characters": {
+      "{CA} Prinz Eugen": {
+        "id": "127813230943928320",
+        "username": "{CA} Prinz Eugen",
+        "shipClass": "Heavy Cruiser",
+        "tonnage": 19050,
+        "speedKnots": 32,
+        "armorThickness": {
+          "belt": 80,
+          "deck": 50,
+          "turret": 105
+        },
+        "calculatedHP": 240,
+        "calculatedArmor": 76,
+        "calculatedSpeed": 6,
+        "calculatedEvasion": {
+          "evasionPercentage": 5.4,
+          "speedFactor": 1.28,
+          "sizeFactor": 0.42,
+          "calculation": {
+            "baseEvasion": 0.1,
+            "referenceSpeed": 25,
+            "referenceSize": 8000,
+            "rawEvasion": 0.054
+          }
+        },
+        "hangar": 0,
+        "level": 1,
+        "experience": 0,
+        "currency": 0,
+        "stats": {
+          "health": 240,
+          "armor": 76,
+          "speed": 6,
+          "evasion": 5.4,
+          "range": 24,
+          "baseAccuracy": 85,
+          "accuracy": 85
+        },
+        "battles": 0,
+        "victories": 0,
+        "weapons": {
+          "main_1753593573154": {
+            "name": "20.3 cm SK C/34",
+            "type": "main",
+            "caliber": "203mm",
+            "damage": 324,
+            "range": 24,
+            "reload": 8,
+            "penetration": 180,
+            "ammo": 80,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 720,
+            "barrelCount": 2
+          },
+          "secondary_1753593688056": {
+            "name": "10.5 cm Flak 38",
+            "type": "secondary",
+            "caliber": "105mm",
+            "damage": 148,
+            "range": 11,
+            "reload": 4,
+            "penetration": 85,
+            "ammo": 184,
+            "barrels": 2,
+            "accuracy": 75,
+            "configuration": "twin",
+            "quality": "standard",
+            "shellWeight": 328,
+            "barrelCount": 2
+          },
+          "torpedo_1753593750440": {
+            "name": "Type G7a (T1) Torpedo",
+            "type": "torpedo",
+            "caliber": "533mm",
+            "damage": 1300,
+            "range": 10,
+            "reload": 43,
+            "penetration": 1100,
+            "ammo": 18,
+            "barrels": 3,
+            "accuracy": 75,
+            "configuration": "triple",
+            "quality": "standard",
+            "shellWeight": 2000,
+            "barrelCount": 3
+          }
+        },
+        "aaSystems": [
+          {
+            "name": "10.5 cm Flak 38",
+            "type": "long",
+            "caliber": "105mm",
+            "barrels": 12,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 7,
+            "damage": 157,
+            "accuracy": 47.4,
+            "rateOfFire": 4,
+            "ammo": 491,
+            "maxAmmo": 500
+          },
+          {
+            "name": "3.7 cm SK C/30",
+            "type": "medium",
+            "caliber": "37mm",
+            "barrels": 12,
+            "mountType": "twin",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 3,
+            "damage": 57,
+            "accuracy": 40.8,
+            "rateOfFire": 13,
+            "ammo": 494,
+            "maxAmmo": 500
+          },
+          {
+            "name": "2 cm Flak 30/38",
+            "type": "short",
+            "caliber": "20mm",
+            "barrels": 8,
+            "mountType": "single",
+            "experienceLevel": 1,
+            "experience": 0,
+            "efficiency": 60,
+            "range": 2,
+            "damage": 15,
+            "accuracy": 39,
+            "rateOfFire": 10,
+            "ammo": 494,
+            "maxAmmo": 500
+          }
+        ],
+        "availableAircraft": {},
+        "activeSquadrons": {},
+        "aircraft": {}
+      }
+    },
+    "activeCharacter": "{DD} USS Eldridge",
+    "maxCharacters": 2
+  }
+}
