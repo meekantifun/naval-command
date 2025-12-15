@@ -3,6 +3,7 @@ import axios from 'axios';
 import GameSelector from './components/GameSelector';
 import GameView from './components/GameView';
 import Login from './components/Login';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -11,6 +12,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [currentView, setCurrentView] = useState('games'); // 'games' or 'admin'
 
   useEffect(() => {
     checkAuth();
@@ -36,6 +38,7 @@ function App() {
       });
       setUser(null);
       setSelectedGame(null);
+      setCurrentView('games');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -71,6 +74,20 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>Naval Command</h1>
+        <nav className="app-nav">
+          <button
+            className={`nav-btn ${currentView === 'games' ? 'active' : ''}`}
+            onClick={() => setCurrentView('games')}
+          >
+            🎮 Games
+          </button>
+          <button
+            className={`nav-btn ${currentView === 'admin' ? 'active' : ''}`}
+            onClick={() => setCurrentView('admin')}
+          >
+            ⚙️ Admin Panel
+          </button>
+        </nav>
         <div className="user-info">
           <span>Welcome, {user.username}</span>
           <button onClick={handleLogout} className="btn btn-secondary">
@@ -78,10 +95,17 @@ function App() {
           </button>
         </div>
       </header>
-      <GameSelector
-        user={user}
-        onSelectGame={setSelectedGame}
-      />
+
+      {currentView === 'games' && (
+        <GameSelector
+          user={user}
+          onSelectGame={setSelectedGame}
+        />
+      )}
+
+      {currentView === 'admin' && (
+        <AdminPanel user={user} />
+      )}
     </div>
   );
 }

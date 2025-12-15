@@ -235,6 +235,117 @@ app.post('/api/broadcast/:channelId', async (req, res) => {
   }
 });
 
+// ==================== ADMIN PANEL ROUTES ====================
+
+// Check if user has staff permission
+app.get('/api/admin/check-permission', ensureAuthenticated, async (req, res) => {
+  try {
+    const { guildId } = req.query;
+
+    if (!guildId) {
+      return res.status(400).json({ error: 'guildId is required' });
+    }
+
+    const response = await botAPI.get('/api/admin/check-permission', {
+      params: { userId: req.user.id, guildId }
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error checking admin permission:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to check permission'
+    });
+  }
+});
+
+// Get characters (all or for specific user)
+app.get('/api/admin/characters', ensureAuthenticated, async (req, res) => {
+  try {
+    const { guildId, userId } = req.query;
+
+    const response = await botAPI.get('/api/admin/characters', {
+      params: { guildId, userId }
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching characters:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to fetch characters'
+    });
+  }
+});
+
+// Create/update character
+app.post('/api/admin/characters', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/characters', req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error saving character:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to save character'
+    });
+  }
+});
+
+// Delete character
+app.delete('/api/admin/characters', ensureAuthenticated, async (req, res) => {
+  try {
+    const { guildId, userId, characterName } = req.query;
+
+    const response = await botAPI.delete('/api/admin/characters', {
+      params: { guildId, userId, characterName }
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error deleting character:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to delete character'
+    });
+  }
+});
+
+// Get maps
+app.get('/api/admin/maps', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.get('/api/admin/maps');
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching maps:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to fetch maps'
+    });
+  }
+});
+
+// Start a game
+app.post('/api/admin/start-game', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/start-game', req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error starting game:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to start game'
+    });
+  }
+});
+
+// Get user's guilds (from Discord profile)
+app.get('/api/admin/guilds', ensureAuthenticated, (req, res) => {
+  try {
+    // User guilds are stored in the session from Discord OAuth
+    const guilds = req.user.guilds || [];
+    res.json({ guilds });
+  } catch (error) {
+    console.error('Error fetching guilds:', error.message);
+    res.status(500).json({ error: 'Failed to fetch guilds' });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

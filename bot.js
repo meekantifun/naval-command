@@ -18367,6 +18367,260 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // ==================== ADMIN PANEL ENDPOINTS ====================
+
+        // Check if user has staff permissions in a guild
+        app.get('/api/admin/check-permission', authenticateAPIKey, async (req, res) => {
+            try {
+                const { userId, guildId } = req.query;
+
+                if (!userId || !guildId) {
+                    return res.status(400).json({ error: 'userId and guildId are required' });
+                }
+
+                // Get guild
+                const guild = await this.client.guilds.fetch(guildId).catch(() => null);
+                if (!guild) {
+                    return res.status(404).json({ error: 'Guild not found' });
+                }
+
+                // Get member
+                const member = await guild.members.fetch(userId).catch(() => null);
+                if (!member) {
+                    return res.status(404).json({ error: 'Member not found in guild' });
+                }
+
+                // Check staff permission
+                const hasPermission = this.staffRoleManager.hasStaffPermission(member);
+
+                res.json({
+                    hasPermission,
+                    isAdmin: member.permissions.has('Administrator'),
+                    guildId,
+                    userId
+                });
+            } catch (error) {
+                console.error('Error checking admin permission:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Get all characters for a user in a guild
+        app.get('/api/admin/characters', authenticateAPIKey, async (req, res) => {
+            try {
+                const { guildId, userId } = req.query;
+
+                if (!guildId) {
+                    return res.status(400).json({ error: 'guildId is required' });
+                }
+
+                const playerData = this.characterManager.loadPlayerData(guildId);
+
+                // If userId specified, return only that user's characters
+                if (userId) {
+                    const userData = playerData[userId];
+                    if (!userData) {
+                        return res.json({ characters: [] });
+                    }
+
+                    const characters = Object.entries(userData.characters || {}).map(([name, data]) => ({
+                        name,
+                        ...data,
+                        userId,
+                        isActive: userData.activeCharacter === name
+                    }));
+
+                    res.json({ characters });
+                } else {
+                    // Return all characters in the guild
+                    const allCharacters = [];
+                    for (const [uid, udata] of Object.entries(playerData)) {
+                        if (udata.characters) {
+                            for (const [name, data] of Object.entries(udata.characters)) {
+                                allCharacters.push({
+                                    name,
+                                    ...data,
+                                    userId: uid,
+                                    isActive: udata.activeCharacter === name
+                                });
+                            }
+                        }
+                    }
+                    res.json({ characters: allCharacters });
+                }
+            } catch (error) {
+                console.error('Error fetching characters:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Create or update a character
+        app.post('/api/admin/characters', authenticateAPIKey, async (req, res) => {
+            try {
+                const { guildId, userId, characterName, characterData } = req.body;
+
+                if (!guildId || !userId || !characterName || !characterData) {
+                    return res.status(400).json({ error: 'guildId, userId, characterName, and characterData are required' });
+                }
+
+                const playerData = this.characterManager.loadPlayerData(guildId);
+
+                if (!playerData[userId]) {
+                    playerData[userId] = {
+                        characters: {},
+                        activeCharacter: null,
+                        maxCharacters: 2
+                    };
+                }
+
+                if (!playerData[userId].characters) {
+                    playerData[userId].characters = {};
+                }
+
+                // Add/update character
+                playerData[userId].characters[characterName] = characterData;
+
+                // Set as active if it's the first character
+                if (!playerData[userId].activeCharacter) {
+                    playerData[userId].activeCharacter = characterName;
+                }
+
+                // Save
+                const saved = this.characterManager.savePlayerData(guildId, playerData);
+                if (saved) {
+                    // Sync in-memory data
+                    this.characterManager.syncInMemoryData(guildId, userId, playerData[userId]);
+                    res.json({ success: true, message: 'Character saved successfully' });
+                } else {
+                    res.status(500).json({ error: 'Failed to save character' });
+                }
+            } catch (error) {
+                console.error('Error saving character:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Delete a character
+        app.delete('/api/admin/characters', authenticateAPIKey, async (req, res) => {
+            try {
+                const { guildId, userId, characterName } = req.query;
+
+                if (!guildId || !userId || !characterName) {
+                    return res.status(400).json({ error: 'guildId, userId, and characterName are required' });
+                }
+
+                const playerData = this.characterManager.loadPlayerData(guildId);
+
+                if (!playerData[userId] || !playerData[userId].characters || !playerData[userId].characters[characterName]) {
+                    return res.status(404).json({ error: 'Character not found' });
+                }
+
+                // Delete character
+                delete playerData[userId].characters[characterName];
+
+                // Update active character if needed
+                if (playerData[userId].activeCharacter === characterName) {
+                    const remainingChars = Object.keys(playerData[userId].characters);
+                    playerData[userId].activeCharacter = remainingChars.length > 0 ? remainingChars[0] : null;
+                }
+
+                // Save
+                const saved = this.characterManager.savePlayerData(guildId, playerData);
+                if (saved) {
+                    this.characterManager.syncInMemoryData(guildId, userId, playerData[userId]);
+                    res.json({ success: true, message: 'Character deleted successfully' });
+                } else {
+                    res.status(500).json({ error: 'Failed to delete character' });
+                }
+            } catch (error) {
+                console.error('Error deleting character:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Get all custom maps
+        app.get('/api/admin/maps', authenticateAPIKey, async (req, res) => {
+            try {
+                const maps = Array.from(this.customMapSystem.customMaps.entries()).map(([id, mapData]) => ({
+                    id,
+                    ...mapData
+                }));
+
+                // Also include map templates
+                const templates = Array.from(this.customMapSystem.mapTemplates.entries()).map(([id, template]) => ({
+                    id,
+                    ...template,
+                    isTemplate: true
+                }));
+
+                res.json({ maps, templates });
+            } catch (error) {
+                console.error('Error fetching maps:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Start a game (prepare command via API)
+        app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId, guildId, mapSize, maxPlayers, missionType } = req.body;
+
+                if (!channelId || !guildId) {
+                    return res.status(400).json({ error: 'channelId and guildId are required' });
+                }
+
+                // Get the channel
+                const channel = await this.client.channels.fetch(channelId).catch(() => null);
+                if (!channel) {
+                    return res.status(404).json({ error: 'Channel not found' });
+                }
+
+                // Check if game already exists
+                if (this.games.has(channelId)) {
+                    return res.status(400).json({ error: 'A game is already active in this channel' });
+                }
+
+                // Create a new game
+                const size = mapSize || 50;
+                const maxP = maxPlayers || 6;
+                const mission = missionType || 'Naval Supremacy';
+
+                // This simulates the /prepare command
+                const game = {
+                    channelId,
+                    guildId,
+                    mapSize: size,
+                    maxPlayers: maxP,
+                    phase: 'joining',
+                    players: new Map(),
+                    enemies: new Map(),
+                    turnNumber: 1,
+                    missionType: mission,
+                    currentObjective: this.missions.getRandomObjective(mission),
+                    weather: 'clear',
+                    islands: [],
+                    turnOrder: []
+                };
+
+                this.games.set(channelId, game);
+
+                res.json({
+                    success: true,
+                    message: 'Game created successfully',
+                    gameInfo: {
+                        channelId,
+                        mapSize: size,
+                        maxPlayers: maxP,
+                        missionType: mission,
+                        phase: 'joining'
+                    }
+                });
+            } catch (error) {
+                console.error('Error starting game:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Start server
         app.listen(PORT, () => {
             console.log(`Bot HTTP API listening on port ${PORT}`);

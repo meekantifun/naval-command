@@ -1,0 +1,97 @@
+.map-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.section-desc {
+  color: #b9bbbe;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.section-desc code {
+  background: #40444b;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  color: #5865F2;
+}
+
+.map-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.map-card {
+  background: #40444b;
+  padding: 20px;
+  border-radius: 6px;
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.map-card.template {
+  border: 2px solid #5865F2;
+}
+
+.map-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.map-info {
+  flex: 1;
+}
+
+.map-info h4 {
+  color: #fff;
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.map-info p {
+  color: #b9bbbe;
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.map-meta {
+  color: #72767d;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.map-info-box {
+  background: #5865F2;
+  padding: 20px;
+  border-radius: 8px;
+  color: white;
+}
+
+.map-info-box h4 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+}
+
+.map-info-box p {
+  margin: 0 0 10px 0;
+}
+
+.map-info-box ul {
+  margin: 10px 0 0 20px;
+  padding: 0;
+}
+
+.map-info-box li {
+  margin: 8px 0;
+}
+
+.map-info-box code {
+  background: rgba(0,0,0,0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+}
