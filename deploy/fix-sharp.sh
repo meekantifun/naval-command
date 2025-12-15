@@ -2,16 +2,28 @@
 # Quick fix for sharp module on Linux VPS
 # Run this if you get "Could not load the sharp module" error
 
+set -e
+
 echo "🔧 Fixing sharp module for Linux..."
+echo "This will build sharp from source for older CPUs"
+echo ""
 
 cd /var/www/naval-command
 
-# Rebuild sharp for the current platform
-echo "Rebuilding sharp..."
-npm rebuild sharp --verbose
+# Install build tools if not already installed
+echo "📦 Installing build tools (if needed)..."
+sudo apt-get update
+sudo apt-get install -y build-essential python3
+
+# Remove sharp and reinstall from source
+echo "🗑️  Removing existing sharp module..."
+npm uninstall sharp
+
+echo "🔨 Building sharp from source (this may take a few minutes)..."
+npm install --build-from-source sharp
 
 # Restart the bot
-echo "Restarting bot..."
+echo "🔄 Restarting bot..."
 pm2 restart naval-bot
 
 echo ""

@@ -13,9 +13,10 @@ echo "📦 Installing bot dependencies..."
 rm -rf node_modules
 npm install --production
 
-# Rebuild native modules for the current platform
-echo "🔧 Rebuilding native modules for Linux..."
-npm rebuild sharp --verbose
+# Build sharp from source for older CPUs (avoids microarchitecture issues)
+echo "🔧 Building sharp from source for compatibility..."
+npm uninstall sharp
+npm install --build-from-source sharp
 
 # Install web server dependencies
 echo "📦 Installing web server dependencies..."

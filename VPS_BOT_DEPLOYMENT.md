@@ -123,7 +123,7 @@ pm2 logs naval-frontend --lines 50
 
 ### "Could not load the sharp module" error
 
-This happens when sharp (image processing library) was compiled on a different platform. Run the quick fix:
+This happens when sharp (image processing library) was compiled on a different platform, or when your CPU doesn't support the prebuilt binaries. Run the quick fix to build sharp from source:
 
 ```bash
 cd /var/www/naval-command
@@ -131,12 +131,13 @@ chmod +x deploy/fix-sharp.sh
 ./deploy/fix-sharp.sh
 ```
 
-Or manually rebuild:
-```bash
-cd /var/www/naval-command
-npm rebuild sharp --verbose
-pm2 restart naval-bot
-```
+This will:
+- Install build tools (gcc, g++, python3)
+- Remove the prebuilt sharp module
+- Build sharp from source for your specific CPU
+- Restart the bot
+
+**Note**: Building from source takes 2-5 minutes but ensures compatibility with older CPUs.
 
 ### Bot shows "offline" status
 - Check `DISCORD_TOKEN` in .env is correct
