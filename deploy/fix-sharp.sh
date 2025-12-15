@@ -10,14 +10,22 @@ echo ""
 
 cd /var/www/naval-command
 
-# Install build tools if not already installed
-echo "📦 Installing build tools (if needed)..."
+# Install system build tools if not already installed
+echo "📦 Installing system build tools (if needed)..."
 sudo apt-get update
-sudo apt-get install -y build-essential python3
+sudo apt-get install -y build-essential python3 pkg-config libvips-dev
+
+# Install node-gyp globally if not present
+echo "📦 Installing node-gyp..."
+sudo npm install -g node-gyp
+
+# Install build dependencies
+echo "📦 Installing build dependencies..."
+npm install --save-dev node-addon-api node-gyp
 
 # Remove sharp and reinstall from source
 echo "🗑️  Removing existing sharp module..."
-npm uninstall sharp
+npm uninstall sharp || true
 
 echo "🔨 Building sharp from source (this may take a few minutes)..."
 npm install --build-from-source sharp
