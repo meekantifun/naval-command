@@ -9,16 +9,24 @@ echo "=============================="
 
 # Install bot dependencies
 echo "📦 Installing bot dependencies..."
+# Remove node_modules to force clean install (fixes platform-specific binaries like sharp)
+rm -rf node_modules
 npm install --production
+
+# Rebuild native modules for the current platform
+echo "🔧 Rebuilding native modules for Linux..."
+npm rebuild sharp --verbose
 
 # Install web server dependencies
 echo "📦 Installing web server dependencies..."
 cd web-server
+rm -rf node_modules
 npm install --production
 
 # Install frontend dependencies and build
 echo "📦 Building frontend..."
 cd client
+rm -rf node_modules
 npm install
 npm run build
 cd ../..
