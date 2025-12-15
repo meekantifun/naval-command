@@ -18369,6 +18369,21 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
         // ==================== ADMIN PANEL ENDPOINTS ====================
 
+        // Get bot's guilds (for filtering mutual servers)
+        app.get('/api/admin/bot-guilds', authenticateAPIKey, async (req, res) => {
+            try {
+                const botGuilds = this.client.guilds.cache.map(guild => ({
+                    id: guild.id,
+                    name: guild.name,
+                    icon: guild.iconURL()
+                }));
+                res.json({ guilds: botGuilds });
+            } catch (error) {
+                console.error('Error fetching bot guilds:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Check if user has staff permissions in a guild
         app.get('/api/admin/check-permission', authenticateAPIKey, async (req, res) => {
             try {
@@ -18390,12 +18405,15 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(404).json({ error: 'Member not found in guild' });
                 }
 
-                // Check staff permission
-                const hasPermission = this.staffRoleManager.hasStaffPermission(member);
+                // Check if user is Administrator OR has staff role
+                const isAdmin = member.permissions.has('Administrator');
+                const hasStaffRole = this.staffRoleManager.hasStaffPermission(member);
+                const hasPermission = isAdmin || hasStaffRole;
 
                 res.json({
                     hasPermission,
-                    isAdmin: member.permissions.has('Administrator'),
+                    isAdmin,
+                    hasStaffRole,
                     guildId,
                     userId
                 });

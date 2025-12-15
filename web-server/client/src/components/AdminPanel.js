@@ -10,13 +10,39 @@ function AdminPanel({ user }) {
   const [selectedGuild, setSelectedGuild] = useState(null);
   const [hasPermission, setHasPermission] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('characters');
 
   useEffect(() => {
-    // Load user's guilds from Discord
-    if (user && user.guilds) {
-      setGuilds(user.guilds);
-    }
+    // Load mutual guilds (where both user and bot are members)
+    const loadMutualGuilds = async () => {
+      if (!user || !user.guilds) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch bot's guilds
+        const response = await axios.get('/api/admin/bot-guilds');
+        const botGuilds = response.data.guilds || [];
+
+        // Create a Set of bot guild IDs for fast lookup
+        const botGuildIds = new Set(botGuilds.map(g => g.id));
+
+        // Filter user guilds to only show ones where bot is also present
+        const mutualGuilds = user.guilds.filter(guild => botGuildIds.has(guild.id));
+
+        setGuilds(mutualGuilds);
+      } catch (error) {
+        console.error('Error loading mutual guilds:', error);
+        // Fallback to showing all user guilds if bot guilds fetch fails
+        setGuilds(user.guilds);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMutualGuilds();
   }, [user]);
 
   useEffect(() => {
@@ -51,12 +77,23 @@ function AdminPanel({ user }) {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="admin-panel">
+        <div className="admin-message">
+          <h2>Loading servers...</h2>
+        </div>
+      </div>
+    );
+  }
+
   if (guilds.length === 0) {
     return (
       <div className="admin-panel">
         <div className="admin-message">
-          <h2>No servers found</h2>
-          <p>You need to be in a Discord server with Naval Command to use the admin panel.</p>
+          <h2>No mutual servers found</h2>
+          <p>You need to be in a Discord server where Naval Command bot is also present.</p>
+          <p>Make sure you've invited the bot to your server.</p>
         </div>
       </div>
     );

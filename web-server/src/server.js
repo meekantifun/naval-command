@@ -346,6 +346,19 @@ app.get('/api/admin/guilds', ensureAuthenticated, (req, res) => {
   }
 });
 
+// Get bot's guilds (for filtering mutual servers)
+app.get('/api/admin/bot-guilds', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.get('/api/admin/bot-guilds');
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching bot guilds:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to fetch bot guilds'
+    });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
