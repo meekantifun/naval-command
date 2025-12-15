@@ -2,8 +2,11 @@
 .env
 .env.local
 .env.development
-.env.production
 web-server/.env
+web-server/.env.local
+web-server/.env.production
+
+# Note: .env.production in root is a template and should be committed
 
 # Node modules
 node_modules/
