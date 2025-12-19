@@ -13,7 +13,7 @@ cd /var/www/naval-command
 # Install system build tools if not already installed
 echo "📦 Installing system build tools (if needed)..."
 sudo apt-get update
-sudo apt-get install -y build-essential python3 pkg-config libvips-dev
+sudo apt-get install -y build-essential python3 pkg-config libvips-dev libglib2.0-dev
 
 # Install node-gyp globally if not present
 echo "📦 Installing node-gyp..."

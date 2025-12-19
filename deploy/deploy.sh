@@ -10,7 +10,7 @@ echo "=============================="
 # Install system dependencies for sharp (if not already installed)
 echo "📦 Installing system dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y build-essential python3 pkg-config libvips-dev
+sudo apt-get install -y build-essential python3 pkg-config libvips-dev libglib2.0-dev
 
 # Install node-gyp globally
 sudo npm install -g node-gyp --silent
