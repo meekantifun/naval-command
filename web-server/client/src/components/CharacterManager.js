@@ -25,7 +25,8 @@ function CharacterManager({ guildId }) {
     setLoading(true);
     try {
       const response = await axios.get('/api/admin/characters', {
-        params: { guildId }
+        params: { guildId },
+        withCredentials: true
       });
       setCharacters(response.data.characters || []);
     } catch (error) {
@@ -54,6 +55,8 @@ function CharacterManager({ guildId }) {
           rank: formData.rank,
           nationality: formData.nationality
         }
+      }, {
+        withCredentials: true
       });
 
       alert('Character saved successfully!');
@@ -94,7 +97,8 @@ function CharacterManager({ guildId }) {
           guildId,
           userId: character.userId,
           characterName: character.name
-        }
+        },
+        withCredentials: true
       });
 
       alert('Character deleted successfully!');

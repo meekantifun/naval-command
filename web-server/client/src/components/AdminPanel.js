@@ -23,7 +23,9 @@ function AdminPanel({ user }) {
 
       try {
         // Fetch bot's guilds
-        const response = await axios.get('/api/admin/bot-guilds');
+        const response = await axios.get('/api/admin/bot-guilds', {
+          withCredentials: true
+        });
         const botGuilds = response.data.guilds || [];
 
         // Create a Set of bot guild IDs for fast lookup
@@ -56,7 +58,8 @@ function AdminPanel({ user }) {
     setChecking(true);
     try {
       const response = await axios.get('/api/admin/check-permission', {
-        params: { guildId }
+        params: { guildId },
+        withCredentials: true
       });
       setHasPermission(response.data.hasPermission);
     } catch (error) {

@@ -36,6 +36,8 @@ function GameStarter({ guildId }) {
         mapSize: parseInt(formData.mapSize),
         maxPlayers: parseInt(formData.maxPlayers),
         missionType: formData.missionType
+      }, {
+        withCredentials: true
       });
 
       alert(`Game started successfully in channel ${formData.channelId}!\n\nPlayers can now join using /join`);

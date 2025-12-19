@@ -14,7 +14,9 @@ function MapManager({ guildId }) {
   const loadMaps = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/admin/maps');
+      const response = await axios.get('/api/admin/maps', {
+        withCredentials: true
+      });
       setMaps(response.data.maps || []);
       setTemplates(response.data.templates || []);
     } catch (error) {
