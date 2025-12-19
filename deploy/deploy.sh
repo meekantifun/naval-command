@@ -10,7 +10,31 @@ echo "=============================="
 # Install system dependencies for sharp (if not already installed)
 echo "📦 Installing system dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y build-essential python3 pkg-config libvips-dev libglib2.0-dev
+sudo apt-get install -y \
+    build-essential \
+    python3 \
+    pkg-config \
+    libglib2.0-dev \
+    libexpat1-dev \
+    librsvg2-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libgif-dev \
+    libwebp-dev \
+    libtiff-dev \
+    libexif-dev \
+    liblcms2-dev \
+    libheif-dev \
+    libfftw3-dev \
+    libgsf-1-dev \
+    liborc-0.4-dev \
+    libpango1.0-dev \
+    libcfitsio-dev \
+    libmatio-dev \
+    libopenexr-dev \
+    libopenslide-dev \
+    libpoppler-glib-dev \
+    libmagickwand-dev
 
 # Install node-gyp globally
 sudo npm install -g node-gyp --silent
@@ -21,13 +45,17 @@ echo "📦 Installing bot dependencies..."
 rm -rf node_modules
 npm install --production
 
-# Install build dependencies
-npm install --save-dev node-addon-api node-gyp
-
-# Build sharp from source for older CPUs (avoids microarchitecture issues)
-echo "🔧 Building sharp from source for compatibility..."
-npm uninstall sharp || true
-npm install --build-from-source sharp
+# Try to use prebuilt sharp binaries first
+echo "🔧 Installing sharp..."
+if npm install sharp; then
+    echo "✅ Sharp installed successfully with prebuilt binaries"
+else
+    echo "⚠️  Prebuilt binaries failed, building from source..."
+    # Install build dependencies
+    npm install --save-dev node-addon-api node-gyp
+    # Build from source
+    npm install --build-from-source sharp
+fi
 
 # Install web server dependencies
 echo "📦 Installing web server dependencies..."
