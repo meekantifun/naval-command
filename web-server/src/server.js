@@ -10,6 +10,10 @@ const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
+
+// Trust proxy - important for Cloudflare/Nginx
+app.set('trust proxy', 1);
+
 const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -27,8 +31,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'naval-command-secret',
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust the reverse proxy
   cookie: {
-    maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production (HTTPS)
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 'none' required for cross-site cookies with secure
   }
 }));
 app.use(passport.initialize());
