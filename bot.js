@@ -12361,8 +12361,6 @@ class NavalWarfareBot {
         svg += `</g>`;
 
         // Add compass icon at top left with 20% opacity
-        const fs = require('fs');
-        const path = require('path');
         const compassPath = path.join(__dirname, 'icons', 'compass.png');
         if (fs.existsSync(compassPath)) {
             const compassBuffer = fs.readFileSync(compassPath);
