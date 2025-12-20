@@ -12250,8 +12250,17 @@ class NavalWarfareBot {
         svg += `<text x="${missionStatusX + 10}" y="${missionStatusY + 20}" font-size="14" font-weight="bold" fill="#1f2937">Mission Status</text>`;
         svg += `<text x="${missionStatusX + 10}" y="${missionStatusY + 40}" font-size="11" fill="#374151">Turn: ${game.turnNumber || 1}</text>`;
 
-        if (game.currentObjective) {
-            const objName = game.currentObjective.name.substring(0, 20);
+        // Display objective from either currentObjective or setupState
+        const objectiveType = game.currentObjective?.type || game.setupState?.objectiveConfig?.type || game.missionType;
+        if (objectiveType) {
+            const objectiveNames = {
+                'destroy_all': 'Destroy All Enemies',
+                'resource_acquisition': 'Resource Acquisition',
+                'escort_convoy': 'Escort Convoy',
+                'capture_outpost': 'Capture Outpost',
+                'defeat_boss': 'Defeat Boss'
+            };
+            const objName = objectiveNames[objectiveType] || objectiveType;
             svg += `<text x="${missionStatusX + 10}" y="${missionStatusY + 55}" font-size="11" fill="#374151">Objective: ${objName}</text>`;
         }
 
@@ -12262,21 +12271,41 @@ class NavalWarfareBot {
         svg += `<rect x="${legendX}" y="${legendY}" width="370" height="${legendHeight}" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
         svg += `<text x="${legendX + 10}" y="${legendY + 20}" font-size="14" font-weight="bold" fill="#1f2937">Legend</text>`;
 
-        // Terrain legend
+        // Terrain legend (left column)
         svg += `<text x="${legendX + 10}" y="${legendY + 40}" font-size="12" font-weight="bold" fill="#374151">Terrain</text>`;
         const terrainItems = [
             { color: '#3b82f6', name: 'Ocean' },
             { color: '#166534', name: 'Island' },
             { color: '#0891b2', name: 'Reef' },
-            { color: '#10b981', name: 'Spawn Area' }
+            { color: '#10b981', name: 'Spawn Area' },
+            { color: '#8B0000', name: 'Minefield', icon: '💣' }
         ];
 
         yPos = legendY + 55;
         for (const item of terrainItems) {
             svg += `<rect x="${legendX + 15}" y="${yPos - 8}" width="10" height="10" fill="${item.color}" stroke="#ffffff" stroke-width="1"/>`;
-            svg += `<text x="${legendX + 30}" y="${yPos}" font-size="10" fill="#374151">${item.name}</text>`;
+            const displayName = item.icon ? `${item.icon} ${item.name}` : item.name;
+            svg += `<text x="${legendX + 30}" y="${yPos}" font-size="10" fill="#374151">${displayName}</text>`;
             yPos += 15;
         }
+
+        // Current Weather (right side of Terrain section)
+        const weatherX = legendX + 150;
+        let weatherY = legendY + 40;
+        svg += `<text x="${weatherX}" y="${weatherY}" font-size="12" font-weight="bold" fill="#374151">Current Weather</text>`;
+        weatherY += 20;
+        const weatherIcons = {
+            'clear': '☀️',
+            'rainy': '🌧️',
+            'foggy': '🌫️',
+            'fog': '🌫️',
+            'thunderstorm': '⛈️',
+            'hurricane': '🌀'
+        };
+        const currentWeather = game.weather || 'clear';
+        const weatherIcon = weatherIcons[currentWeather] || '🌤️';
+        const weatherName = currentWeather.charAt(0).toUpperCase() + currentWeather.slice(1);
+        svg += `<text x="${weatherX}" y="${weatherY}" font-size="10" fill="#374151">${weatherIcon} ${weatherName}</text>`;
 
         // Infrastructure legend
         yPos += 15;
@@ -12318,13 +12347,6 @@ class NavalWarfareBot {
         yPos = Math.max(yPos + (firstColumn.length * 25), yPos + (secondColumn.length * 25));
 
         svg += `</g>`;
-
-        // Add ship class legend in the right panel area
-        console.log('🎨 Adding ship class legend to clean SVG...');
-        const shipLegendX = totalWidth - 420;  // Position it properly in right panel
-        const shipLegendY = 500;  // Position below existing elements
-        svg += this.addCompactMapLegend(shipLegendX, shipLegendY);
-        console.log('✅ Ship class legend added to clean SVG');
 
         svg += '</svg>';
         console.log('✅ Clean SVG generation completed');
