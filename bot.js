@@ -12059,29 +12059,34 @@ class NavalWarfareBot {
                     -webkit-font-smoothing: antialiased;
                 }
                 .grid-line {
-                    stroke: #e2e8f0;
-                    stroke-width: 0.5;
+                    stroke: #ffffff;
+                    stroke-width: 1;
+                    stroke-opacity: 0.3;
                     fill: none;
                 }
                 .ocean-cell {
-                    fill: #3b82f6;,
-                    stroke: #1e40af;
-                    stroke-width: 0.5;
+                    fill: #4A9FF5;
+                    stroke: #ffffff;
+                    stroke-width: 1;
+                    stroke-opacity: 0.3;
                 }
                 .island-cell {
-                    fill: #166534;,
-                    stroke: #14532d;
+                    fill: #2E7D32;
+                    stroke: #ffffff;
                     stroke-width: 1;
+                    stroke-opacity: 0.3;
                 }
                 .reef-cell {
-                    fill: #0891b2;,
-                    stroke: #0e7490;
+                    fill: #00BCD4;
+                    stroke: #ffffff;
                     stroke-width: 1;
+                    stroke-opacity: 0.3;
                 }
                 .spawn-cell {
-                    fill: #10b981;,
-                    stroke: #059669;
+                    fill: #4CAF50;
+                    stroke: #ffffff;
                     stroke-width: 1;
+                    stroke-opacity: 0.3;
                 }
                 .movement-text {
                     font-family: 'Segoe UI', 'Arial', sans-serif;
@@ -12105,7 +12110,7 @@ class NavalWarfareBot {
 
         // Draw clean ocean background
         svg += `<rect x="${gridStartX}" y="${gridStartY}" width="${mapSize * cellSize}" height="${mapSize * cellSize}"
-                fill="#3b82f6" stroke="#1e40af" stroke-width="2"/>`;
+                fill="#4A9FF5" stroke="#ffffff" stroke-width="2" stroke-opacity="0.3"/>`;
 
         // Calculate fog of war visibility BEFORE drawing anything
         let visibleCells = new Set();
