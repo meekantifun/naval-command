@@ -11160,7 +11160,7 @@ class NavalWarfareBot {
             const totalHeight = Math.max(topMargin + gridHeight + bottomMargin, 700);
 
             console.log('🗺️ Generating clean SVG content...');
-            const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight, movementCoords);
+            const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
             console.log(`📏 SVG content length: ${svgContent.length} characters`);
 
             console.log('🚀 Launching Puppeteer for high-quality rendering...');
@@ -11961,95 +11961,11 @@ class NavalWarfareBot {
         return svg;
     }
 
-    generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight, movementCoords = null) {
+    generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight) {
         console.log('🎨 Generating clean, professional SVG...');
 
-        // Load compass icon
-        let compassBase64 = '';
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const compassPath = path.resolve('./icons/compass.png');
-            console.log('🧭 Loading compass from:', compassPath);
-            if (fs.existsSync(compassPath)) {
-                const compassBuffer = fs.readFileSync(compassPath);
-                compassBase64 = `data:image/png;base64,${compassBuffer.toString('base64')}`;
-                console.log('✅ Compass loaded successfully');
-            } else {
-                console.warn('⚠️ Compass file not found at:', compassPath);
-            }
-        } catch (error) {
-            console.error('❌ Failed to load compass icon:', error);
-        }
-
-        // Load mine icon
-        let mineBase64 = '';
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const minePath = path.resolve('./icons/mine.png');
-            console.log('💣 Loading mine icon from:', minePath);
-            if (fs.existsSync(minePath)) {
-                const mineBuffer = fs.readFileSync(minePath);
-                mineBase64 = `data:image/png;base64,${mineBuffer.toString('base64')}`;
-                console.log('✅ Mine icon loaded successfully');
-            } else {
-                console.warn('⚠️ Mine icon file not found at:', minePath);
-            }
-        } catch (error) {
-            console.error('❌ Failed to load mine icon:', error);
-        }
-
-        // Load auxiliary ship icons
-        let auxiliaryBase64 = '';
-        let auxiliarySunkBase64 = '';
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const auxiliaryPath = path.resolve('./icons/missions/auxiliary.png');
-            const auxiliarySunkPath = path.resolve('./icons/sunk_player/auxiliary.png');
-
-            console.log('🚢 Loading auxiliary ship icons...');
-            if (fs.existsSync(auxiliaryPath)) {
-                const auxiliaryBuffer = fs.readFileSync(auxiliaryPath);
-                auxiliaryBase64 = `data:image/png;base64,${auxiliaryBuffer.toString('base64')}`;
-                console.log('✅ Auxiliary ship icon loaded successfully');
-            } else {
-                console.warn('⚠️ Auxiliary ship icon not found at:', auxiliaryPath);
-            }
-
-            if (fs.existsSync(auxiliarySunkPath)) {
-                const auxiliarySunkBuffer = fs.readFileSync(auxiliarySunkPath);
-                auxiliarySunkBase64 = `data:image/png;base64,${auxiliarySunkBuffer.toString('base64')}`;
-                console.log('✅ Sunk auxiliary ship icon loaded successfully');
-            } else {
-                console.warn('⚠️ Sunk auxiliary ship icon not found at:', auxiliarySunkPath);
-            }
-        } catch (error) {
-            console.error('❌ Failed to load auxiliary ship icons:', error);
-        }
-
-        // Load mission objective icons
-        let resourcesBase64 = '';
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const resourcesPath = path.resolve('./icons/missions/resources.png');
-
-            console.log('📦 Loading mission objective icons...');
-            if (fs.existsSync(resourcesPath)) {
-                const resourcesBuffer = fs.readFileSync(resourcesPath);
-                resourcesBase64 = `data:image/png;base64,${resourcesBuffer.toString('base64')}`;
-                console.log('✅ Resources icon loaded successfully');
-            } else {
-                console.warn('⚠️ Resources icon not found at:', resourcesPath);
-            }
-        } catch (error) {
-            console.error('❌ Failed to load mission objective icons:', error);
-        }
-
         let svg = `<?xml version="1.0" encoding="UTF-8"?>
-        <svg width="${totalWidth}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <svg width="${totalWidth}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
 
         <defs>
             <style>
@@ -12059,42 +11975,29 @@ class NavalWarfareBot {
                     -webkit-font-smoothing: antialiased;
                 }
                 .grid-line {
-                    stroke: #ffffff;
-                    stroke-width: 1;
-                    stroke-opacity: 0.3;
+                    stroke: #e2e8f0;
+                    stroke-width: 0.5;
                     fill: none;
                 }
                 .ocean-cell {
-                    fill: #4A9FF5;
-                    stroke: #ffffff;
-                    stroke-width: 1;
-                    stroke-opacity: 0.3;
+                    fill: #3b82f6;
+                    stroke: #1e40af;
+                    stroke-width: 0.5;
                 }
                 .island-cell {
-                    fill: #2E7D32;
-                    stroke: #ffffff;
+                    fill: #166534;
+                    stroke: #14532d;
                     stroke-width: 1;
-                    stroke-opacity: 0.3;
                 }
                 .reef-cell {
-                    fill: #00BCD4;
-                    stroke: #ffffff;
+                    fill: #0891b2;
+                    stroke: #0e7490;
                     stroke-width: 1;
-                    stroke-opacity: 0.3;
                 }
                 .spawn-cell {
-                    fill: #4CAF50;
-                    stroke: #ffffff;
+                    fill: #10b981;
+                    stroke: #059669;
                     stroke-width: 1;
-                    stroke-opacity: 0.3;
-                }
-                .movement-text {
-                    font-family: 'Segoe UI', 'Arial', sans-serif;
-                    font-size: 8px;
-                    font-weight: bold;
-                    fill: white;
-                    text-anchor: middle;
-                    dominant-baseline: central;
                 }
             </style>
         </defs>`;
@@ -12108,70 +12011,11 @@ class NavalWarfareBot {
             throw new Error('game.getMapCell is not a function');
         }
 
-        // Calculate fog of war visibility BEFORE drawing anything
-        let visibleCells = new Set();
-        let hiddenEnemies = new Set();
-        if (game.weather === 'fog' || game.weather === 'thunderstorm' || game.weather === 'hurricane') {
-            // Determine visibility range based on weather
-            let visibilityRange;
-            switch (game.weather) {
-                case 'hurricane':
-                    visibilityRange = 5;
-                    break;
-                case 'thunderstorm':
-                    visibilityRange = 10;
-                    break;
-                case 'fog':
-                    visibilityRange = 15;
-                    break;
-                default:
-                    visibilityRange = 10;
-            }
+        // Draw clean ocean background
+        svg += `<rect x="${gridStartX}" y="${gridStartY}" width="${mapSize * cellSize}" height="${mapSize * cellSize}"
+                fill="#3b82f6" stroke="#1e40af" stroke-width="2"/>`;
 
-            // Calculate visible cells around player positions
-            for (const player of game.players.values()) {
-                if (player.position && player.alive) {
-                    const playerCoords = this.coordToNumbers(player.position);
-                    if (playerCoords) {
-                        // Mark cells in radius around player as visible
-                        for (let dx = -visibilityRange; dx <= visibilityRange; dx++) {
-                            for (let dy = -visibilityRange; dy <= visibilityRange; dy++) {
-                                const distance = Math.sqrt(dx * dx + dy * dy);
-                                if (distance <= visibilityRange) {
-                                    const fogX = playerCoords.x + dx;
-                                    const fogY = (playerCoords.y - 1) + dy;
-                                    if (fogX >= 0 && fogX < mapSize && fogY >= 0 && fogY < mapSize) {
-                                        visibleCells.add(`${fogX},${fogY}`);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Mark enemies outside visibility as hidden
-            for (const enemy of game.enemies.values()) {
-                if (enemy.position && enemy.alive) {
-                    const enemyCoords = this.coordToNumbers(enemy.position);
-                    if (enemyCoords) {
-                        const enemyCellKey = `${enemyCoords.x},${enemyCoords.y - 1}`;
-                        if (!visibleCells.has(enemyCellKey)) {
-                            hiddenEnemies.add(enemy.id);
-                        }
-                    }
-                }
-            }
-        } else {
-            // No fog - everything is visible
-            for (let x = 0; x < mapSize; x++) {
-                for (let y = 0; y < mapSize; y++) {
-                    visibleCells.add(`${x},${y}`);
-                }
-            }
-        }
-
-        // Draw ALL cells individually (ocean, terrain, etc) with borders for visible grid
+        // Draw terrain cells and collect island groups
         const infrastructureElements = [];
         const islandGroups = this.identifyIslandGroups(game, mapSize);
 
@@ -12190,29 +12034,8 @@ class NavalWarfareBot {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="reef-cell"/>`;
                     } else if (cell.type === 'spawn') {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="spawn-cell"/>`;
+
                         // Spawn zones are for players only - no infrastructure
-                    } else if (cell.type === 'ocean') {
-                        // Draw ocean cells individually to show grid
-                        svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="ocean-cell"/>`;
-                    } else if (cell.type === 'mine') {
-                        // Only draw mine if visible
-                        const mineCellKey = `${x},${y}`;
-                        if (visibleCells.has(mineCellKey)) {
-                            // Draw mine icon
-                            if (mineBase64) {
-                                const iconSize = cellSize * 0.6; // Mine icon fills 60% of cell
-                                const iconX = pixelX + (cellSize - iconSize) / 2;
-                                const iconY = pixelY + (cellSize - iconSize) / 2;
-                                svg += `<image x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" xlink:href="${mineBase64}"/>`;
-                            } else {
-                                // Fallback: draw a red circle with X
-                                const centerX = pixelX + cellSize/2;
-                                const centerY = pixelY + cellSize/2;
-                                const radius = cellSize * 0.3;
-                                svg += `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="#8B0000" stroke="#000" stroke-width="1"/>`;
-                                svg += `<text x="${centerX}" y="${centerY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF">M</text>`;
-                            }
-                        }
                     }
                 } catch (error) {
                     // Skip problematic cells
@@ -12220,44 +12043,15 @@ class NavalWarfareBot {
             }
         }
 
-        // Add movement coordinate labels if movement coordinates are provided
-        if (movementCoords && movementCoords.length > 0) {
-            for (const coord of movementCoords) {
-                const coordNumbers = this.coordToNumbers(coord);
-                const pixelX = gridStartX + ((coordNumbers.x) * cellSize);
-                const pixelY = gridStartY + ((coordNumbers.y - 1) * cellSize);
-
-                // Add coordinate label in the center of the cell
-                const centerX = pixelX + (cellSize / 2);
-                const centerY = pixelY + (cellSize / 2);
-                svg += `<text x="${centerX}" y="${centerY}" class="movement-text" transform="rotate(45 ${centerX} ${centerY})">${coord}</text>`;
-            }
-        }
-
         // Generate clustered infrastructure for each island group
         for (const islandGroup of islandGroups) {
-            const groupInfrastructure = this.generateClusteredInfrastructure(islandGroup, gridStartX, gridStartY, cellSize, game);
+            const groupInfrastructure = this.generateClusteredInfrastructure(islandGroup, gridStartX, gridStartY, cellSize);
             infrastructureElements.push(...groupInfrastructure);
         }
 
-        // Add all infrastructure elements (SVG icons and names)
+        // Add all infrastructure elements
         for (const element of infrastructureElements) {
-            svg += element.svg;
-            // Add name if present
-            if (element.name) {
-                const centerX = element.x + cellSize / 2;
-                const yOffset = element.y + cellSize * 1.1; // Position name below icon
-                const fontSize = cellSize / 3;
-                svg += `<text x="${centerX}" y="${yOffset}"
-                             text-anchor="middle"
-                             font-size="${fontSize}"
-                             font-weight="bold"
-                             fill="#FFFFFF"
-                             stroke="#000000"
-                             stroke-width="${fontSize/10}"
-                             paint-order="stroke"
-                             class="map-text">${element.name}</text>`;
-            }
+            svg += element;
         }
 
         // Draw clean grid lines
@@ -12272,57 +12066,41 @@ class NavalWarfareBot {
         }
         svg += `</g>`;
 
-        // Add complete coordinate labels
-        svg += `<g class="map-text" fill="#ffffff" font-size="10" text-anchor="middle">`;
+        // Add clean coordinate labels
+        svg += `<g class="map-text" fill="#1f2937" font-size="12" text-anchor="middle">`;
 
-        // Column labels (letters) - All columns across the top
-        for (let x = 0; x < mapSize; x++) {
-            const label = GameUtils.generateExtendedCoordinate(x, 1).slice(0, -1); // Remove the number part
+        // Column labels (every 5th for cleanliness)
+        for (let x = 0; x < mapSize; x += 5) {
+            const label = GameUtils.generateExtendedCoordinate(x, 1).slice(0, -1);
             const xPos = gridStartX + (x * cellSize) + cellSize/2;
-            svg += `<text x="${xPos}" y="${gridStartY - 5}">${label}</text>`;
+            svg += `<text x="${xPos}" y="${gridStartY - 10}">${label}</text>`;
         }
 
-        // Row labels (numbers) - All rows down the left side
-        for (let y = 1; y <= mapSize; y++) {
+        // Row labels (every 5th for cleanliness)
+        for (let y = 1; y <= mapSize; y += 5) {
             const yPos = gridStartY + ((y - 1) * cellSize) + cellSize/2;
-            svg += `<text x="${gridStartX - 8}" y="${yPos + 3}" text-anchor="end">${y}</text>`;
+            svg += `<text x="${gridStartX - 15}" y="${yPos + 4}">${y}</text>`;
         }
         svg += `</g>`;
 
         // Draw player ships with icons
-        console.log(`🎨 Drawing players on map: ${game.players.size} total players`);
         for (const player of game.players.values()) {
-            console.log(`🎨 Player ${player.username || player.id}: position=${player.position}, alive=${player.alive}`);
             if (player.position) {
                 try {
-                    const coords = this.coordToNumbers(player.position);
+                    const coords = GameUtils.parseCoordinate(player.position);
                     if (coords) {
                         const pixelX = gridStartX + (coords.x * cellSize) + cellSize/2;
                         const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
                         const color = player.alive ? "#10b981" : "#ef4444";
 
-                        // Get player's turn position (1-based)
-                        const turnPosition = game.turnOrder ? game.turnOrder.indexOf(player.userId) + 1 : 0;
-
-                        // Load ship icon (alive or sunk)
-                        const iconBase64 = this.getShipClassIcon(player.shipClass, player.alive);
+                        // Load ship icon
+                        const iconPath = this.getShipClassIcon(player.shipClass);
+                        const iconBase64 = this.loadIconAsBase64(iconPath);
 
                         if (iconBase64) {
-                            // Apply rotation based on direction (if available), flip 180°
-                            const rotation = player.direction !== undefined ? (player.direction + 180) % 360 : 180;
-
-                            // Larger icon with rotation (18x18 to fill more of the cell)
-                            svg += `<image x="${pixelX - 9}" y="${pixelY - 9}" width="18" height="18" xlink:href="${iconBase64}" transform="rotate(${rotation} ${pixelX} ${pixelY})"/>`;
-
-                            // Turn position number over the icon (only show if player is in turn order)
-                            if (turnPosition > 0) {
-                                // Smaller, highly transparent badge positioned over icon
-                                const badgeColor = player.alive ? "#3b82f6" : "#6b7280";
-                                svg += `
-                                    <circle cx="${pixelX}" cy="${pixelY}" r="5" fill="url(#badge-gradient-${player.id})" stroke="#ffffff" stroke-width="0.6" opacity="0.55" filter="url(#badge-glow-${player.id})"/>
-                                    <text x="${pixelX}" y="${pixelY + 3}" font-size="7" font-weight="bold" text-anchor="middle" fill="#ffffff" style="text-shadow: 0 1px 3px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.8);" class="map-text">${turnPosition}</text>
-                                `;
-                            }
+                            // Ship icon with background circle
+                            svg += `<circle cx="${pixelX}" cy="${pixelY}" r="8" fill="${color}" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`;
+                            svg += `<image x="${pixelX - 6}" y="${pixelY - 6}" width="12" height="12" href="${iconBase64}" opacity="0.8"/>`;
                         } else {
                             // Fallback to ship silhouette
                             const shipType = player.shipClass.toLowerCase().includes('carrier') ? 'carrier' :
@@ -12332,15 +12110,12 @@ class NavalWarfareBot {
                                            player.shipClass.toLowerCase().includes('submarine') ? 'submarine' : 'destroyer';
 
                             svg += this.drawShipSilhouette(pixelX, pixelY, shipType, color, cellSize);
+                        }
 
-                            // Turn position number over the silhouette (only show if player is in turn order)
-                            if (turnPosition > 0) {
-                                // Semi-transparent badge positioned over icon
-                                svg += `
-                                    <circle cx="${pixelX}" cy="${pixelY}" r="7" fill="url(#badge-gradient-${player.id})" stroke="#ffffff" stroke-width="1" opacity="0.85" filter="url(#badge-glow-${player.id})"/>
-                                    <text x="${pixelX}" y="${pixelY + 4}" font-size="10" font-weight="bold" text-anchor="middle" fill="#ffffff" style="text-shadow: 0 1px 2px rgba(0,0,0,0.9);" class="map-text">${turnPosition}</text>
-                                `;
-                            }
+                        // Ship name label (if space allows)
+                        if (cellSize > 15) {
+                            const shipName = (player.displayName || player.shipClass).substring(0, 6);
+                            svg += `<text x="${pixelX}" y="${pixelY + 15}" font-size="8" text-anchor="middle" fill="#1f2937" class="map-text">${shipName}</text>`;
                         }
                     }
                 } catch (error) {
@@ -12349,319 +12124,57 @@ class NavalWarfareBot {
             }
         }
 
-        // Draw enemy ships with enhanced styling and AI numbering
-        // Enemies sorted by insertion order (lowest number to highest)
-        const sortedEnemies = Array.from(game.enemies.values());
-
-        sortedEnemies.forEach((enemy, index) => {
+        // Draw enemy ships with enhanced styling
+        for (const enemy of game.enemies.values()) {
             if (enemy.position) {
-                // Skip rendering if enemy is hidden in fog
-                if (hiddenEnemies.has(enemy.id)) {
-                    return;
-                }
-
                 try {
-                    const coords = this.coordToNumbers(enemy.position);
+                    const coords = GameUtils.parseCoordinate(enemy.position);
                     if (coords) {
                         const pixelX = gridStartX + (coords.x * cellSize) + cellSize/2;
                         const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
                         const color = enemy.alive ? "#ef4444" : "#991b1b";
-                        const aiNumber = index + 1; // AI numbering starts from 1
 
-                        // Load enemy icon (alive or sunk)
-                        const enemyIconBase64 = this.getEnemyClassIcon(enemy.shipClass, enemy.alive);
+                        // Enhanced enemy ship representation
+                        const enemyShipType = enemy.shipClass ?
+                            (enemy.shipClass.toLowerCase().includes('carrier') ? 'carrier' :
+                             enemy.shipClass.toLowerCase().includes('battleship') ? 'battleship' :
+                             enemy.shipClass.toLowerCase().includes('cruiser') ? 'cruiser' :
+                             enemy.shipClass.toLowerCase().includes('destroyer') ? 'destroyer' :
+                             enemy.shipClass.toLowerCase().includes('submarine') ? 'submarine' : 'destroyer') : 'destroyer';
 
-                        if (enemyIconBase64) {
-                            // Apply rotation based on direction (if available), flip 180°
-                            const rotation = enemy.direction !== undefined ? (enemy.direction + 180) % 360 : 180;
+                        svg += this.drawEnemyShipSilhouette(pixelX, pixelY, enemyShipType, color, cellSize);
 
-                            // Larger icon with rotation (18x18 to fill more of the cell)
-                            svg += `<image x="${pixelX - 9}" y="${pixelY - 9}" width="18" height="18" xlink:href="${enemyIconBase64}" transform="rotate(${rotation} ${pixelX} ${pixelY})"/>`;
-
-                            // AI position number badge over the icon (only for alive enemies)
-                            if (enemy.alive) {
-                                const badgeColor = "#ef4444";
-                                svg += `
-                                    <defs>
-                                        <radialGradient id="enemy-badge-gradient-${enemy.id}" cx="50%" cy="30%">
-                                            <stop offset="0%" style="stop-color:${badgeColor};stop-opacity:0.35" />
-                                            <stop offset="100%" style="stop-color:#7f1d1d;stop-opacity:0.25" />
-                                        </radialGradient>
-                                        <filter id="enemy-badge-glow-${enemy.id}">
-                                            <feGaussianBlur stdDeviation="0.8" result="coloredBlur"/>
-                                            <feMerge>
-                                                <feMergeNode in="coloredBlur"/>
-                                                <feMergeNode in="SourceGraphic"/>
-                                            </feMerge>
-                                        </filter>
-                                    </defs>
-                                    <circle cx="${pixelX}" cy="${pixelY}" r="5" fill="url(#enemy-badge-gradient-${enemy.id})" stroke="#ffffff" stroke-width="0.6" opacity="0.55" filter="url(#enemy-badge-glow-${enemy.id})"/>
-                                    <text x="${pixelX}" y="${pixelY + 3}" font-size="7" font-weight="bold" text-anchor="middle" fill="#ffffff" style="text-shadow: 0 1px 3px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,0.8);" class="map-text">${aiNumber}</text>
-                                `;
-                            }
-                        } else {
-                            // Fallback to enemy ship silhouette
-                            const enemyShipType = enemy.shipClass ?
-                                (enemy.shipClass.toLowerCase().includes('carrier') ? 'carrier' :
-                                 enemy.shipClass.toLowerCase().includes('battleship') ? 'battleship' :
-                                 enemy.shipClass.toLowerCase().includes('cruiser') ? 'cruiser' :
-                                 enemy.shipClass.toLowerCase().includes('destroyer') ? 'destroyer' :
-                                 enemy.shipClass.toLowerCase().includes('submarine') ? 'submarine' : 'destroyer') : 'destroyer';
-
-                            svg += this.drawEnemyShipSilhouette(pixelX, pixelY, enemyShipType, color, cellSize);
-
-                            // AI position number badge over the silhouette
-                            svg += `
-                                <circle cx="${pixelX}" cy="${pixelY}" r="7" fill="url(#enemy-badge-gradient-${enemy.id})" stroke="#ffffff" stroke-width="1" opacity="0.85" filter="url(#enemy-badge-glow-${enemy.id})"/>
-                                <text x="${pixelX}" y="${pixelY + 4}" font-size="10" font-weight="bold" text-anchor="middle" fill="#ffffff" style="text-shadow: 0 1px 2px rgba(0,0,0,0.9);" class="map-text">${aiNumber}</text>
-                            `;
+                        // Enemy name label (if space allows)
+                        if (cellSize > 15 && enemy.shipClass) {
+                            const enemyName = enemy.shipClass.substring(0, 6);
+                            svg += `<text x="${pixelX}" y="${pixelY + 15}" font-size="8" text-anchor="middle" fill="#991b1b" class="map-text">${enemyName}</text>`;
                         }
                     }
                 } catch (error) {
                     // Skip if coordinate parsing fails
                 }
             }
-        });
-
-        // Draw mission objectives
-        if (game.objective) {
-            // Resource zone marker
-            if (game.objective.type === 'resource_acquisition' && game.objective.resourceZone) {
-                const coords = this.coordToNumbers(game.objective.resourceZone);
-                if (coords) {
-                    const pixelX = gridStartX + (coords.x * cellSize) + cellSize/2;
-                    const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
-
-                    // Draw circular outline around the zone (distinct magenta color)
-                    const outlineRadius = cellSize * 2.5; // 2.5 cell radius for the zone
-                    svg += `<circle cx="${pixelX}" cy="${pixelY}" r="${outlineRadius}" fill="none" stroke="#FF00FF" stroke-width="2.5" stroke-dasharray="5,3" opacity="0.8"/>`;
-                    svg += `<circle cx="${pixelX}" cy="${pixelY}" r="${outlineRadius}" fill="none" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="5,3" opacity="0.4"/>`;
-
-                    // Use resources icon if available, otherwise fallback to gold circle
-                    if (resourcesBase64) {
-                        const iconSize = cellSize * 0.7;
-                        const iconX = pixelX - iconSize/2;
-                        const iconY = pixelY - iconSize/2;
-                        svg += `<image x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" xlink:href="${resourcesBase64}"/>`;
-                    } else {
-                        // Fallback: gold circle with text
-                        svg += `<circle cx="${pixelX}" cy="${pixelY}" r="${cellSize * 0.4}" fill="#FFD700" stroke="#000" stroke-width="1.5"/>`;
-                        svg += `<text x="${pixelX}" y="${pixelY + 3}" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="#000">RES</text>`;
-                    }
-                }
-            }
-
-            // Outpost marker
-            if (game.objective.type === 'capture_outpost' && game.objective.outpostLocation) {
-                const coords = this.coordToNumbers(game.objective.outpostLocation);
-                if (coords) {
-                    const pixelX = gridStartX + (coords.x * cellSize);
-                    const pixelY = gridStartY + ((coords.y - 1) * cellSize);
-                    const outpostColor = game.objective.outpostDestroyed ? '#8B0000' : '#8B4513';
-                    svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" fill="${outpostColor}" stroke="#000" stroke-width="1.5"/>`;
-                    svg += `<text x="${pixelX + cellSize/2}" y="${pixelY + cellSize/2 + 2}" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="#FFFFFF">OUT</text>`;
-                }
-            }
-
-            // Convoy escort ships
-            if (game.objective.type === 'convoy_escort' && game.objective.convoyShips) {
-                for (const convoy of game.objective.convoyShips) {
-                    if (convoy.position) {
-                        const coords = this.coordToNumbers(convoy.position);
-                        if (coords) {
-                            const pixelX = gridStartX + (coords.x * cellSize) + cellSize/2;
-                            const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
-
-                            // Use auxiliary icon if available, otherwise fallback to colored square
-                            const iconToUse = convoy.alive ? auxiliaryBase64 : auxiliarySunkBase64;
-                            if (iconToUse) {
-                                const iconSize = cellSize * 0.7;
-                                const iconX = pixelX - iconSize/2;
-                                const iconY = pixelY - iconSize/2;
-                                svg += `<image x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" xlink:href="${iconToUse}"/>`;
-                            } else {
-                                // Fallback: colored square
-                                const squareSize = cellSize * 0.8;
-                                const squareX = pixelX - squareSize/2;
-                                const squareY = pixelY - squareSize/2;
-                                const convoyColor = convoy.alive ? '#9370DB' : '#4B0082';
-                                svg += `<rect x="${squareX}" y="${squareY}" width="${squareSize}" height="${squareSize}" fill="${convoyColor}" stroke="#000" stroke-width="1.5"/>`;
-                                svg += `<text x="${pixelX}" y="${pixelY + 3}" text-anchor="middle" font-family="Arial" font-size="7" font-weight="bold" fill="#FFF">AX</text>`;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Convoy interception (enemy convoy ships)
-            if (game.objective.type === 'convoy_interception' && game.objective.convoyShips) {
-                for (const convoy of game.objective.convoyShips) {
-                    if (convoy.position && !convoy.captured && !convoy.escaped) {
-                        const coords = this.coordToNumbers(convoy.position);
-                        if (coords) {
-                            const pixelX = gridStartX + (coords.x * cellSize) + cellSize/2;
-                            const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
-
-                            // Use auxiliary icon if available, otherwise fallback to colored square
-                            const iconToUse = convoy.alive ? auxiliaryBase64 : auxiliarySunkBase64;
-                            if (iconToUse) {
-                                const iconSize = cellSize * 0.7;
-                                const iconX = pixelX - iconSize/2;
-                                const iconY = pixelY - iconSize/2;
-                                svg += `<image x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" xlink:href="${iconToUse}"/>`;
-                            } else {
-                                // Fallback: colored square
-                                const squareSize = cellSize * 0.8;
-                                const squareX = pixelX - squareSize/2;
-                                const squareY = pixelY - squareSize/2;
-                                const convoyColor = convoy.alive ? '#9370DB' : '#4B0082';
-                                svg += `<rect x="${squareX}" y="${squareY}" width="${squareSize}" height="${squareSize}" fill="${convoyColor}" stroke="#000" stroke-width="1.5"/>`;
-                                svg += `<text x="${pixelX}" y="${pixelY + 3}" text-anchor="middle" font-family="Arial" font-size="6" font-weight="bold" fill="#FFF">EAX</text>`;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Salvage zones
-            if (game.objective.type === 'salvage_supplies' && game.objective.salvageZones) {
-                for (const zone of game.objective.salvageZones) {
-                    if (zone.location && zone.wreck) {
-                        const coords = this.coordToNumbers(zone.location);
-                        if (coords) {
-                            const pixelX = gridStartX + (coords.x * cellSize) + cellSize/2;
-                            const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
-
-                            // Use sunk auxiliary icon (salvage zones are always wrecks)
-                            if (auxiliarySunkBase64) {
-                                const iconSize = cellSize * 0.7;
-                                const iconX = pixelX - iconSize/2;
-                                const iconY = pixelY - iconSize/2;
-                                svg += `<image x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" xlink:href="${auxiliarySunkBase64}"/>`;
-
-                                // Add colored border to indicate salvage status
-                                const borderSize = cellSize * 0.85;
-                                const borderX = pixelX - borderSize/2;
-                                const borderY = pixelY - borderSize/2;
-                                const zoneColor = zone.captured ? '#00FF00' : zone.currentPlayer ? '#FFFF00' : '#20B2AA';
-                                svg += `<rect x="${borderX}" y="${borderY}" width="${borderSize}" height="${borderSize}" fill="none" stroke="${zoneColor}" stroke-width="2"/>`;
-                            } else {
-                                // Fallback: colored square
-                                const squareSize = cellSize * 0.8;
-                                const squareX = pixelX - squareSize/2;
-                                const squareY = pixelY - squareSize/2;
-                                const zoneColor = zone.captured ? '#00FF00' : zone.currentPlayer ? '#FFFF00' : '#20B2AA';
-                                svg += `<rect x="${squareX}" y="${squareY}" width="${squareSize}" height="${squareSize}" fill="#4B0082" stroke="${zoneColor}" stroke-width="2"/>`;
-                                svg += `<text x="${pixelX}" y="${pixelY + 3}" text-anchor="middle" font-family="Arial" font-size="7" font-weight="bold" fill="#FFFFFF">AX</text>`;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Destination zone markers
-            for (let x = 0; x < mapSize; x++) {
-                for (let y = 0; y < mapSize; y++) {
-                    const coord = GameUtils.generateExtendedCoordinate(x, y + 1);
-                    try {
-                        const cell = game.getMapCell(coord);
-                        if (cell && cell.type === 'destination_zone') {
-                            const pixelX = gridStartX + (x * cellSize);
-                            const pixelY = gridStartY + (y * cellSize);
-                            svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" fill="#FFFF00" fill-opacity="0.3" stroke="#FFD700" stroke-width="0.5"/>`;
-
-                            if (cell.isDestinationCenter) {
-                                const centerX = pixelX + cellSize/2;
-                                const centerY = pixelY + cellSize/2;
-                                svg += `<circle cx="${centerX}" cy="${centerY}" r="${cellSize/3}" fill="#FFD700" stroke="#FF8C00" stroke-width="2"/>`;
-                                svg += `<text x="${centerX}" y="${centerY + 2}" text-anchor="middle" font-family="Arial" font-size="7" font-weight="bold" fill="#000">DEST</text>`;
-                            }
-                        }
-                    } catch (error) {
-                        // Skip problematic cells
-                    }
-                }
-            }
         }
 
-        // Add fog of war layer (using pre-calculated visible cells)
-        if (game.weather === 'fog' || game.weather === 'thunderstorm' || game.weather === 'hurricane') {
-            // Create fog layer - all cells start covered, remove visible ones
-            const fogCells = new Set();
-            for (let x = 0; x < mapSize; x++) {
-                for (let y = 0; y < mapSize; y++) {
-                    const cellKey = `${x},${y}`;
-                    if (!visibleCells.has(cellKey)) {
-                        fogCells.add(cellKey);
-                    }
-                }
-            }
-
-            console.log(`🌫️ Rendering fog for ${game.weather}: ${fogCells.size} cells covered, ${visibleCells.size} cells visible`);
-
-            if (fogCells.size > 0) {
-                // Draw fog layer with cloud pattern - render each fogged cell
-                for (const fogCell of fogCells) {
-                    const [x, y] = fogCell.split(',').map(Number);
-                    const pixelX = gridStartX + (x * cellSize);
-                    const pixelY = gridStartY + (y * cellSize);
-
-                    // Different fog intensity based on weather
-                    let fogOpacity = 0.65;
-                    let cloudOpacity = 0.75;
-                    if (game.weather === 'hurricane') {
-                        fogOpacity = 0.85;
-                        cloudOpacity = 0.9;
-                    } else if (game.weather === 'thunderstorm') {
-                        fogOpacity = 0.75;
-                        cloudOpacity = 0.85;
-                    }
-
-                    // Base dark overlay
-                    svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}"
-                            fill="#2c3e50" opacity="${fogOpacity}"/>`;
-
-                    // Lighter cloud texture overlay
-                    svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}"
-                            fill="#7f8c8d" opacity="${cloudOpacity * 0.3}"/>`;
-                }
-            }
-
-            // Store hidden enemies for later filtering
-            game._hiddenEnemies = hiddenEnemies;
-        } else {
-            // Clear hidden enemies when weather is clear
-            game._hiddenEnemies = new Set();
-        }
-
-        // Add clean status panels with dynamic sizing
+        // Add clean status panels
         const panelX = gridStartX + (mapSize * cellSize) + 30;
-        const playerCount = game.players.size;
-        const minPlayerHeight = 60; // Base height for title and padding
-        const playerEntryHeight = 26; // Height per player entry
-        const playerPanelHeight = minPlayerHeight + (playerCount * playerEntryHeight);
 
-        // Player status panel (dynamic height)
+        // Player status panel
         svg += `<g class="map-text">`;
-        svg += `<rect x="${panelX}" y="60" width="200" height="${playerPanelHeight}" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
+        svg += `<rect x="${panelX}" y="60" width="200" height="180" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
         svg += `<text x="${panelX + 10}" y="80" font-size="14" font-weight="bold" fill="#1f2937">Player Forces</text>`;
 
         let yPos = 100;
-        let displayedPlayers = 0;
-
-        // Convert players to array and sort by join order (Map insertion order is preserved)
-        const orderedPlayers = Array.from(game.players.values());
-
-        for (const player of orderedPlayers) {
-            if (displayedPlayers >= 6) break; // Limit for clean display
+        let playerCount = 0;
+        for (const player of game.players.values()) {
+            if (playerCount >= 6) break; // Limit for clean display
             const shipName = (player.displayName || player.username || player.shipClass || 'Ship').substring(0, 15);
-            const positionNumber = displayedPlayers + 1; // Position number (1-based)
 
-            // Get ship class icon (alive or sunk)
-            const iconPath = this.getShipClassIcon(player.shipClass, player.alive);
+            // Get ship class icon
+            const iconPath = this.getShipClassIcon(player.shipClass);
 
             // Calculate health percentage
-            const currentHealth = player.currentHealth !== undefined ? player.currentHealth : (player.maxHealth || 100);
+            const currentHealth = player.currentHealth || player.maxHealth || 100;
             const maxHealth = player.maxHealth || 100;
             const healthPercent = Math.max(0, (currentHealth / maxHealth) * 100);
 
@@ -12673,10 +12186,10 @@ class NavalWarfareBot {
                 healthColor = '#f59e0b'; // Yellow for 25-49%
             }
 
-            // Ship class icon (16x16) with white background for visibility
+            // Ship class icon (16x16) with dark background for visibility
             if (iconPath) {
-                // White background rectangle for icon visibility
-                svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#ffffff" stroke="#ffffff" stroke-width="1" rx="2"/>`;
+                // Dark background rectangle for icon visibility
+                svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#1f2937" stroke="#374151" stroke-width="1" rx="2"/>`;
                 svg += `<image x="${panelX + 5}" y="${yPos - 8}" width="16" height="16" href="${iconPath}"/>`;
             } else {
                 // Fallback circle if icon not found
@@ -12684,8 +12197,8 @@ class NavalWarfareBot {
                 svg += `<circle cx="${panelX + 13}" cy="${yPos - 1}" r="4" fill="${color}"/>`;
             }
 
-            // Ship name with position number
-            svg += `<text x="${panelX + 25}" y="${yPos - 2}" font-size="10" fill="#374151">${positionNumber}. ${shipName}</text>`;
+            // Ship name
+            svg += `<text x="${panelX + 25}" y="${yPos - 2}" font-size="10" fill="#374151">${shipName}</text>`;
 
             // Health bar background
             const healthBarWidth = 120;
@@ -12702,67 +12215,23 @@ class NavalWarfareBot {
             svg += `<text x="${panelX + 25 + (healthBarWidth / 2)}" y="${yPos + 7}" font-size="8" font-weight="bold" fill="${textColor}" text-anchor="middle">${healthText}</text>`;
 
             yPos += 22; // Increased spacing for health bars
-            displayedPlayers++;
+            playerCount++;
         }
 
-        // Enemy status panel (positioned below player panel with dynamic sizing)
-        const enemyPanelY = 60 + playerPanelHeight + 20; // 20px gap between panels
-        const enemyCount = game.enemies.size;
-        const minEnemyHeight = 60; // Base height for title and padding
-        const enemyEntryHeight = 26; // Height per enemy entry
-        const enemyPanelHeight = minEnemyHeight + (enemyCount * enemyEntryHeight);
+        // Enemy status panel (moved down to accommodate larger player panel)
+        svg += `<rect x="${panelX}" y="260" width="200" height="120" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
+        svg += `<text x="${panelX + 10}" y="280" font-size="14" font-weight="bold" fill="#1f2937">Enemy Forces</text>`;
 
-        svg += `<rect x="${panelX}" y="${enemyPanelY}" width="200" height="${enemyPanelHeight}" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
-        svg += `<text x="${panelX + 10}" y="${enemyPanelY + 20}" font-size="14" font-weight="bold" fill="#1f2937">Enemy Forces</text>`;
-
-        yPos = enemyPanelY + 40;
-        let enemyDisplayCount = 0;
+        yPos = 300;
+        let enemyCount = 0;
         for (const enemy of game.enemies.values()) {
-            const enemyName = (enemy.customName || enemy.shipClass || 'Enemy').substring(0, 20);
-
-            // Get enemy class icon (alive or sunk)
-            const iconPath = this.getEnemyClassIcon(enemy.shipClass, enemy.alive);
-
-            // Enemy class icon (16x16) with white background for visibility
-            if (iconPath) {
-                // White background rectangle for icon visibility
-                svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#ffffff" stroke="#ffffff" stroke-width="1" rx="2"/>`;
-                svg += `<image x="${panelX + 5}" y="${yPos - 8}" width="16" height="16" href="${iconPath}"/>`;
-            } else {
-                // Fallback circle if icon not found
-                const color = enemy.alive ? "#ef4444" : "#991b1b";
-                svg += `<circle cx="${panelX + 13}" cy="${yPos - 1}" r="4" fill="${color}"/>`;
-            }
-
-            // Enemy name
-            svg += `<text x="${panelX + 25}" y="${yPos - 2}" font-size="10" fill="#374151">${enemyName}</text>`;
-
-            // Calculate health percentage
-            const currentHealth = enemy.currentHealth !== undefined ? enemy.currentHealth : (enemy.maxHealth || 100);
-            const maxHealth = enemy.maxHealth || 100;
-            const healthPercent = Math.max(0, (currentHealth / maxHealth) * 100);
-
-            // Determine health bar color (black for dead, red for alive)
-            let healthColor = enemy.alive ? '#ec1c24' : '#000000';
-            let bgColor = enemy.alive ? '#e5e7eb' : '#000000';
-            let borderColor = enemy.alive ? '#d1d5db' : '#000000';
-
-            // Health bar background
-            const healthBarWidth = 120;
-            const healthBarHeight = 8;
-            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${healthBarWidth}" height="${healthBarHeight}" fill="${bgColor}" stroke="${borderColor}" stroke-width="0.5" rx="2"/>`;
-
-            // Health bar fill
-            const fillWidth = (healthPercent / 100) * healthBarWidth;
-            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${fillWidth}" height="${healthBarHeight}" fill="${healthColor}" rx="2"/>`;
-
-            // Health text (white for dead, conditional for alive)
-            const healthText = `${currentHealth}/${maxHealth}`;
-            const textColor = !enemy.alive ? '#ffffff' : (healthPercent < 25 ? '#ffffff' : '#000000');
-            svg += `<text x="${panelX + 25 + (healthBarWidth / 2)}" y="${yPos + 7}" font-size="8" font-weight="bold" fill="${textColor}" text-anchor="middle">${healthText}</text>`;
-
-            yPos += 26; // More spacing between AI entries
-            enemyDisplayCount++;
+            if (enemyCount >= 4) break; // Limit for clean display
+            const enemyName = (enemy.shipClass || 'Enemy').substring(0, 15);
+            const color = enemy.alive ? "#ef4444" : "#991b1b";
+            svg += `<rect x="${panelX + 12}" y="${yPos - 6}" width="8" height="8" fill="${color}"/>`;
+            svg += `<text x="${panelX + 25}" y="${yPos}" font-size="11" fill="#374151">${enemyName}</text>`;
+            yPos += 18;
+            enemyCount++;
         }
 
         svg += `</g>`;
@@ -12770,19 +12239,14 @@ class NavalWarfareBot {
         // Calculate map bottom position
         const mapBottom = gridStartY + (mapSize * cellSize);
 
-        // Position panels horizontally aligned with force panels but at map bottom
-        const mapEndX = gridStartX + (mapSize * cellSize);
-        const panelStartX = mapEndX + 30; // Same X as force panels
-
+        // Position legend at bottom right, aligned with map bottom
+        const legendX = totalWidth - 380;
         const legendHeight = 340;
         const legendY = mapBottom - legendHeight;
 
-        // Position mission status horizontally aligned with player forces
-        const missionStatusX = panelStartX;
+        // Position mission status just above the legend
+        const missionStatusX = legendX;
         const missionStatusY = legendY - 100;
-
-        // Position legend directly under mission status panel, aligned with it
-        const legendX = missionStatusX; // Same X as mission status
 
         // Mission status panel (moved above legend)
         svg += `<g class="map-text">`;
@@ -12802,81 +12266,20 @@ class NavalWarfareBot {
         svg += `<rect x="${legendX}" y="${legendY}" width="370" height="${legendHeight}" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
         svg += `<text x="${legendX + 10}" y="${legendY + 20}" font-size="14" font-weight="bold" fill="#1f2937">Legend</text>`;
 
-        // Terrain legend (left column)
+        // Terrain legend
         svg += `<text x="${legendX + 10}" y="${legendY + 40}" font-size="12" font-weight="bold" fill="#374151">Terrain</text>`;
         const terrainItems = [
             { color: '#3b82f6', name: 'Ocean' },
             { color: '#166534', name: 'Island' },
             { color: '#0891b2', name: 'Reef' },
-            { color: '#10b981', name: 'Spawn Area' },
-            { color: '#8B0000', name: 'Minefield', isMine: true }
+            { color: '#10b981', name: 'Spawn Area' }
         ];
 
         yPos = legendY + 55;
         for (const item of terrainItems) {
-            if (item.isMine && mineBase64) {
-                // Show mine icon in legend
-                svg += `<image x="${legendX + 15}" y="${yPos - 8}" width="10" height="10" xlink:href="${mineBase64}"/>`;
-            } else {
-                svg += `<rect x="${legendX + 15}" y="${yPos - 8}" width="10" height="10" fill="${item.color}" stroke="#ffffff" stroke-width="1"/>`;
-            }
+            svg += `<rect x="${legendX + 15}" y="${yPos - 8}" width="10" height="10" fill="${item.color}" stroke="#ffffff" stroke-width="1"/>`;
             svg += `<text x="${legendX + 30}" y="${yPos}" font-size="10" fill="#374151">${item.name}</text>`;
             yPos += 15;
-        }
-
-        // Current Weather section (right of Terrain)
-        const weatherX = legendX + 150;
-        let weatherY = legendY + 40;
-        svg += `<text x="${weatherX}" y="${weatherY}" font-size="12" font-weight="bold" fill="#374151">Current Weather</text>`;
-        weatherY += 25; // Increased spacing from title
-
-        // Weather display with icon and name
-        const weatherName = game.weather.charAt(0).toUpperCase() + game.weather.slice(1);
-        let weatherIcon = '';
-        let weatherColor = '#374151';
-
-        switch (game.weather) {
-            case 'clear':
-                weatherIcon = '☀️';
-                weatherColor = '#fbbf24'; // Yellow
-                break;
-            case 'rain':
-                weatherIcon = '🌧️';
-                weatherColor = '#60a5fa'; // Blue
-                break;
-            case 'fog':
-                weatherIcon = '🌫️';
-                weatherColor = '#9ca3af'; // Gray
-                break;
-            case 'thunderstorm':
-                weatherIcon = '⛈️';
-                weatherColor = '#6366f1'; // Indigo
-                break;
-            case 'hurricane':
-                weatherIcon = '🌀';
-                weatherColor = '#dc2626'; // Red
-                break;
-            default:
-                weatherIcon = '🌤️';
-                weatherColor = '#374151';
-        }
-
-        svg += `<text x="${weatherX + 5}" y="${weatherY}" font-size="24">${weatherIcon}</text>`;
-        svg += `<text x="${weatherX + 40}" y="${weatherY - 3}" font-size="12" font-weight="bold" fill="${weatherColor}">${weatherName}</text>`;
-
-        // Add visibility warning for reduced visibility weather
-        let visibilityText = '';
-        if (game.weather === 'hurricane') {
-            visibilityText = '⚠️ Visibility: 5 cells';
-        } else if (game.weather === 'thunderstorm') {
-            visibilityText = '⚠️ Visibility: 10 cells';
-        } else if (game.weather === 'fog') {
-            visibilityText = '⚠️ Visibility: 15 cells';
-        }
-
-        if (visibilityText) {
-            weatherY += 20; // Increased spacing for visibility warning
-            svg += `<text x="${weatherX + 5}" y="${weatherY}" font-size="9" fill="#dc2626" font-style="italic">${visibilityText}</text>`;
         }
 
         // Infrastructure legend
@@ -12920,15 +12323,12 @@ class NavalWarfareBot {
 
         svg += `</g>`;
 
-        // Add compass icon
-        console.log('🧭 Adding compass to SVG, compassBase64 exists:', !!compassBase64);
-        if (compassBase64) {
-            // Position adjusted: x=80 (moved left 20px from 100), y=70
-            svg += `<image x="80" y="70" width="100" height="100" xlink:href="${compassBase64}" opacity="0.3"/>`;
-            console.log('✅ Compass added to SVG');
-        } else {
-            console.warn('⚠️ Compass not added - compassBase64 is empty');
-        }
+        // Add ship class legend in the right panel area
+        console.log('🎨 Adding ship class legend to clean SVG...');
+        const shipLegendX = totalWidth - 420;  // Position it properly in right panel
+        const shipLegendY = 500;  // Position below existing elements
+        svg += this.addCompactMapLegend(shipLegendX, shipLegendY);
+        console.log('✅ Ship class legend added to clean SVG');
 
         svg += '</svg>';
         console.log('✅ Clean SVG generation completed');
