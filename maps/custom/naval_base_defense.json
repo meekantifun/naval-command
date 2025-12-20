@@ -1,0 +1,139 @@
+{
+  "id": "naval_base_defense",
+  "name": "Naval Base Defense",
+  "description": "Fortified naval base with harbor, airfield, and defensive positions - perfect for defense missions",
+  "size": {
+    "width": 30,
+    "height": 30
+  },
+  "terrain": [
+    {"x": 12, "y": 8, "type": "island", "name": "Main Base Island"},
+    {"x": 13, "y": 8, "type": "island", "name": "Main Base Island"},
+    {"x": 14, "y": 8, "type": "island", "name": "Main Base Island"},
+    {"x": 15, "y": 8, "type": "island", "name": "Main Base Island"},
+    {"x": 16, "y": 8, "type": "island", "name": "Main Base Island"},
+    {"x": 17, "y": 8, "type": "island", "name": "Main Base Island"},
+    {"x": 12, "y": 9, "type": "island", "name": "Main Base Island"},
+    {"x": 13, "y": 9, "type": "island", "name": "Main Base Island"},
+    {"x": 14, "y": 9, "type": "island", "name": "Main Base Island"},
+    {"x": 15, "y": 9, "type": "island", "name": "Main Base Island"},
+    {"x": 16, "y": 9, "type": "island", "name": "Main Base Island"},
+    {"x": 17, "y": 9, "type": "island", "name": "Main Base Island"},
+    {"x": 12, "y": 10, "type": "island", "name": "Main Base Island"},
+    {"x": 13, "y": 10, "type": "island", "name": "Main Base Island"},
+    {"x": 14, "y": 10, "type": "island", "name": "Main Base Island"},
+    {"x": 15, "y": 10, "type": "island", "name": "Main Base Island"},
+    {"x": 16, "y": 10, "type": "island", "name": "Main Base Island"},
+    {"x": 17, "y": 10, "type": "island", "name": "Main Base Island"},
+    {"x": 12, "y": 11, "type": "island", "name": "Main Base Island"},
+    {"x": 13, "y": 11, "type": "island", "name": "Main Base Island"},
+    {"x": 14, "y": 11, "type": "island", "name": "Main Base Island"},
+    {"x": 15, "y": 11, "type": "island", "name": "Main Base Island"},
+    {"x": 16, "y": 11, "type": "island", "name": "Main Base Island"},
+    {"x": 17, "y": 11, "type": "island", "name": "Main Base Island"},
+    {"x": 12, "y": 12, "type": "island", "name": "Main Base Island"},
+    {"x": 13, "y": 12, "type": "island", "name": "Main Base Island"},
+    {"x": 14, "y": 12, "type": "island", "name": "Main Base Island"},
+    {"x": 15, "y": 12, "type": "island", "name": "Main Base Island"},
+    {"x": 16, "y": 12, "type": "island", "name": "Main Base Island"},
+    {"x": 17, "y": 12, "type": "island", "name": "Main Base Island"},
+
+    {"x": 10, "y": 7, "type": "shoal", "name": "Harbor Entrance"},
+    {"x": 11, "y": 7, "type": "shoal", "name": "Harbor Entrance"},
+    {"x": 18, "y": 7, "type": "shoal", "name": "Harbor Entrance"},
+    {"x": 19, "y": 7, "type": "shoal", "name": "Harbor Entrance"},
+
+    {"x": 10, "y": 13, "type": "shoal", "name": "South Harbor"},
+    {"x": 11, "y": 13, "type": "shoal", "name": "South Harbor"},
+    {"x": 18, "y": 13, "type": "shoal", "name": "South Harbor"},
+    {"x": 19, "y": 13, "type": "shoal", "name": "South Harbor"},
+
+    {"x": 6, "y": 5, "type": "island", "name": "Defensive Outpost Alpha"},
+    {"x": 7, "y": 5, "type": "island", "name": "Defensive Outpost Alpha"},
+    {"x": 6, "y": 6, "type": "island", "name": "Defensive Outpost Alpha"},
+    {"x": 7, "y": 6, "type": "island", "name": "Defensive Outpost Alpha"},
+
+    {"x": 22, "y": 5, "type": "island", "name": "Defensive Outpost Beta"},
+    {"x": 23, "y": 5, "type": "island", "name": "Defensive Outpost Beta"},
+    {"x": 22, "y": 6, "type": "island", "name": "Defensive Outpost Beta"},
+    {"x": 23, "y": 6, "type": "island", "name": "Defensive Outpost Beta"},
+
+    {"x": 6, "y": 14, "type": "island", "name": "Defensive Outpost Gamma"},
+    {"x": 7, "y": 14, "type": "island", "name": "Defensive Outpost Gamma"},
+    {"x": 6, "y": 15, "type": "island", "name": "Defensive Outpost Gamma"},
+    {"x": 7, "y": 15, "type": "island", "name": "Defensive Outpost Gamma"},
+
+    {"x": 22, "y": 14, "type": "island", "name": "Defensive Outpost Delta"},
+    {"x": 23, "y": 14, "type": "island", "name": "Defensive Outpost Delta"},
+    {"x": 22, "y": 15, "type": "island", "name": "Defensive Outpost Delta"},
+    {"x": 23, "y": 15, "type": "island", "name": "Defensive Outpost Delta"},
+
+    {"x": 3, "y": 9, "type": "island", "name": "Radar Station West"},
+    {"x": 3, "y": 10, "type": "island", "name": "Radar Station West"},
+
+    {"x": 26, "y": 9, "type": "island", "name": "Radar Station East"},
+    {"x": 26, "y": 10, "type": "island", "name": "Radar Station East"},
+
+    {"x": 14, "y": 3, "type": "island", "name": "Northern Airfield"},
+    {"x": 15, "y": 3, "type": "island", "name": "Northern Airfield"},
+    {"x": 16, "y": 3, "type": "island", "name": "Northern Airfield"},
+    {"x": 14, "y": 4, "type": "island", "name": "Northern Airfield"},
+    {"x": 15, "y": 4, "type": "island", "name": "Northern Airfield"},
+    {"x": 16, "y": 4, "type": "island", "name": "Northern Airfield"},
+
+    {"x": 9, "y": 9, "type": "shoal", "name": "Minefield West"},
+    {"x": 9, "y": 10, "type": "shoal", "name": "Minefield West"},
+    {"x": 9, "y": 11, "type": "shoal", "name": "Minefield West"},
+
+    {"x": 20, "y": 9, "type": "shoal", "name": "Minefield East"},
+    {"x": 20, "y": 10, "type": "shoal", "name": "Minefield East"},
+    {"x": 20, "y": 11, "type": "shoal", "name": "Minefield East"},
+
+    {"x": 1, "y": 1, "type": "island", "name": "Lighthouse Point"},
+    {"x": 28, "y": 1, "type": "island", "name": "Signal Tower"},
+    {"x": 1, "y": 18, "type": "island", "name": "Emergency Beacon"},
+    {"x": 28, "y": 18, "type": "island", "name": "Weather Station"}
+  ],
+  "spawnAreas": {
+    "friendly": [
+      {"x": 14, "y": 9, "name": "Main Harbor"},
+      {"x": 15, "y": 9, "name": "Main Harbor"},
+      {"x": 14, "y": 10, "name": "Main Harbor"},
+      {"x": 15, "y": 10, "name": "Main Harbor"},
+      {"x": 6, "y": 5, "name": "Outpost Alpha"},
+      {"x": 22, "y": 5, "name": "Outpost Beta"},
+      {"x": 6, "y": 14, "name": "Outpost Gamma"},
+      {"x": 22, "y": 14, "name": "Outpost Delta"}
+    ],
+    "enemy": [
+      {"x": 5, "y": 25, "name": "Southern Approach"},
+      {"x": 10, "y": 28, "name": "Southern Approach"},
+      {"x": 15, "y": 29, "name": "Southern Approach"},
+      {"x": 20, "y": 28, "name": "Southern Approach"},
+      {"x": 25, "y": 25, "name": "Southern Approach"},
+      {"x": 1, "y": 15, "name": "Western Approach"},
+      {"x": 1, "y": 10, "name": "Western Approach"},
+      {"x": 1, "y": 5, "name": "Western Approach"},
+      {"x": 28, "y": 15, "name": "Eastern Approach"},
+      {"x": 28, "y": 10, "name": "Eastern Approach"},
+      {"x": 28, "y": 5, "name": "Eastern Approach"},
+      {"x": 5, "y": 1, "name": "Northern Approach"},
+      {"x": 10, "y": 1, "name": "Northern Approach"},
+      {"x": 20, "y": 1, "name": "Northern Approach"},
+      {"x": 25, "y": 1, "name": "Northern Approach"}
+    ]
+  },
+  "objectives": [
+    {
+      "type": "defend",
+      "target": "Main Base Island",
+      "description": "Defend the naval base from enemy assault"
+    },
+    {
+      "type": "hold",
+      "target": "Defensive Outposts",
+      "description": "Maintain control of outer defensive positions"
+    }
+  ],
+  "notes": "Strategic naval base with central command island, four defensive outposts, airfield, radar stations, and minefields. Perfect for defense scenarios with multiple approach vectors for attackers."
+}

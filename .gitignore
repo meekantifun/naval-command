@@ -43,3 +43,12 @@ Thumbs.db
 *.tmp
 *.bak
 nul
+
+# Google credentials and sensitive config
+config/google-credentials.json
+
+# Runtime data files
+data/*.json
+
+# Claude local settings
+.claude/settings.local.json

@@ -1,0 +1,70 @@
+{
+  "_comment": "Configure where the bot should look for character data in your Google Sheets template",
+  "_instructions": "Copy this file to your server folder as 'sheet-mapping.json' and customize the cell references",
+  "_note": "Caliber column is OPTIONAL - bot automatically extracts caliber from weapon names (e.g., '20cm/50' → 200mm)",
+
+  "basic": {
+    "sheetName": "Character Info",
+    "username": "C6",
+    "shipClass": "C7",
+    "tonnage": "C8",
+    "speedKnots": "C9",
+    "hangar": "C10",
+    "belt": "C11",
+    "deck": "C12",
+    "turret": "C13",
+    "level": "C14",
+    "experience": "C15",
+    "currency": "C16",
+    "battles": "C17",
+    "victories": "C18"
+  },
+
+  "weapons": {
+    "sheetName": "Weapons",
+    "startRow": 2,
+    "endRow": 100,
+    "columns": {
+      "name": "A",
+      "type": "B",
+      "caliber": "C",
+      "damage": "D",
+      "range": "E",
+      "accuracy": "F",
+      "turrets": "G",
+      "barrels": "H"
+    }
+  },
+
+  "aa": {
+    "sheetName": "AA Systems",
+    "startRow": 2,
+    "endRow": 100,
+    "columns": {
+      "name": "A",
+      "caliber": "B",
+      "mountType": "C",
+      "damage": "D",
+      "range": "E",
+      "accuracy": "F",
+      "mounts": "G",
+      "barrels": "H"
+    }
+  },
+
+  "aircraft": {
+    "sheetName": "Aircraft",
+    "startRow": 2,
+    "endRow": 100,
+    "columns": {
+      "type": "A",
+      "name": "B",
+      "damage": "C",
+      "range": "D",
+      "accuracy": "E",
+      "health": "F",
+      "speed": "G",
+      "count": "H"
+    }
+  }
+}

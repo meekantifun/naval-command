@@ -47,13 +47,24 @@
 .game-map-canvas {
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 10px;
-  background: #1a1a2e;
+  background: transparent;
   cursor: crosshair;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .game-map-canvas:hover {
   border-color: rgba(79, 172, 254, 0.5);
+}
+
+.map-canvas-wrapper {
+  display: inline-block;
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.map-background-image {
+  display: block;
 }
 
 @media (max-width: 768px) {
