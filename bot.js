@@ -18651,8 +18651,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Generate the map immediately
                 game.map = game.generateMap(game);
 
-                // Set weather
-                game.weather = game.randomizeWeather();
+                // Set weather (randomize from available conditions)
+                const weatherOptions = ['clear', 'clear', 'clear', 'rainy', 'foggy']; // More likely to be clear
+                game.weather = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
 
                 // Store the game
                 this.games.set(channelId, game);
