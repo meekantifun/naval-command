@@ -12307,17 +12307,51 @@ class NavalWarfareBot {
         let weatherY = legendY + 40;
         svg += `<text x="${weatherX}" y="${weatherY}" font-size="12" font-weight="bold" fill="#374151">Current Weather</text>`;
         weatherY += 20;
-        const weatherSymbols = {
+
+        const currentWeather = game.weather || 'clear';
+        const weatherNames = {
             'clear': 'Clear',
-            'rainy': 'Rain',
-            'foggy': 'Fog',
-            'fog': 'Fog',
+            'rainy': 'Rainy',
+            'foggy': 'Foggy',
+            'fog': 'Foggy',
             'thunderstorm': 'Storm',
             'hurricane': 'Hurricane'
         };
-        const currentWeather = game.weather || 'clear';
-        const weatherDisplay = weatherSymbols[currentWeather] || 'Clear';
-        svg += `<text x="${weatherX}" y="${weatherY}" font-size="10" fill="#374151">${weatherDisplay}</text>`;
+
+        // Draw weather icon
+        svg += `<g transform="translate(${weatherX}, ${weatherY - 5})">`;
+        if (currentWeather === 'clear') {
+            // Sun icon
+            svg += `<circle cx="6" cy="6" r="4" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>`;
+            svg += `<line x1="6" y1="0" x2="6" y2="2" stroke="#f59e0b" stroke-width="1"/>`;
+            svg += `<line x1="6" y1="10" x2="6" y2="12" stroke="#f59e0b" stroke-width="1"/>`;
+            svg += `<line x1="0" y1="6" x2="2" y2="6" stroke="#f59e0b" stroke-width="1"/>`;
+            svg += `<line x1="10" y1="6" x2="12" y2="6" stroke="#f59e0b" stroke-width="1"/>`;
+        } else if (currentWeather === 'rainy') {
+            // Rain cloud icon
+            svg += `<ellipse cx="6" cy="4" rx="4" ry="3" fill="#94a3b8" stroke="#64748b" stroke-width="0.5"/>`;
+            svg += `<line x1="4" y1="8" x2="3" y2="11" stroke="#3b82f6" stroke-width="1"/>`;
+            svg += `<line x1="7" y1="8" x2="6" y2="11" stroke="#3b82f6" stroke-width="1"/>`;
+            svg += `<line x1="10" y1="8" x2="9" y2="11" stroke="#3b82f6" stroke-width="1"/>`;
+        } else if (currentWeather === 'foggy' || currentWeather === 'fog') {
+            // Fog icon
+            svg += `<line x1="1" y1="4" x2="11" y2="4" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>`;
+            svg += `<line x1="2" y1="7" x2="10" y2="7" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>`;
+            svg += `<line x1="1" y1="10" x2="11" y2="10" stroke="#94a3b8" stroke-width="1.5" opacity="0.6"/>`;
+        } else if (currentWeather === 'thunderstorm') {
+            // Thunderstorm icon
+            svg += `<ellipse cx="6" cy="3" rx="4" ry="2.5" fill="#475569" stroke="#334155" stroke-width="0.5"/>`;
+            svg += `<polygon points="6,6 4,9 7,9 5,12" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.5"/>`;
+        } else if (currentWeather === 'hurricane') {
+            // Hurricane spiral icon
+            svg += `<circle cx="6" cy="6" r="5" fill="none" stroke="#3b82f6" stroke-width="1"/>`;
+            svg += `<path d="M 6 6 Q 8 4, 10 6" stroke="#1e40af" stroke-width="1.5" fill="none"/>`;
+            svg += `<path d="M 6 6 Q 4 8, 2 6" stroke="#1e40af" stroke-width="1.5" fill="none"/>`;
+        }
+        svg += `</g>`;
+
+        const weatherName = weatherNames[currentWeather] || 'Clear';
+        svg += `<text x="${weatherX + 18}" y="${weatherY}" font-size="10" fill="#374151">${weatherName}</text>`;
 
         // Infrastructure legend
         yPos += 15;
