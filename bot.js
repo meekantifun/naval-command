@@ -18597,10 +18597,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // Start a game (prepare command via API)
+        // Prepare a game (like /prepare command via API)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
-                const { channelId, guildId, mapSize, maxPlayers, missionType } = req.body;
+                const { channelId, guildId, maxPlayers, userId } = req.body;
 
                 if (!channelId || !guildId) {
                     return res.status(400).json({ error: 'channelId and guildId are required' });
@@ -18617,43 +18617,39 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'A game is already active in this channel' });
                 }
 
-                // Create a new game
-                const size = mapSize || 50;
-                const maxP = maxPlayers || 6;
-                const mission = missionType || 'Naval Supremacy';
+                const maxP = maxPlayers || 8;
 
-                // This simulates the /prepare command
-                const game = {
-                    channelId,
-                    guildId,
-                    mapSize: size,
-                    maxPlayers: maxP,
-                    phase: 'joining',
-                    players: new Map(),
-                    enemies: new Map(),
-                    turnNumber: 1,
-                    missionType: mission,
-                    currentObjective: this.missions.getRandomObjective(mission),
-                    weather: 'clear',
-                    islands: [],
-                    turnOrder: []
-                };
-
+                // Create proper NavalBattle instance like /prepare does
+                const game = new NavalBattle(channelId, maxP, userId || 'web-admin', this);
+                game.guildId = guildId; // Ensure guildId is set
                 this.games.set(channelId, game);
+
+                // Update status
+                await this.statusManager.updateStatus();
+
+                // Send notification to channel
+                await channel.send({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('⚓ Naval Battle Prepared!')
+                        .setDescription(`A new naval battle has been prepared via the Admin Panel.\n\n` +
+                                      `**Max Players:** ${maxP}\n` +
+                                      `**Game Master:** Web Admin\n\n` +
+                                      `Players can join using \`/join\``)
+                        .setColor(0x5865F2)
+                        .setTimestamp()]
+                });
 
                 res.json({
                     success: true,
-                    message: 'Game created successfully',
+                    message: 'Game prepared successfully. Players can now join using /join',
                     gameInfo: {
                         channelId,
-                        mapSize: size,
                         maxPlayers: maxP,
-                        missionType: mission,
-                        phase: 'joining'
+                        phase: 'setup'
                     }
                 });
             } catch (error) {
-                console.error('Error starting game:', error);
+                console.error('Error preparing game:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
