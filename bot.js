@@ -12360,7 +12360,7 @@ class NavalWarfareBot {
 
         svg += `</g>`;
 
-        // Add compass icon at top left with 20% opacity
+        // Add compass icon at top left with 40% opacity
         const compassPath = path.join(__dirname, 'icons', 'compass.png');
         if (fs.existsSync(compassPath)) {
             const compassBuffer = fs.readFileSync(compassPath);
@@ -12368,7 +12368,7 @@ class NavalWarfareBot {
             const compassSize = 100;
             const compassX = gridStartX + 10;
             const compassY = gridStartY + 10;
-            svg += `<image x="${compassX}" y="${compassY}" width="${compassSize}" height="${compassSize}" href="${compassBase64}" opacity="0.2"/>`;
+            svg += `<image x="${compassX}" y="${compassY}" width="${compassSize}" height="${compassSize}" href="${compassBase64}" opacity="0.4"/>`;
         }
 
         svg += '</svg>';
