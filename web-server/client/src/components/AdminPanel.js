@@ -204,7 +204,7 @@ function AdminPanel({ user }) {
 
       <div className="admin-content">
         {activeTab === 'characters' && (
-          <CharacterManager guildId={selectedGuild.id} />
+          <CharacterManager guildId={selectedGuild.id} user={user} />
         )}
         {activeTab === 'maps' && (
           <MapManager guildId={selectedGuild.id} />

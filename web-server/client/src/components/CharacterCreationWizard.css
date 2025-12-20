@@ -1,0 +1,363 @@
+.wizard-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.wizard-container {
+  background: #23272a;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.wizard-header {
+  padding: 25px;
+  border-bottom: 1px solid #2c2f33;
+}
+
+.wizard-header h2 {
+  color: #fff;
+  margin: 0 0 20px 0;
+  font-size: 24px;
+}
+
+.wizard-steps {
+  display: flex;
+  gap: 10px;
+}
+
+.wizard-steps .step {
+  flex: 1;
+  padding: 10px;
+  background: #40444b;
+  border-radius: 4px;
+  text-align: center;
+  color: #72767d;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.wizard-steps .step.active {
+  background: #5865F2;
+  color: white;
+}
+
+.wizard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 25px;
+}
+
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.wizard-step h3 {
+  color: #fff;
+  margin: 0 0 15px 0;
+  font-size: 20px;
+}
+
+.wizard-step h4 {
+  color: #fff;
+  margin: 15px 0 10px 0;
+  font-size: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  color: #b9bbbe;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  padding: 10px;
+  background: #40444b;
+  border: 1px solid #202225;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #5865F2;
+}
+
+.form-group small {
+  color: #72767d;
+  font-size: 12px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.armor-section {
+  background: #2f3136;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.armor-section h4 {
+  margin-top: 0;
+}
+
+.calculated-stats {
+  background: #2f3136;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.stats-preview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+}
+
+.stat-preview {
+  background: #40444b;
+  padding: 12px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.stat-preview label {
+  display: block;
+  color: #b9bbbe;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.stat-preview span {
+  display: block;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.weapon-builder,
+.aa-builder {
+  background: #2f3136;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.btn-add {
+  width: 100%;
+  padding: 10px;
+  background: #3ba55d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.btn-add:hover {
+  background: #2d7d46;
+}
+
+.weapons-list-preview,
+.aa-list-preview {
+  background: #2f3136;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.empty-message {
+  color: #72767d;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.weapon-cards,
+.aa-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.weapon-card-preview,
+.aa-card-preview {
+  background: #40444b;
+  padding: 12px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 3px solid #5865F2;
+}
+
+.aa-card-preview {
+  border-left-color: #faa61a;
+}
+
+.weapon-card-preview strong,
+.aa-card-preview strong {
+  color: #fff;
+  font-size: 14px;
+  display: block;
+}
+
+.weapon-meta,
+.aa-meta {
+  color: #b9bbbe;
+  font-size: 12px;
+  display: block;
+  margin-top: 2px;
+}
+
+.btn-remove {
+  background: #ed4245;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove:hover {
+  background: #c03537;
+}
+
+.info-box {
+  background: #2f3136;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 3px solid #5865F2;
+}
+
+.info-box p {
+  color: #b9bbbe;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.info-box strong {
+  color: #fff;
+}
+
+.note {
+  color: #72767d;
+  font-style: italic;
+  font-size: 13px;
+  margin-top: 15px;
+}
+
+.wizard-footer {
+  padding: 20px 25px;
+  border-top: 1px solid #2c2f33;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wizard-nav {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-cancel,
+.btn-prev,
+.btn-next,
+.btn-submit {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #4f545c;
+  color: white;
+}
+
+.btn-cancel:hover {
+  background: #5d6269;
+}
+
+.btn-prev {
+  background: #40444b;
+  color: white;
+}
+
+.btn-prev:hover {
+  background: #4f545c;
+}
+
+.btn-next {
+  background: #5865F2;
+  color: white;
+}
+
+.btn-next:hover {
+  background: #4752C4;
+}
+
+.btn-submit {
+  background: #3ba55d;
+  color: white;
+}
+
+.btn-submit:hover {
+  background: #2d7d46;
+}
+
+@media (max-width: 768px) {
+  .wizard-container {
+    max-width: 100%;
+  }
+
+  .stats-preview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .wizard-steps .step {
+    font-size: 11px;
+    padding: 8px 5px;
+  }
+}

@@ -80,20 +80,18 @@ pm2 delete all || true
 echo "🚀 Starting services..."
 
 # Start Discord Bot with API
-pm2 start bot.js --name "naval-bot" --max-memory-restart 500M
+pm2 start bot.js --name "naval-bot" --max-memory-restart 500M --cwd /var/www/naval-command
 
 # Start Web Server
-pm2 start web-server/src/server.js --name "naval-web" --max-memory-restart 300M
+pm2 start web-server/src/server.js --name "naval-web" --max-memory-restart 300M --cwd /var/www/naval-command/web-server
 
-# Serve frontend build with a simple static server
-cd web-server/client
-pm2 serve build 3000 --name "naval-frontend" --spa
+# Note: Frontend is served directly by Nginx from web-server/client/build
 
 # Save PM2 configuration
 pm2 save
 
-# Setup PM2 to start on boot
-sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME
+# Setup PM2 to start on boot (if not already setup)
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp $HOME || true
 
 echo ""
 echo "✅ Deployment complete!"
