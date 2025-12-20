@@ -18597,10 +18597,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // Prepare a game (like /prepare command via API)
+        // Setup a complete game with map generation (Admin Panel)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
-                const { channelId, guildId, maxPlayers, userId } = req.body;
+                const { channelId, guildId, maxPlayers, enemyCount, mapType, customMapId, missionType, userId } = req.body;
 
                 if (!channelId || !guildId) {
                     return res.status(400).json({ error: 'channelId and guildId are required' });
@@ -18619,40 +18619,123 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 const maxP = maxPlayers || 8;
 
-                // Create proper NavalBattle instance like /prepare does
+                // Create proper NavalBattle instance
                 const game = new NavalBattle(channelId, maxP, userId || 'web-admin', this);
-                game.guildId = guildId; // Ensure guildId is set
+                game.guildId = guildId;
+
+                // Initialize setupState
+                game.setupState = {
+                    maxPlayers: maxP,
+                    enemyConfig: {
+                        count: parseInt(enemyCount || 3),
+                        random: true
+                    },
+                    mapConfig: {
+                        type: mapType || 'random',
+                        customMapId: customMapId || null
+                    },
+                    objectiveConfig: {
+                        type: missionType || 'destroy_all'
+                    },
+                    setupComplete: true
+                };
+
+                // If using custom map, load it
+                if (mapType === 'custom' && customMapId) {
+                    const customMap = this.customMaps.get(customMapId);
+                    if (customMap) {
+                        game.setupState.mapConfig.customMap = customMap;
+                    }
+                }
+
+                // Generate the map immediately
+                game.map = game.generateMap(game);
+
+                // Set weather
+                game.weather = game.randomizeWeather();
+
+                // Store the game
                 this.games.set(channelId, game);
 
-                // Update status
+                // Update bot status
                 await this.statusManager.updateStatus();
 
-                // Send notification to channel
-                await channel.send({
-                    embeds: [new EmbedBuilder()
-                        .setTitle('⚓ Naval Battle Prepared!')
-                        .setDescription(`A new naval battle has been prepared via the Admin Panel.\n\n` +
-                                      `**Max Players:** ${maxP}\n` +
-                                      `**Game Master:** Web Admin\n\n` +
-                                      `Players can join using \`/join\``)
-                        .setColor(0x5865F2)
-                        .setTimestamp()]
-                });
+                // Send setup notification
+                const setupEmbed = new EmbedBuilder()
+                    .setTitle('⚓ Naval Battle Setup Complete!')
+                    .setDescription(`A new naval battle has been prepared via the Admin Panel.\n\n` +
+                                  `**Max Players:** ${maxP}\n` +
+                                  `**AI Enemies:** ${enemyCount || 3} random enemies\n` +
+                                  `**Map Type:** ${mapType === 'custom' ? 'Custom Map' : 'Random Generated'}\n` +
+                                  `**Mission:** ${this.getMissionName(missionType || 'destroy_all')}\n` +
+                                  `**Weather:** ${game.weather.toUpperCase()}\n\n` +
+                                  `🗺️ **Map has been generated!** See below.\n\n` +
+                                  `Players can now join using \`/join\` and select spawn positions.\n` +
+                                  `Game master uses \`/start\` to begin the battle.`)
+                    .setColor(0x5865F2)
+                    .setTimestamp();
+
+                await channel.send({ embeds: [setupEmbed] });
+
+                // Generate and post the map image
+                try {
+                    const filepath = await this.createMapImage(game);
+
+                    if (filepath) {
+                        const path = require('path');
+                        const filename = path.basename(filepath);
+
+                        const mapMessage = await channel.send({
+                            content: `🗺️ **NAVAL BATTLEFIELD - SETUP**\n🌤️ Weather: ${game.weather.toUpperCase()}`,
+                            files: [{
+                                attachment: filepath,
+                                name: filename
+                            }]
+                        });
+
+                        // Pin the map message
+                        try {
+                            await mapMessage.pin();
+                            game.pinnedMapMessageId = mapMessage.id;
+                        } catch (pinError) {
+                            console.log('⚠️ Could not pin map message:', pinError.message);
+                            game.pinnedMapMessageId = mapMessage.id;
+                        }
+                    }
+                } catch (mapError) {
+                    console.error('Error generating map image:', mapError);
+                    await channel.send('⚠️ Map generated but image rendering failed. The game can still proceed.');
+                }
 
                 res.json({
                     success: true,
-                    message: 'Game prepared successfully. Players can now join using /join',
+                    message: 'Battle setup complete with map generated!',
                     gameInfo: {
                         channelId,
                         maxPlayers: maxP,
+                        enemyCount: enemyCount || 3,
+                        mapType: mapType || 'random',
+                        missionType: missionType || 'destroy_all',
                         phase: 'setup'
                     }
                 });
             } catch (error) {
-                console.error('Error preparing game:', error);
-                res.status(500).json({ error: 'Internal server error' });
+                console.error('Error setting up game:', error);
+                res.status(500).json({ error: error.message || 'Internal server error' });
             }
         });
+
+        // Helper method to get mission name
+        getMissionName(missionId) {
+            const missions = {
+                'destroy_all': 'Destroy All Enemies',
+                'resource_acquisition': 'Resource Acquisition',
+                'escort_convoy': 'Escort Convoy',
+                'capture_outpost': 'Capture Outpost',
+                'defeat_boss': 'Defeat Boss'
+            };
+            return missions[missionId] || missionId;
+        }
 
         // Start server
         app.listen(PORT, () => {

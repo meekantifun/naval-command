@@ -1,15 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './GameStarter.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
+const MISSION_TYPES = [
+  { id: 'destroy_all', name: 'Destroy All Enemies', description: 'Eliminate all enemy forces' },
+  { id: 'resource_acquisition', name: 'Resource Acquisition', description: 'Secure strategic resources' },
+  { id: 'escort_convoy', name: 'Escort Convoy', description: 'Protect allied convoy ships' },
+  { id: 'capture_outpost', name: 'Capture Outpost', description: 'Seize enemy outpost' },
+  { id: 'defeat_boss', name: 'Defeat Boss', description: 'Destroy the enemy flagship' }
+];
+
 function GameStarter({ guildId, user }) {
   const [formData, setFormData] = useState({
     channelId: '',
-    maxPlayers: 8
+    maxPlayers: 8,
+    enemyCount: 3,
+    mapType: 'random',
+    customMapId: '',
+    missionType: 'destroy_all'
   });
+  const [customMaps, setCustomMaps] = useState([]);
   const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    loadCustomMaps();
+  }, []);
+
+  const loadCustomMaps = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/admin/maps`, {
+        withCredentials: true
+      });
+      setCustomMaps(response.data.maps || []);
+    } catch (error) {
+      console.error('Error loading custom maps:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,27 +47,45 @@ function GameStarter({ guildId, user }) {
       return;
     }
 
+    if (formData.mapType === 'custom' && !formData.customMapId) {
+      alert('Please select a custom map');
+      return;
+    }
+
     setStarting(true);
     try {
-      const response = await axios.post(`${API_URL}/api/admin/start-game`, {
+      const payload = {
         channelId: formData.channelId,
         guildId,
         maxPlayers: parseInt(formData.maxPlayers),
+        enemyCount: parseInt(formData.enemyCount),
+        mapType: formData.mapType,
+        missionType: formData.missionType,
         userId: user.id
-      }, {
+      };
+
+      if (formData.mapType === 'custom') {
+        payload.customMapId = formData.customMapId;
+      }
+
+      const response = await axios.post(`${API_URL}/api/admin/start-game`, payload, {
         withCredentials: true
       });
 
-      alert(`Game prepared successfully!\n\n${response.data.message}`);
+      alert(`Game setup complete!\n\n${response.data.message}\n\nThe map has been posted to Discord. Players can now join using /join`);
 
       // Reset form
       setFormData({
         channelId: '',
-        maxPlayers: 8
+        maxPlayers: 8,
+        enemyCount: 3,
+        mapType: 'random',
+        customMapId: '',
+        missionType: 'destroy_all'
       });
     } catch (error) {
-      console.error('Error preparing game:', error);
-      const errorMsg = error.response?.data?.error || 'Failed to prepare game';
+      console.error('Error setting up game:', error);
+      const errorMsg = error.response?.data?.error || 'Failed to setup game';
       alert(`Error: ${errorMsg}`);
     } finally {
       setStarting(false);
@@ -49,8 +95,8 @@ function GameStarter({ guildId, user }) {
   return (
     <div className="game-starter">
       <div className="starter-header">
-        <h3>Prepare a New Game</h3>
-        <p>Create a game session in a Discord channel (matches /prepare command)</p>
+        <h3>⚓ Start a New Naval Battle</h3>
+        <p>Complete game setup with map generation - players can join immediately after</p>
       </div>
 
       <form onSubmit={handleSubmit} className="game-form">
@@ -66,37 +112,98 @@ function GameStarter({ guildId, user }) {
           <small>Right-click a Discord channel → Copy ID</small>
         </div>
 
+        <div className="form-row">
+          <div className="form-group">
+            <label>Max Players</label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={formData.maxPlayers}
+              onChange={(e) => setFormData({...formData, maxPlayers: e.target.value})}
+            />
+            <small>Maximum players (default: 8)</small>
+          </div>
+
+          <div className="form-group">
+            <label>AI Enemies</label>
+            <select
+              value={formData.enemyCount}
+              onChange={(e) => setFormData({...formData, enemyCount: e.target.value})}
+            >
+              <option value="0">No Enemies (PvP Only)</option>
+              <option value="3">3 Random Enemies</option>
+              <option value="5">5 Random Enemies</option>
+              <option value="8">8 Random Enemies</option>
+            </select>
+            <small>Number of AI enemies</small>
+          </div>
+        </div>
+
         <div className="form-group">
-          <label>Max Players</label>
-          <input
-            type="number"
-            min="1"
-            max="20"
-            value={formData.maxPlayers}
-            onChange={(e) => setFormData({...formData, maxPlayers: e.target.value})}
-          />
-          <small>Maximum number of players allowed in this game (default: 8)</small>
+          <label>Map Type</label>
+          <select
+            value={formData.mapType}
+            onChange={(e) => setFormData({...formData, mapType: e.target.value})}
+          >
+            <option value="random">Random Generated Map</option>
+            <option value="custom">Custom Map</option>
+          </select>
+          <small>Procedural generation or custom battlefield</small>
+        </div>
+
+        {formData.mapType === 'custom' && (
+          <div className="form-group">
+            <label>Select Custom Map *</label>
+            <select
+              value={formData.customMapId}
+              onChange={(e) => setFormData({...formData, customMapId: e.target.value})}
+              required
+            >
+              <option value="">Choose a map...</option>
+              {customMaps.map(map => (
+                <option key={map.id} value={map.id}>{map.name}</option>
+              ))}
+            </select>
+            <small>{customMaps.length === 0 ? 'No custom maps available' : `${customMaps.length} custom map(s) available`}</small>
+          </div>
+        )}
+
+        <div className="form-group">
+          <label>Mission Objective</label>
+          <select
+            value={formData.missionType}
+            onChange={(e) => setFormData({...formData, missionType: e.target.value})}
+          >
+            {MISSION_TYPES.map(mission => (
+              <option key={mission.id} value={mission.id}>
+                {mission.name} - {mission.description}
+              </option>
+            ))}
+          </select>
+          <small>Primary mission goal for this battle</small>
         </div>
 
         <button type="submit" className="btn-start" disabled={starting}>
-          {starting ? 'Preparing Game...' : '⚓ Prepare Game'}
+          {starting ? 'Setting Up Battle...' : '🚀 Start Battle'}
         </button>
       </form>
 
       <div className="starter-info">
         <h4>📌 Important Notes</h4>
         <ul>
-          <li>Make sure the bot has permission to send messages in the channel</li>
+          <li>Make sure the bot has permission to send messages and attach files in the channel</li>
           <li>Only one game can be active per channel at a time</li>
-          <li>This matches the <code>/prepare</code> command behavior</li>
-          <li>Map size and mission type will be set when the game starts with <code>/start</code></li>
+          <li>The map will be generated and posted to Discord immediately</li>
+          <li>This replaces the <code>/prepare</code> + setup wizard workflow</li>
         </ul>
 
-        <h4>🎮 Game Flow</h4>
+        <h4>🎮 New Game Flow</h4>
         <ol>
-          <li>Click "Prepare Game" to create the game session (setup phase)</li>
-          <li>Players join using <code>/join</code> command in Discord</li>
-          <li>Game master uses <code>/start</code> to configure map and begin the battle</li>
+          <li>Click "Start Battle" - game is created with full setup and map generation</li>
+          <li>Map image is posted to Discord channel and pinned</li>
+          <li>Players join using <code>/join</code> and select their spawn positions on the map</li>
+          <li>Game master uses <code>/start</code> to begin the battle (spawns enemies and starts turns)</li>
           <li>Players take turns moving and attacking</li>
           <li>Game master can end the game with <code>/end</code></li>
         </ol>
