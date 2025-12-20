@@ -18077,27 +18077,46 @@ Use \`/stats\` during a battle to view your current ship statistics!
             res.status(401).json({ error: 'Unauthorized' });
         };
 
-        // Get all active games for a user
+        // Get all active games for a user or guild
         app.get('/api/games', authenticateAPIKey, (req, res) => {
             try {
                 const userId = req.query.userId;
+                const guildId = req.query.guildId;
                 const userGames = [];
 
                 for (const [channelId, game] of this.games.entries()) {
-                    // Check if user is in this game (players is a Map)
-                    const playerInGame = game.players.has(userId);
-
-                    if (playerInGame) {
-                        userGames.push({
-                            channelId,
-                            guildId: game.guildId,
-                            mapSize: game.mapSize,
-                            currentTurn: game.turnNumber || game.currentTurn,
-                            phase: game.phase,
-                            playerCount: game.players.size,
-                            enemyCount: game.enemies.size,
-                            missionType: game.missionType || game.currentObjective?.type
-                        });
+                    // If guildId is specified, return all games in that guild
+                    if (guildId) {
+                        if (game.guildId === guildId) {
+                            const isPlayer = userId ? game.players.has(userId) : false;
+                            userGames.push({
+                                channelId,
+                                guildId: game.guildId,
+                                mapSize: game.mapSize,
+                                currentTurn: game.turnNumber || game.currentTurn,
+                                phase: game.phase,
+                                playerCount: game.players.size,
+                                enemyCount: game.enemies.size,
+                                missionType: game.missionType || game.currentObjective?.type,
+                                isPlayer: isPlayer
+                            });
+                        }
+                    } else if (userId) {
+                        // If only userId is specified, return games where user is a player
+                        const playerInGame = game.players.has(userId);
+                        if (playerInGame) {
+                            userGames.push({
+                                channelId,
+                                guildId: game.guildId,
+                                mapSize: game.mapSize,
+                                currentTurn: game.turnNumber || game.currentTurn,
+                                phase: game.phase,
+                                playerCount: game.players.size,
+                                enemyCount: game.enemies.size,
+                                missionType: game.missionType || game.currentObjective?.type,
+                                isPlayer: true
+                            });
+                        }
                     }
                 }
 

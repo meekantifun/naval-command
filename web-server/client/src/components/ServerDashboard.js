@@ -23,7 +23,10 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
     try {
       // Load games, characters, and permissions in parallel
       const [gamesRes, charsRes, permRes] = await Promise.all([
-        axios.get(`${API_URL}/api/games`, { withCredentials: true }),
+        axios.get(`${API_URL}/api/games`, {
+          params: { guildId: guild.id },
+          withCredentials: true
+        }),
         axios.get(`${API_URL}/api/admin/characters`, {
           params: { guildId: guild.id, userId: user.id },
           withCredentials: true
@@ -34,9 +37,8 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
         })
       ]);
 
-      // Filter games for this guild (games are returned per user, need to filter by guild)
-      const guildGames = (gamesRes.data.games || []).filter(g => g.guildId === guild.id);
-      setGames(guildGames);
+      // Games are already filtered by guild from the API
+      setGames(gamesRes.data.games || []);
       setCharacters(charsRes.data.characters || []);
       setHasPermission(permRes.data.hasPermission);
     } catch (error) {
@@ -188,7 +190,10 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
                 <div key={game.channelId} className="game-card">
                   <div className="game-card-header">
                     <h4>Game #{game.channelId.slice(-6)}</h4>
-                    <span className="game-turn">Turn {game.currentTurn}</span>
+                    <div className="game-badges">
+                      <span className="game-turn">Turn {game.currentTurn}</span>
+                      {game.isPlayer && <span className="badge-in-game">You're in this game</span>}
+                    </div>
                   </div>
                   <div className="game-card-body">
                     <div className="game-stat">
@@ -213,7 +218,7 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
                       onClick={() => onSelectGame(game.channelId)}
                       className="btn-enter-game"
                     >
-                      Enter Game
+                      {game.isPlayer ? 'Enter Game' : 'View Game'}
                     </button>
                   </div>
                 </div>

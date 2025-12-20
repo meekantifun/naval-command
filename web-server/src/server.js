@@ -111,9 +111,15 @@ app.get('/auth/user', ensureAuthenticated, (req, res) => {
 // Game API routes
 app.get('/api/games', ensureAuthenticated, async (req, res) => {
   try {
-    const response = await botAPI.get('/api/games', {
-      params: { userId: req.user.id }
-    });
+    const { guildId } = req.query;
+    const params = { userId: req.user.id };
+
+    // If guildId is provided, add it to params to get all games in that guild
+    if (guildId) {
+      params.guildId = guildId;
+    }
+
+    const response = await botAPI.get('/api/games', { params });
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching games:', error.message);
