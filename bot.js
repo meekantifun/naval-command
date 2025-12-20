@@ -12360,6 +12360,19 @@ class NavalWarfareBot {
 
         svg += `</g>`;
 
+        // Add compass icon at top left with 20% opacity
+        const fs = require('fs');
+        const path = require('path');
+        const compassPath = path.join(__dirname, 'icons', 'compass.png');
+        if (fs.existsSync(compassPath)) {
+            const compassBuffer = fs.readFileSync(compassPath);
+            const compassBase64 = `data:image/png;base64,${compassBuffer.toString('base64')}`;
+            const compassSize = 100;
+            const compassX = gridStartX + 10;
+            const compassY = gridStartY + 10;
+            svg += `<image x="${compassX}" y="${compassY}" width="${compassSize}" height="${compassSize}" href="${compassBase64}" opacity="0.2"/>`;
+        }
+
         svg += '</svg>';
         console.log('✅ Clean SVG generation completed');
         return svg;
