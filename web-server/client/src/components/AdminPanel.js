@@ -114,7 +114,7 @@ function AdminPanel({ user, selectedGuild, onBack }) {
           <MapManager guildId={selectedGuild?.id} />
         )}
         {activeTab === 'game' && (
-          <GameStarter guildId={selectedGuild?.id} />
+          <GameStarter guildId={selectedGuild?.id} user={user} />
         )}
       </div>
     </div>
