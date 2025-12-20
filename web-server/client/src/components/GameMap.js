@@ -344,7 +344,11 @@ function GameMap({ gameState, selectedPlayer, onCellClick, actionMode, userId, m
           </div>
         )}
       </div>
-      <div className="map-canvas-wrapper" style={{ position: 'relative' }}>
+      <div className="map-canvas-wrapper" style={{
+        position: 'relative',
+        width: canvasSize.width,
+        height: canvasSize.height
+      }}>
         {mapImageUrl && (
           <img
             ref={imageRef}
@@ -373,8 +377,11 @@ function GameMap({ gameState, selectedPlayer, onCellClick, actionMode, userId, m
           onMouseLeave={handleCanvasMouseLeave}
           className="game-map-canvas"
           style={{
-            position: 'relative',
-            zIndex: 2
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 2,
+            cursor: 'pointer'
           }}
         />
       </div>

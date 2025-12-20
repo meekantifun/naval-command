@@ -11147,7 +11147,7 @@ class NavalWarfareBot {
         const puppeteer = require('puppeteer');
 
         const mapSize = 75;
-        const cellSize = 20;
+        const cellSize = 40; // Increased from 20 to 40 for better detail
         const gridWidth = mapSize * cellSize;
         const gridHeight = mapSize * cellSize;
 
