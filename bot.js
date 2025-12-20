@@ -11141,28 +11141,30 @@ class NavalWarfareBot {
 
     async createMapImage(game, movementCoords = null) {
         console.log('🗺️ createMapImage function called');
+
+        const fs = require('fs');
+        const path = require('path');
+        const puppeteer = require('puppeteer');
+
+        const mapSize = 75;
+        const cellSize = 20;
+        const gridWidth = mapSize * cellSize;
+        const gridHeight = mapSize * cellSize;
+
+        const leftMargin = 60;
+        const topMargin = 60;
+        const rightPanelWidth = 450;
+        const bottomMargin = 50;
+
+        const totalWidth = leftMargin + gridWidth + rightPanelWidth;
+        const totalHeight = Math.max(topMargin + gridHeight + bottomMargin, 700);
+
+        // Generate SVG content FIRST so it's available for Sharp fallback
+        console.log('🗺️ Generating clean SVG content...');
+        const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
+        console.log(`📏 SVG content length: ${svgContent.length} characters`);
+
         try {
-            const fs = require('fs');
-            const path = require('path');
-            const puppeteer = require('puppeteer');
-
-            const mapSize = 75;
-            const cellSize = 20;
-            const gridWidth = mapSize * cellSize;
-            const gridHeight = mapSize * cellSize;
-
-            const leftMargin = 60;
-            const topMargin = 60;
-            const rightPanelWidth = 450;
-            const bottomMargin = 50;
-
-            const totalWidth = leftMargin + gridWidth + rightPanelWidth;
-            const totalHeight = Math.max(topMargin + gridHeight + bottomMargin, 700);
-
-            console.log('🗺️ Generating clean SVG content...');
-            const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
-            console.log(`📏 SVG content length: ${svgContent.length} characters`);
-
             console.log('🚀 Launching Puppeteer for high-quality rendering...');
             const browser = await puppeteer.launch({
                 headless: true,
@@ -12650,7 +12652,7 @@ class NavalWarfareBot {
         return group;
     }
 
-    generateClusteredInfrastructure(islandGroup, gridStartX, gridStartY, cellSize, game) {
+    generateClusteredInfrastructure(islandGroup, gridStartX, gridStartY, cellSize) {
         const infrastructure = [];
 
         if (islandGroup.length < 3) {
@@ -12685,9 +12687,9 @@ class NavalWarfareBot {
                 // Generate name for cities and towns
                 let name = null;
                 if (item.type === 'major_city' || item.type === 'port_facility') {
-                    name = game.nameGenerator.generateCityName();
+                    name = this.nameGenerator.generateCityName();
                 } else if (item.type === 'town') {
-                    name = game.nameGenerator.generateTownName();
+                    name = this.nameGenerator.generateTownName();
                 }
 
                 infrastructure.push({
