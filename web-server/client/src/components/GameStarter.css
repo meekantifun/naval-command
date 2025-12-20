@@ -79,3 +79,36 @@
   font-family: 'Courier New', monospace;
   color: #5865F2;
 }
+
+.custom-enemies-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.enemy-input {
+  display: flex;
+  flex-direction: column;
+}
+
+.enemy-input label {
+  font-size: 13px;
+  color: #b9bbbe;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.enemy-input input {
+  padding: 10px;
+  background: #40444b;
+  border: 1px solid #202225;
+  border-radius: 4px;
+  color: #dcddde;
+  font-size: 14px;
+}
+
+.enemy-input input:focus {
+  outline: none;
+  border-color: #5865F2;
+}

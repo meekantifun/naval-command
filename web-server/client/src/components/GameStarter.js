@@ -17,6 +17,15 @@ function GameStarter({ guildId, user }) {
     channelId: '',
     maxPlayers: 8,
     enemyCount: 3,
+    enemySetupType: 'random',
+    customEnemies: {
+      submarine: 0,
+      destroyer: 0,
+      light_cruiser: 0,
+      heavy_cruiser: 0,
+      battleship: 0,
+      carrier: 0
+    },
     mapType: 'random',
     customMapId: '',
     missionType: 'destroy_all'
@@ -58,11 +67,20 @@ function GameStarter({ guildId, user }) {
         channelId: formData.channelId,
         guildId,
         maxPlayers: parseInt(formData.maxPlayers),
-        enemyCount: parseInt(formData.enemyCount),
         mapType: formData.mapType,
         missionType: formData.missionType,
         userId: user.id
       };
+
+      // Handle enemy configuration
+      if (formData.enemySetupType === 'none') {
+        payload.enemyCount = 0;
+      } else if (formData.enemySetupType === 'custom') {
+        payload.customEnemies = formData.customEnemies;
+        payload.enemyCount = 0; // Will be calculated from custom enemies
+      } else {
+        payload.enemyCount = parseInt(formData.enemyCount);
+      }
 
       if (formData.mapType === 'custom') {
         payload.customMapId = formData.customMapId;
@@ -79,6 +97,15 @@ function GameStarter({ guildId, user }) {
         channelId: '',
         maxPlayers: 8,
         enemyCount: 3,
+        enemySetupType: 'random',
+        customEnemies: {
+          submarine: 0,
+          destroyer: 0,
+          light_cruiser: 0,
+          heavy_cruiser: 0,
+          battleship: 0,
+          carrier: 0
+        },
         mapType: 'random',
         customMapId: '',
         missionType: 'destroy_all'
@@ -126,19 +153,120 @@ function GameStarter({ guildId, user }) {
           </div>
 
           <div className="form-group">
-            <label>AI Enemies</label>
+            <label>AI Enemy Setup</label>
+            <select
+              value={formData.enemySetupType}
+              onChange={(e) => setFormData({...formData, enemySetupType: e.target.value})}
+            >
+              <option value="none">No Enemies (PvP Only)</option>
+              <option value="random">Random Enemies</option>
+              <option value="custom">Custom Setup</option>
+            </select>
+            <small>Choose enemy configuration type</small>
+          </div>
+        </div>
+
+        {formData.enemySetupType === 'random' && (
+          <div className="form-group">
+            <label>Number of Random Enemies</label>
             <select
               value={formData.enemyCount}
               onChange={(e) => setFormData({...formData, enemyCount: e.target.value})}
             >
-              <option value="0">No Enemies (PvP Only)</option>
               <option value="3">3 Random Enemies</option>
               <option value="5">5 Random Enemies</option>
               <option value="8">8 Random Enemies</option>
             </select>
-            <small>Number of AI enemies</small>
+            <small>AI will spawn random ship types</small>
           </div>
-        </div>
+        )}
+
+        {formData.enemySetupType === 'custom' && (
+          <div className="form-group">
+            <label>Custom Enemy Fleet</label>
+            <div className="custom-enemies-grid">
+              <div className="enemy-input">
+                <label>Submarines</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.submarine}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, submarine: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+              <div className="enemy-input">
+                <label>Destroyers</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.destroyer}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, destroyer: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+              <div className="enemy-input">
+                <label>Light Cruisers</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.light_cruiser}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, light_cruiser: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+              <div className="enemy-input">
+                <label>Heavy Cruisers</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.heavy_cruiser}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, heavy_cruiser: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+              <div className="enemy-input">
+                <label>Battleships</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.battleship}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, battleship: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+              <div className="enemy-input">
+                <label>Aircraft Carriers</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.carrier}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, carrier: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+            </div>
+            <small>Specify exact number of each ship type</small>
+          </div>
+        )}
 
         <div className="form-group">
           <label>Map Type</label>
