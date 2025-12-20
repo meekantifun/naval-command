@@ -12277,15 +12277,13 @@ class NavalWarfareBot {
             { color: '#3b82f6', name: 'Ocean' },
             { color: '#166534', name: 'Island' },
             { color: '#0891b2', name: 'Reef' },
-            { color: '#10b981', name: 'Spawn Area' },
-            { color: '#8B0000', name: 'Minefield', icon: '💣' }
+            { color: '#10b981', name: 'Spawn Area' }
         ];
 
         yPos = legendY + 55;
         for (const item of terrainItems) {
             svg += `<rect x="${legendX + 15}" y="${yPos - 8}" width="10" height="10" fill="${item.color}" stroke="#ffffff" stroke-width="1"/>`;
-            const displayName = item.icon ? `${item.icon} ${item.name}` : item.name;
-            svg += `<text x="${legendX + 30}" y="${yPos}" font-size="10" fill="#374151">${displayName}</text>`;
+            svg += `<text x="${legendX + 30}" y="${yPos}" font-size="10" fill="#374151">${item.name}</text>`;
             yPos += 15;
         }
 
@@ -14540,12 +14538,58 @@ class NavalWarfareBot {
                 }
             }
 
-            // Check for mines (orange diamonds) with better styling
+            // Check for mines - only visible if a player is within 5 cells
             for (const mine of game.mines || []) {
                 if (mine.position === coord) {
-                    const diamondSize = cellSize * 0.7; // Slightly larger
-                    entitySVG += `<polygon points="${centerX},${centerY-diamondSize} ${centerX+diamondSize},${centerY} ${centerX},${centerY+diamondSize} ${centerX-diamondSize},${centerY}" 
-                                 fill="#FF4500" stroke="#000" stroke-width="1" class="smooth-shapes"/>`;
+                    // Check if any player is within 5 cells of the mine
+                    let mineVisible = false;
+                    const mineCoords = this.coordToNumbers(mine.position);
+
+                    for (const player of game.players.values()) {
+                        if (player.position && player.alive) {
+                            const playerCoords = this.coordToNumbers(player.position);
+                            if (playerCoords && mineCoords) {
+                                const distance = Math.sqrt(
+                                    Math.pow(playerCoords.x - mineCoords.x, 2) +
+                                    Math.pow((playerCoords.y - 1) - (mineCoords.y - 1), 2)
+                                );
+                                if (distance <= 5) {
+                                    mineVisible = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Only render if visible
+                    if (mineVisible) {
+                        // Load mine icon
+                        const fs = require('fs');
+                        const path = require('path');
+                        const minePath = path.join(__dirname, 'icons', 'mine.png');
+
+                        if (fs.existsSync(minePath)) {
+                            try {
+                                const mineBuffer = fs.readFileSync(minePath);
+                                const mineBase64 = `data:image/png;base64,${mineBuffer.toString('base64')}`;
+
+                                const iconSize = cellSize * 0.6;
+                                const iconX = centerX - iconSize / 2;
+                                const iconY = centerY - iconSize / 2;
+                                entitySVG += `<image x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" href="${mineBase64}"/>`;
+                            } catch (error) {
+                                // Fallback to red circle with M
+                                const radius = cellSize * 0.3;
+                                entitySVG += `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="#8B0000" stroke="#000" stroke-width="1"/>`;
+                                entitySVG += `<text x="${centerX}" y="${centerY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF">M</text>`;
+                            }
+                        } else {
+                            // Fallback to red circle with M if icon doesn't exist
+                            const radius = cellSize * 0.3;
+                            entitySVG += `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="#8B0000" stroke="#000" stroke-width="1"/>`;
+                            entitySVG += `<text x="${centerX}" y="${centerY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="#FFFFFF">M</text>`;
+                        }
+                    }
                     return entitySVG;
                 }
             }
