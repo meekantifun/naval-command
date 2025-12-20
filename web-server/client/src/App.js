@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import GameSelector from './components/GameSelector';
+import ServerSelector from './components/ServerSelector';
+import ServerDashboard from './components/ServerDashboard';
 import GameView from './components/GameView';
 import Login from './components/Login';
-import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -11,8 +11,8 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedGuild, setSelectedGuild] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
-  const [currentView, setCurrentView] = useState('games'); // 'games' or 'admin'
 
   useEffect(() => {
     checkAuth();
@@ -37,8 +37,8 @@ function App() {
         withCredentials: true
       });
       setUser(null);
+      setSelectedGuild(null);
       setSelectedGame(null);
-      setCurrentView('games');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -59,6 +59,7 @@ function App() {
     return <Login />;
   }
 
+  // If in a game, show the game view
   if (selectedGame) {
     return (
       <GameView
@@ -70,43 +71,35 @@ function App() {
     );
   }
 
-  return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Naval Command</h1>
-        <nav className="app-nav">
-          <button
-            className={`nav-btn ${currentView === 'games' ? 'active' : ''}`}
-            onClick={() => setCurrentView('games')}
-          >
-            🎮 Games
-          </button>
-          <button
-            className={`nav-btn ${currentView === 'admin' ? 'active' : ''}`}
-            onClick={() => setCurrentView('admin')}
-          >
-            ⚙️ Admin Panel
-          </button>
-        </nav>
-        <div className="user-info">
-          <span>Welcome, {user.username}</span>
-          <button onClick={handleLogout} className="btn btn-secondary">
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {currentView === 'games' && (
-        <GameSelector
+  // If no guild selected, show guild selector
+  if (!selectedGuild) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <h1>Naval Command</h1>
+          <div className="user-info">
+            <span>Welcome, {user.username}</span>
+            <button onClick={handleLogout} className="btn btn-secondary">
+              Logout
+            </button>
+          </div>
+        </header>
+        <ServerSelector
           user={user}
-          onSelectGame={setSelectedGame}
+          onSelectServer={setSelectedGuild}
         />
-      )}
+      </div>
+    );
+  }
 
-      {currentView === 'admin' && (
-        <AdminPanel user={user} />
-      )}
-    </div>
+  // Show dashboard for selected guild
+  return (
+    <ServerDashboard
+      user={user}
+      guild={selectedGuild}
+      onSelectGame={setSelectedGame}
+      onChangeServer={() => setSelectedGuild(null)}
+    />
   );
 }
 
