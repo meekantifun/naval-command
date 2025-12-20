@@ -18660,6 +18660,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Update bot status
                 await this.statusManager.updateStatus();
 
+                // Get mission name
+                const missionNames = {
+                    'destroy_all': 'Destroy All Enemies',
+                    'resource_acquisition': 'Resource Acquisition',
+                    'escort_convoy': 'Escort Convoy',
+                    'capture_outpost': 'Capture Outpost',
+                    'defeat_boss': 'Defeat Boss'
+                };
+                const missionName = missionNames[missionType || 'destroy_all'] || missionType;
+
                 // Send setup notification
                 const setupEmbed = new EmbedBuilder()
                     .setTitle('⚓ Naval Battle Setup Complete!')
@@ -18667,7 +18677,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                                   `**Max Players:** ${maxP}\n` +
                                   `**AI Enemies:** ${enemyCount || 3} random enemies\n` +
                                   `**Map Type:** ${mapType === 'custom' ? 'Custom Map' : 'Random Generated'}\n` +
-                                  `**Mission:** ${this.getMissionName(missionType || 'destroy_all')}\n` +
+                                  `**Mission:** ${missionName}\n` +
                                   `**Weather:** ${game.weather.toUpperCase()}\n\n` +
                                   `🗺️ **Map has been generated!** See below.\n\n` +
                                   `Players can now join using \`/join\` and select spawn positions.\n` +
@@ -18724,18 +18734,6 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 res.status(500).json({ error: error.message || 'Internal server error' });
             }
         });
-
-        // Helper method to get mission name
-        getMissionName(missionId) {
-            const missions = {
-                'destroy_all': 'Destroy All Enemies',
-                'resource_acquisition': 'Resource Acquisition',
-                'escort_convoy': 'Escort Convoy',
-                'capture_outpost': 'Capture Outpost',
-                'defeat_boss': 'Defeat Boss'
-            };
-            return missions[missionId] || missionId;
-        }
 
         // Start server
         app.listen(PORT, () => {
