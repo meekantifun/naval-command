@@ -302,13 +302,24 @@ function GameView({ channelId, user, onBack, onLogout }) {
         </div>
 
         <div className="game-main">
-          <GameMap
-            gameState={gameState}
-            selectedPlayer={selectedPlayer}
-            onCellClick={handleMapClick}
-            actionMode={actionMode}
-            userId={user.id}
-          />
+          {gameState.hasMapImage ? (
+            <div className="map-image-container">
+              <img
+                src={`${API_URL}/api/game/${channelId}/map-image`}
+                alt="Game Map"
+                className="game-map-image"
+              />
+              <p className="map-note">This is the generated battle map. Use Discord or the canvas view for interactive features.</p>
+            </div>
+          ) : (
+            <GameMap
+              gameState={gameState}
+              selectedPlayer={selectedPlayer}
+              onCellClick={handleMapClick}
+              actionMode={actionMode}
+              userId={user.id}
+            />
+          )}
         </div>
       </div>
     </div>

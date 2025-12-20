@@ -137,6 +137,18 @@ app.get('/api/game/:channelId/state', ensureAuthenticated, async (req, res) => {
   }
 });
 
+app.get('/api/game/:channelId/map-image', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.get(`/api/game/${req.params.channelId}/map-image`, {
+      responseType: 'stream'
+    });
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('Error fetching map image:', error.message);
+    res.status(error.response?.status || 500).json({ error: 'Failed to fetch map image' });
+  }
+});
+
 app.post('/api/game/:channelId/move', ensureAuthenticated, async (req, res) => {
   try {
     const { x, y, characterAlias } = req.body;

@@ -17707,10 +17707,37 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     players: playersArray,
                     enemies: enemiesArray,
                     islands: game.islands,
-                    turnOrder: game.turnOrder
+                    turnOrder: game.turnOrder,
+                    hasMapImage: !!game.mapImagePath
                 });
             } catch (error) {
                 console.error('Error fetching game state:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Get map image for a game
+        app.get('/api/game/:channelId/map-image', authenticateAPIKey, (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const game = this.games.get(channelId);
+
+                if (!game) {
+                    return res.status(404).json({ error: 'Game not found' });
+                }
+
+                if (!game.mapImagePath) {
+                    return res.status(404).json({ error: 'Map image not available' });
+                }
+
+                const fs = require('fs');
+                if (!fs.existsSync(game.mapImagePath)) {
+                    return res.status(404).json({ error: 'Map image file not found' });
+                }
+
+                res.sendFile(game.mapImagePath);
+            } catch (error) {
+                console.error('Error serving map image:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
@@ -18257,6 +18284,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     if (filepath) {
                         const path = require('path');
                         const filename = path.basename(filepath);
+
+                        // Store map image path for web access
+                        game.mapImagePath = filepath;
 
                         const mapMessage = await channel.send({
                             content: `🗺️ **NAVAL BATTLEFIELD - SETUP**\n🌤️ Weather: ${game.weather.toUpperCase()}`,
