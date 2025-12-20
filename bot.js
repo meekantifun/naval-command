@@ -12108,10 +12108,6 @@ class NavalWarfareBot {
             throw new Error('game.getMapCell is not a function');
         }
 
-        // Draw clean ocean background
-        svg += `<rect x="${gridStartX}" y="${gridStartY}" width="${mapSize * cellSize}" height="${mapSize * cellSize}"
-                fill="#4A9FF5" stroke="#ffffff" stroke-width="2" stroke-opacity="0.3"/>`;
-
         // Calculate fog of war visibility BEFORE drawing anything
         let visibleCells = new Set();
         let hiddenEnemies = new Set();
@@ -12175,7 +12171,7 @@ class NavalWarfareBot {
             }
         }
 
-        // Draw terrain cells and collect island groups
+        // Draw ALL cells individually (ocean, terrain, etc) with borders for visible grid
         const infrastructureElements = [];
         const islandGroups = this.identifyIslandGroups(game, mapSize);
 
@@ -12194,8 +12190,10 @@ class NavalWarfareBot {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="reef-cell"/>`;
                     } else if (cell.type === 'spawn') {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="spawn-cell"/>`;
-
                         // Spawn zones are for players only - no infrastructure
+                    } else if (cell.type === 'ocean') {
+                        // Draw ocean cells individually to show grid
+                        svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="ocean-cell"/>`;
                     } else if (cell.type === 'mine') {
                         // Only draw mine if visible
                         const mineCellKey = `${x},${y}`;
