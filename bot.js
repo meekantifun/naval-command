@@ -11238,21 +11238,15 @@ class NavalWarfareBot {
             console.error('❌ Error creating map image with Puppeteer:', error);
 
             // Fallback to Sharp if Puppeteer fails
-            console.log('⚠️ Puppeteer failed, falling back to Sharp with minimal SVG...');
+            console.log('⚠️ Puppeteer failed, falling back to Sharp with full SVG...');
             try {
                 const sharp = require('sharp');
                 const fs = require('fs');
                 const path = require('path');
 
-                const mapSize = 75;
-                const cellSize = 20;
-                const totalWidth = 60 + (mapSize * cellSize) + 450;
-                const totalHeight = Math.max(60 + (mapSize * cellSize) + 50, 700);
+                console.log(`📏 Using full SVG for Sharp fallback: ${svgContent.length} characters`);
 
-                const minimalSvg = this.generateUltraMinimalMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
-                console.log(`📏 Fallback minimal SVG length: ${minimalSvg.length} characters`);
-
-                const image = await sharp(Buffer.from(minimalSvg))
+                const image = await sharp(Buffer.from(svgContent))
                     .png({ quality: 90, compressionLevel: 6 })
                     .toBuffer();
 
