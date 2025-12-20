@@ -12287,23 +12287,29 @@ class NavalWarfareBot {
             yPos += 15;
         }
 
+        // Mine icon in terrain section
+        svg += `<g transform="translate(${legendX + 20}, ${yPos - 3})">`;
+        svg += this.drawMiniMine();
+        svg += `</g>`;
+        svg += `<text x="${legendX + 30}" y="${yPos}" font-size="10" fill="#374151">Mine (hidden)</text>`;
+        yPos += 15;
+
         // Current Weather (right side of Terrain section)
         const weatherX = legendX + 150;
         let weatherY = legendY + 40;
         svg += `<text x="${weatherX}" y="${weatherY}" font-size="12" font-weight="bold" fill="#374151">Current Weather</text>`;
         weatherY += 20;
-        const weatherIcons = {
-            'clear': '☀️',
-            'rainy': '🌧️',
-            'foggy': '🌫️',
-            'fog': '🌫️',
-            'thunderstorm': '⛈️',
-            'hurricane': '🌀'
+        const weatherSymbols = {
+            'clear': 'Clear',
+            'rainy': 'Rain',
+            'foggy': 'Fog',
+            'fog': 'Fog',
+            'thunderstorm': 'Storm',
+            'hurricane': 'Hurricane'
         };
         const currentWeather = game.weather || 'clear';
-        const weatherIcon = weatherIcons[currentWeather] || '🌤️';
-        const weatherName = currentWeather.charAt(0).toUpperCase() + currentWeather.slice(1);
-        svg += `<text x="${weatherX}" y="${weatherY}" font-size="10" fill="#374151">${weatherIcon} ${weatherName}</text>`;
+        const weatherDisplay = weatherSymbols[currentWeather] || 'Clear';
+        svg += `<text x="${weatherX}" y="${weatherY}" font-size="10" fill="#374151">${weatherDisplay}</text>`;
 
         // Infrastructure legend
         yPos += 15;
@@ -14132,6 +14138,17 @@ class NavalWarfareBot {
             <rect x="-1" y="-2.5" width="2" height="0.8" fill="#dc2626" stroke="#b91c1c" stroke-width="0.3"/>
             <polygon points="0,-2.5 -1.5,-3.5 1.5,-3.5" fill="#fbbf24" opacity="0.6"/>
             <rect x="-1" y="1" width="2" height="1" fill="#64748b" stroke="#475569" stroke-width="0.3"/>
+        </g>`;
+    }
+
+    drawMiniMine() {
+        return `
+        <g transform="scale(2.5)">
+            <circle cx="0" cy="0" r="1.2" fill="#8B0000" stroke="#000000" stroke-width="0.3"/>
+            <line x1="-1.8" y1="0" x2="1.8" y2="0" stroke="#000000" stroke-width="0.3"/>
+            <line x1="0" y1="-1.8" x2="0" y2="1.8" stroke="#000000" stroke-width="0.3"/>
+            <line x1="-1.3" y1="-1.3" x2="1.3" y2="1.3" stroke="#000000" stroke-width="0.3"/>
+            <line x1="-1.3" y1="1.3" x2="1.3" y2="-1.3" stroke="#000000" stroke-width="0.3"/>
         </g>`;
     }
 
