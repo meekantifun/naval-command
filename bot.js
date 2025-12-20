@@ -18124,7 +18124,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
         // Setup a complete game with map generation (Admin Panel)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
-                const { channelId, guildId, maxPlayers, enemyCount, mapType, customMapId, missionType, userId } = req.body;
+                const { channelId, guildId, maxPlayers, enemyCount, customEnemies, mapType, customMapId, missionType, userId } = req.body;
 
                 if (!channelId || !guildId) {
                     return res.status(400).json({ error: 'channelId and guildId are required' });
@@ -18147,13 +18147,26 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const game = new NavalBattle(channelId, maxP, userId || 'web-admin', this);
                 game.guildId = guildId;
 
+                // Handle enemy configuration
+                let enemyConfig;
+                if (customEnemies) {
+                    // Custom enemy setup
+                    enemyConfig = {
+                        random: false,
+                        customFleet: customEnemies
+                    };
+                } else {
+                    // Random enemies
+                    enemyConfig = {
+                        count: parseInt(enemyCount || 3),
+                        random: true
+                    };
+                }
+
                 // Initialize setupState
                 game.setupState = {
                     maxPlayers: maxP,
-                    enemyConfig: {
-                        count: parseInt(enemyCount || 3),
-                        random: true
-                    },
+                    enemyConfig: enemyConfig,
                     mapConfig: {
                         type: mapType || 'random',
                         customMapId: customMapId || null
@@ -18195,12 +18208,37 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 };
                 const missionName = missionNames[missionType || 'destroy_all'] || missionType;
 
+                // Format enemy info
+                let enemyInfo;
+                if (customEnemies) {
+                    const shipNames = {
+                        submarine: 'Submarine',
+                        destroyer: 'Destroyer',
+                        light_cruiser: 'Light Cruiser',
+                        heavy_cruiser: 'Heavy Cruiser',
+                        battleship: 'Battleship',
+                        carrier: 'Aircraft Carrier'
+                    };
+                    const fleet = [];
+                    let totalEnemies = 0;
+                    for (const [type, count] of Object.entries(customEnemies)) {
+                        if (count > 0) {
+                            fleet.push(`${count}x ${shipNames[type] || type}`);
+                            totalEnemies += count;
+                        }
+                    }
+                    enemyInfo = totalEnemies === 0 ? 'None (PvP Only)' : `Custom Fleet:\n${fleet.join('\n')}`;
+                } else {
+                    const count = parseInt(enemyCount || 3);
+                    enemyInfo = count === 0 ? 'None (PvP Only)' : `${count} random enemies`;
+                }
+
                 // Send setup notification
                 const setupEmbed = new EmbedBuilder()
                     .setTitle('⚓ Naval Battle Setup Complete!')
                     .setDescription(`A new naval battle has been prepared via the Admin Panel.\n\n` +
                                   `**Max Players:** ${maxP}\n` +
-                                  `**AI Enemies:** ${enemyCount || 3} random enemies\n` +
+                                  `**AI Enemies:** ${enemyInfo}\n` +
                                   `**Map Type:** ${mapType === 'custom' ? 'Custom Map' : 'Random Generated'}\n` +
                                   `**Mission:** ${missionName}\n` +
                                   `**Weather:** ${game.weather.toUpperCase()}\n\n` +
