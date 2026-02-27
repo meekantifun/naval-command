@@ -7,6 +7,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 function ServerSelector({ user, onSelectServer }) {
   const [guilds, setGuilds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadMutualGuilds();
@@ -32,10 +33,11 @@ function ServerSelector({ user, onSelectServer }) {
       const mutualGuilds = user.guilds.filter(guild => botGuildIds.has(guild.id));
 
       setGuilds(mutualGuilds);
+      setError(null);
     } catch (error) {
       console.error('Error loading mutual guilds:', error);
-      // Fallback to showing all user guilds if bot guilds fetch fails
-      setGuilds(user.guilds);
+      setGuilds([]);
+      setError('Unable to reach the bot. It may be offline or restarting. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -47,6 +49,20 @@ function ServerSelector({ user, onSelectServer }) {
         <div className="loading">
           <div className="spinner"></div>
           <p>Loading servers...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="server-selector">
+        <div className="empty-state">
+          <h2>Bot Unavailable</h2>
+          <p>{error}</p>
+          <button onClick={() => { setLoading(true); setError(null); loadMutualGuilds(); }} className="btn-retry">
+            Try Again
+          </button>
         </div>
       </div>
     );
