@@ -8,6 +8,7 @@ function ServerSelector({ user, onSelectServer }) {
   const [guilds, setGuilds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     loadMutualGuilds();
@@ -80,14 +81,28 @@ function ServerSelector({ user, onSelectServer }) {
     );
   }
 
+  const filteredGuilds = guilds.filter(guild =>
+    guild.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="server-selector">
       <div className="selector-header">
         <h2>Select a Server</h2>
         <p>Choose which server you want to view:</p>
+        <input
+          type="text"
+          className="server-search"
+          placeholder="Search servers..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
       <div className="guild-grid">
-        {guilds.map(guild => (
+        {filteredGuilds.length === 0 && (
+          <p className="no-results">No servers match "{search}"</p>
+        )}
+        {filteredGuilds.map(guild => (
           <div
             key={guild.id}
             className="guild-card"
