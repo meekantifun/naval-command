@@ -786,20 +786,29 @@ class NavalWarfareBot {
         }
 
         // Bot not connected to Discord - scan servers/ for a folder whose
-        // guild_id.txt matches this guildId (avoids creating a duplicate folder)
+        // guild_id.txt matches this guildId (avoids creating a duplicate folder).
+        // Prefer folders that have playerData.json over empty fallback folders.
         try {
+            const path = require('path');
             const serversDir = './servers';
             if (fs.existsSync(serversDir)) {
                 const entries = fs.readdirSync(serversDir);
+                let fallbackMatch = null;
                 for (const entry of entries) {
-                    const idFile = require('path').join(serversDir, entry, 'guild_id.txt');
+                    const idFile = path.join(serversDir, entry, 'guild_id.txt');
                     if (fs.existsSync(idFile)) {
                         const storedId = fs.readFileSync(idFile, 'utf8').trim();
                         if (storedId === guildId) {
-                            return entry;
+                            // Prefer this folder if it has player data
+                            const dataFile = path.join(serversDir, entry, 'playerData.json');
+                            if (fs.existsSync(dataFile)) {
+                                return entry;
+                            }
+                            fallbackMatch = entry; // Keep as fallback if no data file
                         }
                     }
                 }
+                if (fallbackMatch) return fallbackMatch;
             }
         } catch (err) {
             // Ignore scan errors, fall through to guildId fallback
