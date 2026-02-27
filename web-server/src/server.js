@@ -7,6 +7,57 @@ const session = require('express-session');
 const passport = require('passport');
 const DiscordStrategy = require('passport-discord').Strategy;
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+
+// Path to bot's guild data (same server, different directory)
+const BOT_DATA_ROOT = path.join(__dirname, '../../servers');
+
+// Find the folder for a guild by scanning guild_id.txt files.
+// Prefers folders that have playerData.json over empty fallback folders.
+function findGuildFolder(guildId) {
+    try {
+        if (!fs.existsSync(BOT_DATA_ROOT)) return null;
+        const entries = fs.readdirSync(BOT_DATA_ROOT);
+        let fallback = null;
+        for (const entry of entries) {
+            const idFile = path.join(BOT_DATA_ROOT, entry, 'guild_id.txt');
+            if (fs.existsSync(idFile)) {
+                const storedId = fs.readFileSync(idFile, 'utf8').trim();
+                if (storedId === guildId) {
+                    const dataFile = path.join(BOT_DATA_ROOT, entry, 'playerData.json');
+                    if (fs.existsSync(dataFile)) return entry;
+                    fallback = entry;
+                }
+            }
+        }
+        return fallback;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Read characters directly from the bot's JSON data files (fallback when bot API is down)
+function readCharactersFromFiles(guildId) {
+    const folder = findGuildFolder(guildId);
+    if (!folder) return null;
+    const dataFile = path.join(BOT_DATA_ROOT, folder, 'playerData.json');
+    if (!fs.existsSync(dataFile)) return null;
+    try {
+        const playerData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+        const allCharacters = [];
+        for (const [userId, userData] of Object.entries(playerData)) {
+            if (userData.characters) {
+                for (const [name, data] of Object.entries(userData.characters)) {
+                    allCharacters.push({ name, ...data, userId, isActive: userData.activeCharacter === name });
+                }
+            }
+        }
+        return allCharacters;
+    } catch (e) {
+        return null;
+    }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -296,7 +347,14 @@ app.get('/api/admin/characters', ensureAuthenticated, async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
-    console.error('Error fetching characters:', error.message);
+    // Bot API unavailable - fall back to reading files directly
+    console.warn('Bot API unavailable for characters, reading from files:', error.message);
+    const characters = readCharactersFromFiles(guildId);
+    if (characters !== null) {
+      let result = characters;
+      if (userId) result = characters.filter(c => c.userId === userId);
+      return res.json({ characters: result, source: 'filesystem' });
+    }
     res.status(error.response?.status || 500).json({
       error: error.response?.data?.error || 'Failed to fetch characters'
     });
