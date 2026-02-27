@@ -784,6 +784,27 @@ class NavalWarfareBot {
             // Sanitize guild name for filesystem
             return guild.name.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
         }
+
+        // Bot not connected to Discord - scan servers/ for a folder whose
+        // guild_id.txt matches this guildId (avoids creating a duplicate folder)
+        try {
+            const serversDir = './servers';
+            if (fs.existsSync(serversDir)) {
+                const entries = fs.readdirSync(serversDir);
+                for (const entry of entries) {
+                    const idFile = require('path').join(serversDir, entry, 'guild_id.txt');
+                    if (fs.existsSync(idFile)) {
+                        const storedId = fs.readFileSync(idFile, 'utf8').trim();
+                        if (storedId === guildId) {
+                            return entry;
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            // Ignore scan errors, fall through to guildId fallback
+        }
+
         return guildId; // Fallback to guild ID if name not available
     }
 
