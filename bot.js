@@ -19823,9 +19823,25 @@ module.exports = { NavalWarfareBot, NavalBattle };
 // ║                               SETUP CHECKLIST                                ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
+// Handle Discord client errors so they don't crash the process
+// (keeps the HTTP API alive for the web dashboard even when Discord is unavailable)
+bot.client.on('error', (error) => {
+    console.error('⚠️ Discord client error (non-fatal):', error.message);
+});
+
 bot.client.login(process.env.DISCORD_TOKEN).then(() => {
 }).catch(error => {
-   console.error('❌ Failed to start:', error);
+    console.error('❌ Failed to connect to Discord:', error.message);
+
+    // If rate-limited, log the reset time but keep the process alive
+    // so the HTTP API remains available for the web dashboard
+    if (error.message && error.message.includes('resets at')) {
+        const resetMatch = error.message.match(/resets at (.+)/);
+        if (resetMatch) {
+            console.error(`⏳ Discord rate limited. Sessions reset at: ${resetMatch[1]}`);
+            console.error('ℹ️ HTTP API is still running on port ' + (process.env.BOT_API_PORT || 3002));
+        }
+    }
 });
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
