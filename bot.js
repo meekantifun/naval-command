@@ -19884,5 +19884,10 @@ process.on('SIGINT', async () => {
 });
 
 process.on('unhandledRejection', (error) => {
-   console.error('Unhandled promise rejection:', error);
+   console.error('Unhandled promise rejection:', error.message || error);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('⚠️ Uncaught exception (non-fatal):', error.message || error);
+    // Don't exit - keep the HTTP API alive for the web dashboard
 });
