@@ -404,6 +404,98 @@
   background: #4752C4;
 }
 
+.join-battle-container {
+  margin-bottom: 8px;
+}
+
+.btn-join-battle {
+  width: 100%;
+  padding: 12px;
+  background: #2d7d46;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-join-battle:hover {
+  background: #25a244;
+}
+
+.join-battle-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.join-character-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: #2f3136;
+  border: 2px solid #40444b;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.join-character-select:focus {
+  border-color: #2d7d46;
+}
+
+.join-char-name {
+  color: #b9bbbe;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.join-error {
+  color: #f04747;
+  font-size: 13px;
+}
+
+.join-confirm-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-join-confirm {
+  flex: 1;
+  padding: 8px;
+  background: #2d7d46;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn-join-confirm:hover {
+  background: #25a244;
+}
+
+.btn-join-cancel {
+  flex: 1;
+  padding: 8px;
+  background: #4f545c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn-join-cancel:hover {
+  background: #686d73;
+}
+
 @media (max-width: 1024px) {
   .dashboard-content {
     flex-direction: column;

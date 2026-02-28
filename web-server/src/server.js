@@ -244,6 +244,25 @@ app.post('/api/game/:channelId/attack', ensureAuthenticated, async (req, res) =>
   }
 });
 
+app.post('/api/game/:channelId/join', ensureAuthenticated, async (req, res) => {
+  try {
+    const { characterName, guildId } = req.body;
+    const response = await botAPI.post(`/api/game/${req.params.channelId}/join`, {
+      userId: req.user.id,
+      characterName,
+      guildId,
+      username: req.user.username,
+      displayName: req.user.username
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error joining game:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to join game'
+    });
+  }
+});
+
 app.post('/api/game/:channelId/moveair', ensureAuthenticated, async (req, res) => {
   try {
     const { x, y, squadronIndex, characterAlias } = req.body;

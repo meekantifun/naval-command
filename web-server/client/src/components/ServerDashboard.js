@@ -11,6 +11,9 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [joiningGame, setJoiningGame] = useState(null); // channelId of game being joined
+  const [joinCharacter, setJoinCharacter] = useState('');
+  const [joinError, setJoinError] = useState(null);
 
   useEffect(() => {
     if (guild) {
@@ -61,12 +64,43 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
 
   const getPhaseDisplay = (phase) => {
     const phases = {
+      'joining': '🟢 Joining Open',
       'setup': '⚙️ Setup',
       'player_turn': '👤 Player Turn',
       'enemy_turn': '💀 Enemy Turn',
       'completed': '✅ Completed'
     };
     return phases[phase] || phase;
+  };
+
+  const handleJoinClick = (channelId) => {
+    setJoiningGame(channelId);
+    setJoinError(null);
+    if (characters.length === 1) {
+      setJoinCharacter(characters[0].name);
+    } else {
+      setJoinCharacter('');
+    }
+  };
+
+  const handleJoinConfirm = async (channelId) => {
+    if (characters.length > 1 && !joinCharacter) {
+      setJoinError('Please select a character');
+      return;
+    }
+    const selected = characters.length === 1 ? characters[0].name : joinCharacter;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/join`, {
+        characterName: selected,
+        guildId: guild.id
+      }, { withCredentials: true });
+      setJoiningGame(null);
+      setJoinCharacter('');
+      setJoinError(null);
+      loadDashboardData();
+    } catch (error) {
+      setJoinError(error.response?.data?.error || 'Failed to join game');
+    }
   };
 
   if (showAdmin) {
@@ -214,6 +248,38 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
                     </div>
                   </div>
                   <div className="game-card-footer">
+                    {game.phase === 'joining' && !game.isPlayer && characters.length > 0 && (
+                      <div className="join-battle-container">
+                        {joiningGame === game.channelId ? (
+                          <div className="join-battle-selector">
+                            {characters.length > 1 && (
+                              <select
+                                className="join-character-select"
+                                value={joinCharacter}
+                                onChange={e => { setJoinCharacter(e.target.value); setJoinError(null); }}
+                              >
+                                <option value="">Select character...</option>
+                                {characters.map(c => (
+                                  <option key={c.name} value={c.name}>{c.name} ({c.shipClass})</option>
+                                ))}
+                              </select>
+                            )}
+                            {characters.length === 1 && (
+                              <span className="join-char-name">{characters[0].name}</span>
+                            )}
+                            {joinError && <div className="join-error">{joinError}</div>}
+                            <div className="join-confirm-buttons">
+                              <button onClick={() => handleJoinConfirm(game.channelId)} className="btn-join-confirm">Confirm</button>
+                              <button onClick={() => { setJoiningGame(null); setJoinError(null); }} className="btn-join-cancel">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => handleJoinClick(game.channelId)} className="btn-join-battle">
+                            Join Battle
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <button
                       onClick={() => onSelectGame(game.channelId)}
                       className="btn-enter-game"

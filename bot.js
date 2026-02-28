@@ -17967,6 +17967,66 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // Join a game via web app
+        app.post('/api/game/:channelId/join', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, characterName, guildId, username, displayName } = req.body;
+
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+
+                const alivePlayers = Array.from(game.players.values()).filter(p => p.alive);
+                const isQRFScenario = game.phase === 'battle' && alivePlayers.length === 0;
+
+                if (game.phase !== 'joining' && !isQRFScenario) {
+                    return res.status(400).json({ error: 'Game is not in joining phase' });
+                }
+
+                if (game.players.has(userId)) {
+                    return res.status(400).json({ error: 'You are already in this game' });
+                }
+
+                if (game.players.size >= game.maxPlayers) {
+                    return res.status(400).json({ error: 'Game is full' });
+                }
+
+                const playerEntry = this.getGuildPlayerData(guildId, userId);
+                if (!playerEntry || !playerEntry.characters || playerEntry.characters.size === 0) {
+                    return res.status(400).json({ error: 'You have no characters' });
+                }
+
+                let character;
+                let resolvedName = characterName;
+                if (characterName) {
+                    character = playerEntry.characters.get(characterName);
+                    if (!character) return res.status(400).json({ error: 'Character not found' });
+                } else {
+                    resolvedName = playerEntry.activeCharacter || playerEntry.characters.keys().next().value;
+                    character = playerEntry.characters.get(resolvedName);
+                }
+
+                character = this.fixCharacterDataStructure(character);
+                const shipClass = character.shipClass;
+
+                const mockMember = {
+                    displayName: displayName || username,
+                    user: { username: username }
+                };
+
+                const success = game.addPlayer(userId, character, shipClass, mockMember);
+                if (!success) {
+                    return res.status(400).json({ error: 'Failed to join game' });
+                }
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true, characterName: resolvedName });
+            } catch (error) {
+                console.error('Error joining game via web:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // ==================== ADMIN PANEL ENDPOINTS ====================
 
         // Get bot's guilds (for filtering mutual servers)
