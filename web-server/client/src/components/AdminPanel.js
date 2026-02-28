@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import CharacterManager from './CharacterManager';
-import MapManager from './MapManager';
+import MapMaker from './MapMaker';
 import GameStarter from './GameStarter';
 import './AdminPanel.css';
 
@@ -111,7 +111,7 @@ function AdminPanel({ user, selectedGuild, onBack }) {
           <CharacterManager guildId={selectedGuild?.id} user={user} />
         )}
         {activeTab === 'maps' && (
-          <MapManager guildId={selectedGuild?.id} />
+          <MapMaker guildId={selectedGuild?.id} />
         )}
         {activeTab === 'game' && (
           <GameStarter guildId={selectedGuild?.id} user={user} />

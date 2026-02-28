@@ -166,6 +166,16 @@ class CustomMapSystem {
         }
     }
 
+    async deleteCustomMap(id) {
+        try {
+            await fs.unlink(`./maps/custom/${id}.json`);
+            this.customMaps.delete(id);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
     // Start map creation interface
     async startMapCreation(interaction) {
         const embed = new EmbedBuilder()

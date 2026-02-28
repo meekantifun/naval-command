@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 import GameMap from './GameMap';
 import './GameView.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+// Matches the bot's generateExtendedCoordinate for x = 0..74
+function colLabel(x) {
+  if (x < 26) return String.fromCharCode(65 + x);
+  const a = x - 26;
+  return String.fromCharCode(65 + Math.floor(a / 26)) + String.fromCharCode(65 + (a % 26));
+}
+
+function coordLabel(x, y) {
+  return `${colLabel(x)}${y + 1}`;
+}
 
 function GameView({ channelId, user, onBack, onLogout }) {
   const [gameState, setGameState] = useState(null);
@@ -29,6 +40,17 @@ function GameView({ channelId, user, onBack, onLogout }) {
       }
     }
   }, [gameState, user.id]);
+
+  // Build a fast land-lookup Set from terrain data: "x,y" keys for island/reef cells
+  const landSet = useMemo(() => {
+    const s = new Set();
+    if (gameState && gameState.terrain) {
+      for (const cell of gameState.terrain) {
+        if (cell.type === 'island') s.add(`${cell.x},${cell.y}`);
+      }
+    }
+    return s;
+  }, [gameState]);
 
   const setupWebSocket = () => {
     const newSocket = io(API_URL, { withCredentials: true });
@@ -98,16 +120,34 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (!selectedCell || !gameState) return null;
 
     const { x, y } = selectedCell;
-    const coord = `${String.fromCharCode(65 + x)}${y + 1}`;
+    const coord = coordLabel(x, y);
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
     const enemies = (gameState.enemies || []).filter(e => !e.sunk && e.x === x && e.y === y);
-    const isLand = gameState.islands && gameState.islands.some(island =>
-      island.cells && island.cells.some(c => c.x === x && c.y === y)
-    );
+    const isLand = landSet.has(`${x},${y}`);
     const canMove = selectedPlayer && !selectedPlayer.sunk &&
       selectedPlayer.actionsThisTurn < selectedPlayer.maxActions && !isLand;
     const canAttackAny = selectedPlayer && !selectedPlayer.sunk &&
       selectedPlayer.actionsThisTurn < selectedPlayer.maxActions;
+
+    // Determine terrain/infrastructure label
+    const TERRAIN_LABELS = { island: '🏝️ Island', reef: '🪸 Reef', spawn: '⚓ Spawn Zone', city: '🏙️ City', town: '🏘️ Town', minefield: '💣 Minefield' };
+    const INFRA_LABELS = {
+      major_city: '🏙️ Major City', port_city: '🏙️ Port City', town: '🏘️ Town',
+      military_base: '🪖 Military Base', military_outpost: '🪖 Military Outpost', outpost: '🪖 Outpost',
+      airfield: '✈️ Airfield', airfield_base: '✈️ Airfield', small_airfield: '✈️ Small Airfield',
+      port_facility: '⚓ Port Facility', industrial: '🏭 Industrial', lighthouse: '🗼 Lighthouse',
+      port_gun: '💣 Coastal Gun', mine: '💣 Naval Mine',
+    };
+    let terrainLabel = '🌊 Ocean';
+    if (gameState.terrain) {
+      const tc = gameState.terrain.find(c => c.x === x && c.y === y);
+      if (tc) terrainLabel = (tc.name ? `${TERRAIN_LABELS[tc.type] || tc.type}: ${tc.name}` : TERRAIN_LABELS[tc.type]) || tc.type;
+    }
+    // Override with infrastructure label if present on this cell
+    if (gameState.infrastructure) {
+      const ic = gameState.infrastructure.find(c => c.x === x && c.y === y);
+      if (ic) terrainLabel = (terrainLabel !== '🌊 Ocean' ? terrainLabel + ' — ' : '') + (INFRA_LABELS[ic.type] || ic.type);
+    }
 
     return (
       <div className="cell-info-panel">
@@ -116,9 +156,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
           <button className="cell-info-close" onClick={() => setSelectedCell(null)}>✕</button>
         </div>
 
-        <div className="cell-info-terrain">
-          {isLand ? '🏝️ Land' : '🌊 Ocean'}
-        </div>
+        <div className="cell-info-terrain">{terrainLabel}</div>
 
         {players.length > 0 && (
           <div className="cell-info-section">
@@ -238,7 +276,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     <div className="ship-stats">
                       <div className="stat"><span>HP:</span><span className={player.health < player.maxHealth * 0.3 ? 'danger' : ''}>{player.health}/{player.maxHealth}</span></div>
                       <div className="stat"><span>Actions:</span><span>{player.actionsThisTurn}/{player.maxActions}</span></div>
-                      <div className="stat"><span>Position:</span><span>{player.x != null ? `${String.fromCharCode(65 + player.x)}${player.y + 1}` : 'Not placed'}</span></div>
+                      <div className="stat"><span>Position:</span><span>{player.x != null ? coordLabel(player.x, player.y) : 'Not placed'}</span></div>
                     </div>
                     {player.onFire && <div className="status-badge fire">🔥 On Fire</div>}
                     {player.flooding && <div className="status-badge flooding">💧 Flooding</div>}
@@ -269,7 +307,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
             </div>
           )}
 
-          {/* Selected Cell Info - in sidebar */}
+          {/* Selected Cell Info */}
           {selectedCell ? renderCellInfo() : (
             <div className="sidebar-section cell-info-placeholder">
               <h3>Cell Info</h3>
@@ -290,7 +328,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     <div className="enemy-class">{enemy.shipClass}</div>
                     <div className="enemy-stats">
                       <div className="stat"><span>HP:</span><span className={enemy.health < enemy.maxHealth * 0.3 ? 'danger' : ''}>{enemy.health}/{enemy.maxHealth}</span></div>
-                      <div className="stat"><span>Position:</span><span>{enemy.x != null ? `${String.fromCharCode(65 + enemy.x)}${enemy.y + 1}` : '?'}</span></div>
+                      <div className="stat"><span>Position:</span><span>{enemy.x != null ? coordLabel(enemy.x, enemy.y) : '?'}</span></div>
                     </div>
                     {enemy.isBoss && <div className="status-badge boss">👑 Boss</div>}
                   </div>
@@ -304,11 +342,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
         <div className="game-main">
           <GameMap
             gameState={gameState}
-            selectedPlayer={selectedPlayer}
             onCellClick={handleMapClick}
-            actionMode={actionMode}
-            userId={user.id}
-            mapImageUrl={gameState.hasMapImage ? `${API_URL}/api/game/${channelId}/map-image` : null}
             selectedCell={selectedCell}
           />
         </div>

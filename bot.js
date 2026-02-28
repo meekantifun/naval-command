@@ -6164,6 +6164,85 @@ class NavalWarfareBot {
         });
     }
 
+    /**
+     * Compute a coordinate string for a position 'dist' cells away from ai, directly away from threat.
+     * Used for retreating damaged AI units.
+     */
+    getRetreatPosition(ai, nearestThreat, game) {
+        try {
+            const aiNums     = game.coordToNumbers(ai.position);
+            const threatNums = game.coordToNumbers(nearestThreat.position);
+            if (!aiNums || !threatNums) return null;
+
+            const dx  = aiNums.x - threatNums.x;
+            const dy  = aiNums.y - threatNums.y;
+            const mag = Math.sqrt(dx * dx + dy * dy) || 1;
+
+            // Project 20 cells in the retreat direction
+            const rx = Math.max(0, Math.min(74, Math.round(aiNums.x + (dx / mag) * 20)));
+            const ry = Math.max(0, Math.min(74, Math.round(aiNums.y + (dy / mag) * 20)));
+
+            // Convert (rx, ry) back to coord string
+            const col = rx < 26
+                ? String.fromCharCode(65 + rx)
+                : String.fromCharCode(65 + Math.floor((rx - 26) / 26)) + String.fromCharCode(65 + (rx - 26) % 26);
+            return `${col}${ry + 1}`;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /** Update an AI's heading angle based on movement delta. */
+    updateAIDirection(ai, oldPosition, newPosition) {
+        if (!oldPosition || !newPosition || oldPosition === newPosition) return;
+        try {
+            const o = this.coordToNumbers(oldPosition);
+            const n = this.coordToNumbers(newPosition);
+            if (!o || !n) return;
+            let angle = Math.atan2(-(n.y - o.y), n.x - o.x) * (180 / Math.PI);
+            if (angle < 0) angle += 360;
+            ai.direction = angle;
+        } catch (e) { /* ignore */ }
+    }
+
+    /**
+     * Execute an AI weapon attack and send a formatted Discord message.
+     * Returns the result from executeAttack.
+     */
+    async executeAIAttack(ai, target, game, channel) {
+        const optimalAmmo = this.getOptimalAmmoType(ai, target, 'main');
+        const result      = this.executeAttack(ai, target, 'main', optimalAmmo, game);
+
+        if (result.overpenetration) {
+            this.logOverpenetrationEvent(
+                ai, target, 'main', optimalAmmo,
+                this.calculateOverpenetrationModifier(ai, target, 'main', optimalAmmo)
+            );
+        }
+
+        const aiName     = GameUtils.getAIDisplayName(ai);
+        const targetName = GameUtils.getPlayerDisplayName(target);
+        const ammoText   = optimalAmmo === 'he' ? 'HE shells' : 'AP shells';
+
+        let msg;
+        if (result.hit) {
+            const maxHP  = target.stats?.health || target.maxHealth || 100;
+            const curHP  = target.currentHealth ?? target.health ?? 0;
+            const hpPct  = Math.round(Math.max(0, curHP / maxHP) * 100);
+            msg = `🔥 **${aiName}** fires ${ammoText} at **${targetName}**!` +
+                  ` **${result.damage} damage!** *(${hpPct}% HP remaining)*`;
+            if (result.critical)       msg += ' ⚡ ***CRITICAL HIT!***';
+            if (result.overpenetration) msg += ' *(overpenetration)*';
+            if (target.onFire)         msg += ' 🔥 **Target on fire!**';
+            if (!target.alive)         msg += `\n☠️ **${targetName} has been sunk!**`;
+        } else {
+            msg = `💨 **${aiName}** fires ${ammoText} at **${targetName}**... *Miss!*`;
+        }
+
+        await channel.send(msg);
+        return result;
+    }
+
     async aiTurn(game, channel) {
         // Ensure map exists before AI tries to move
         if (!game.map) {
@@ -6191,131 +6270,148 @@ class NavalWarfareBot {
             }
         }
         
+        // ── Pre-compute focus target ──────────────────────────────────────────
+        // Focus fire kicks in when any player drops below 60% HP.
+        // All AI prioritise that target, creating coordinated finishing blows.
+        let focusTarget = null;
+        {
+            let lowestHPPct = 0.60;
+            for (const player of alivePlayers) {
+                const maxHP = player.stats?.health || player.maxHealth || 100;
+                const curHP = player.currentHealth ?? player.health ?? maxHP;
+                const hpPct = curHP / maxHP;
+                if (hpPct < lowestHPPct) { lowestHPPct = hpPct; focusTarget = player; }
+            }
+        }
+
         // Process regular AI
         for (const ai of aiEntities) {
             const statusDamage = this.processTurnEffects(ai, game);
             for (const message of statusDamage) await channel.send(message);
-            
+
             if (!ai.alive) continue;
 
-            // FIXED: Use isAICarrierType for already-created AI objects
+            // Refresh focus target each iteration — if the focus target was sunk,
+            // shift focus to the next most-wounded survivor.
+            {
+                let lowestHPPct = 0.60;
+                focusTarget = null;
+                for (const player of Array.from(game.players.values()).filter(p => p.alive)) {
+                    const maxHP = player.stats?.health || player.maxHealth || 100;
+                    const curHP = player.currentHealth ?? player.health ?? maxHP;
+                    const hpPct = curHP / maxHP;
+                    if (hpPct < lowestHPPct) { lowestHPPct = hpPct; focusTarget = player; }
+                }
+            }
+
+            // Carrier-specific logic (unchanged)
             if (this.isAICarrierType(ai) && ai.availableSquadrons) {
                 await this.processAICarrierOperations(ai, game, channel);
                 continue;
-            }
-            // FALLBACK: Old carrier behavior
-            else if (ai.shipClass.includes('Carrier') && ai.hangar > 2) {
+            } else if (ai.shipClass.includes('Carrier') && ai.hangar > 2) {
                 const nearestPlayer = GameUtils.findNearestPlayer(ai, game);
                 if (nearestPlayer && Math.random() < 0.4) {
                     const distance = game.calculateDistance(ai.position, nearestPlayer.position);
-                    
-                    if (distance <= 20) {
-                        await this.launchAIAircraft(ai, game, channel);
-                        continue;
-                    }
+                    if (distance <= 20) { await this.launchAIAircraft(ai, game, channel); continue; }
                 }
             }
-            
-            // Regular AI behavior for non-carriers
-            const nearestPlayer = GameUtils.findNearestPlayer(ai, game);
-            if (nearestPlayer) {
-                const distance = game.calculateDistance(ai.position, nearestPlayer.position);
-                
-                if (distance <= ai.stats.range) {
-                    // **NEW: Smart ammunition selection based on target**
-                    const optimalAmmo = this.getOptimalAmmoType(ai, nearestPlayer, 'main');
-                    
-                    // **NEW: Use optimal ammo instead of hardcoded 'ap'**
-                    const result = this.executeAttack(ai, nearestPlayer, 'main', optimalAmmo, game);
-                    
-                    const aiName = GameUtils.getAIDisplayName(ai);
-                    const targetName = GameUtils.getPlayerDisplayName(nearestPlayer);
-                    
-                    // **NEW: Enhanced message with ammunition type**
-                    const ammoTypeText = optimalAmmo === 'he' ? ' with HE shells' : ' with AP shells';
-                    let enhancedMessage = `🔥 ${aiName} attacks ${targetName}${ammoTypeText}!`;
-                    
-                    // Extract the damage/result part from the original message
-                    const messageParts = result.message.split('!');
-                    if (messageParts.length > 1) {
-                        enhancedMessage += ` ${messageParts[1]}`;
-                        // Add any additional parts (like overpenetration messages)
-                        for (let i = 2; i < messageParts.length; i++) {
-                            enhancedMessage += `!${messageParts[i]}`;
-                        }
-                    } else {
-                        // Fallback if message format is different
-                        enhancedMessage = result.message.replace(
-                            `${ai.shipClass} hit ${nearestPlayer.shipClass}`,
-                            `${aiName} hit ${targetName}${ammoTypeText}`,
+
+            // ── Smart AI decision ─────────────────────────────────────────────
+            const aiMaxHP  = ai.stats?.health || ai.maxHealth || 100;
+            const aiCurHP  = ai.currentHealth ?? ai.hp ?? aiMaxHP;
+            const aiHPPct  = aiCurHP / aiMaxHP;
+            const isRetreat = aiHPPct < 0.28; // Retreat when below 28% HP
+            const aiName   = GameUtils.getAIDisplayName(ai);
+
+            // Choose best attack target (focus fire + wound priority)
+            const bestTarget = GameUtils.findBestTarget(ai, game, focusTarget);
+            if (!bestTarget) continue;
+
+            const targetName   = GameUtils.getPlayerDisplayName(bestTarget);
+            const weaponRange  = ai.stats.range;
+            const distToTarget = game.calculateDistance(ai.position, bestTarget.position);
+
+            if (isRetreat) {
+                // ── Retreat: move away from nearest threat, fire if still in range ──
+                const nearestThreat = GameUtils.findNearestPlayer(ai, game);
+                if (nearestThreat) {
+                    const retreatPos = this.getRetreatPosition(ai, nearestThreat, game);
+                    if (retreatPos) {
+                        const oldPos    = ai.position;
+                        const newPos    = game.moveTowards(ai.position, retreatPos, ai.stats.speed);
+                        const oldCell   = game.getMapCell(oldPos);
+                        if (oldCell) oldCell.occupant = null;
+                        ai.position     = newPos;
+                        const newCell   = game.getMapCell(newPos);
+                        if (newCell) newCell.occupant = 'ai';
+                        this.updateAIDirection(ai, oldPos, newPos);
+                        await channel.send(
+                            `💨 **${aiName}** is retreating to **${newPos}**! *(${Math.round(aiHPPct * 100)}% HP — disengaging)*`
                         );
                     }
-                    
-                    // **NEW: Log overpenetration events for debugging**
-                    if (result.overpenetration) {
-                        this.logOverpenetrationEvent(ai, nearestPlayer, 'main', optimalAmmo,
-                            this.calculateOverpenetrationModifier(ai, nearestPlayer, 'main', optimalAmmo));
+                    // Parting shot: fire at best target even while fleeing
+                    const retreatDist = game.calculateDistance(ai.position, bestTarget.position);
+                    if (retreatDist <= weaponRange) {
+                        await this.executeAIAttack(ai, bestTarget, game, channel);
                     }
-                    
-                    await channel.send(enhancedMessage);
+                }
+
+            } else if (distToTarget <= weaponRange) {
+                // ── In range: attack ──────────────────────────────────────────
+                if (focusTarget && bestTarget.id === focusTarget.id) {
+                    const targetMaxHP = bestTarget.stats?.health || bestTarget.maxHealth || 100;
+                    const targetCurHP = bestTarget.currentHealth ?? bestTarget.health ?? targetMaxHP;
+                    const tHPPct = Math.round((targetCurHP / targetMaxHP) * 100);
+                    await channel.send(
+                        `🎯 **${aiName}** locks onto the weakened **${targetName}** *(${tHPPct}% HP)* — focus fire!`
+                    );
+                }
+                await this.executeAIAttack(ai, bestTarget, game, channel);
+
+            } else {
+                // ── Out of range: advance ─────────────────────────────────────
+                const oldPos  = ai.position;
+                const newPos  = game.moveTowards(ai.position, bestTarget.position, ai.stats.speed);
+                this.updateAIDirection(ai, oldPos, newPos);
+
+                const oldCell = game.getMapCell(oldPos);
+                if (oldCell) oldCell.occupant = null;
+                ai.position   = newPos;
+                const newCell = game.getMapCell(newPos);
+                if (newCell) newCell.occupant = 'ai';
+
+                const moveDist = game.calculateDistance(oldPos, newPos);
+                let moveMsg = `🚢 **${aiName}** advanced to **${newPos}** (${moveDist.toFixed(1)} cells)`;
+                if (focusTarget && bestTarget.id === focusTarget.id && alivePlayers.length > 1) {
+                    moveMsg += `, converging on **${targetName}**`;
                 } else {
-                    const oldPosition = ai.position;
-                    const newPosition = game.moveTowards(ai.position, nearestPlayer.position, ai.stats.speed);
+                    moveMsg += `, closing on **${targetName}**`;
+                }
 
-                    // Calculate and store direction based on movement
-                    if (oldPosition && newPosition && oldPosition !== newPosition) {
-                        const oldCoords = this.coordToNumbers(oldPosition);
-                        const newCoords = this.coordToNumbers(newPosition);
-
-                        if (oldCoords && newCoords) {
-                            const deltaX = newCoords.x - oldCoords.x;
-                            const deltaY = newCoords.y - oldCoords.y;
-
-                            // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-                            let angle = Math.atan2(-deltaY, deltaX) * (180 / Math.PI);
-                            if (angle < 0) angle += 360;
-
-                            ai.direction = angle;
-                        }
+                // Mine check
+                if (newCell && newCell.type === 'mine') {
+                    const damage = 30 + Math.floor(Math.random() * 21);
+                    ai.currentHealth = Math.max(0, (ai.currentHealth || ai.hp) - damage);
+                    if (ai.hp !== undefined) ai.hp = ai.currentHealth;
+                    newCell.type = 'ocean';
+                    moveMsg += `\n💥 **MINE HIT!** ${aiName} took **${damage} damage!**`;
+                    if (ai.currentHealth <= 0 || (ai.hp !== undefined && ai.hp <= 0)) {
+                        ai.alive = false;
+                        moveMsg += `\n💀 **${aiName} destroyed by mine!**`;
                     }
+                }
 
-                    const oldCell = game.getMapCell(oldPosition);
-                    if (oldCell) oldCell.occupant = null;
+                await channel.send(moveMsg);
 
-                    ai.position = newPosition;
-
-                    const newCell = game.getMapCell(newPosition);
-                    if (newCell) newCell.occupant = 'ai';
-
-                    const aiName = GameUtils.getAIDisplayName(ai);
-                    const targetName = GameUtils.getPlayerDisplayName(nearestPlayer);
-                    const moveDistance = game.calculateDistance(oldPosition, newPosition);
-
-                    let moveMessage = `🚢 ${aiName} moved to **${newPosition}** (${moveDistance.toFixed(1)} cells), closer to ${targetName}`;
-
-                    // Check for mines
-                    if (newCell && newCell.type === 'mine') {
-                        const damage = 30 + Math.floor(Math.random() * 21); // 30-50 damage
-                        ai.currentHealth = Math.max(0, (ai.currentHealth || ai.hp) - damage);
-                        if (ai.currentHealth > 0 && ai.hp) {
-                            ai.hp = ai.currentHealth; // Update hp field as well
-                        }
-
-                        // Remove mine after it's triggered
-                        newCell.type = 'ocean';
-
-                        moveMessage += `\n💥 **MINE HIT!** ${aiName} took ${damage} damage!`;
-
-                        if (ai.currentHealth <= 0 || ai.hp <= 0) {
-                            ai.alive = false;
-                            moveMessage += `\n💀 **${aiName} destroyed by mine!**`;
-                        }
+                // Move + Attack: if the advance brought us into range, also fire this turn
+                if (ai.alive) {
+                    const newDist = game.calculateDistance(newPos, bestTarget.position);
+                    if (newDist <= weaponRange) {
+                        await this.executeAIAttack(ai, bestTarget, game, channel);
                     }
-
-                    await channel.send(moveMessage);
                 }
             }
-            
+
             if (alivePlayers.length === 0) {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
@@ -11193,6 +11289,62 @@ class NavalWarfareBot {
         console.log('🗺️ Generating clean SVG content...');
         const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
         console.log(`📏 SVG content length: ${svgContent.length} characters`);
+
+        // Capture terrain from game.map RIGHT NOW — same state used for the SVG above.
+        // This ensures the web map always mirrors this Discord image exactly.
+        const capturedTerrain = [];
+        if (game.map) {
+            for (const [coord, cell] of game.map.entries()) {
+                if (cell.type !== 'ocean') {
+                    const nums = game.coordToNumbers(coord); // {x, y} where y is 1-indexed
+                    const entry = { x: nums.x, y: nums.y - 1, type: cell.type };
+                    if (cell.name) entry.name = cell.name;
+                    capturedTerrain.push(entry);
+                }
+            }
+        }
+        game.terrainData = capturedTerrain;
+
+        // Capture infrastructure positions using the same deterministic algorithm as the SVG.
+        // Stored as grid coords so the web map can draw matching icons.
+        const capturedInfra = [];
+        const islandGroupsForInfra = this.identifyIslandGroups(game, mapSize);
+        for (const islandGroup of islandGroupsForInfra) {
+            if (islandGroup.length < 3) continue;
+            const groupSeed = islandGroup.reduce((sum, cell) => sum + cell.x * 7 + cell.y * 13, 0);
+            if (groupSeed % 100 > 30) continue;
+            const infraType = this.chooseInfrastructureType(islandGroup.length, groupSeed);
+            const centerX = Math.round(islandGroup.reduce((sum, cell) => sum + cell.x, 0) / islandGroup.length);
+            const centerY = Math.round(islandGroup.reduce((sum, cell) => sum + cell.y, 0) / islandGroup.length);
+            const cluster = this.generateInfrastructureCluster(infraType, centerX, centerY, islandGroup, groupSeed);
+            for (let idx = 0; idx < cluster.length; idx++) {
+                const item = cluster[idx];
+                if (item.x < 0 || item.x >= mapSize || item.y < 0 || item.y >= mapSize) continue;
+                const entry = { x: item.x, y: item.y, type: item.type };
+                if (idx === 0) {
+                    if (item.type === 'major_city') entry.name = this.nameGenerator.generateCityName();
+                    else if (item.type === 'port_facility') entry.name = this.nameGenerator.generateCityName();
+                    else if (item.type === 'town') entry.name = this.nameGenerator.generateTownName();
+                }
+                // Determine state (destroyed/abandoned) deterministically from position + group seed
+                if (item.type !== 'mine') {
+                    const destructSeed = (item.x * 17 + item.y * 31 + groupSeed) % 100;
+                    if (destructSeed < 8) entry.state = 'destroyed';
+                    else if (destructSeed < 19) entry.state = 'abandoned';
+                }
+                capturedInfra.push(entry);
+            }
+        }
+        // Add mines
+        if (game.mines) {
+            for (const mineCoord of game.mines) {
+                try {
+                    const nums = game.coordToNumbers(mineCoord);
+                    capturedInfra.push({ x: nums.x, y: nums.y - 1, type: 'mine' });
+                } catch (e) { /* skip invalid coord */ }
+            }
+        }
+        game.infrastructureData = capturedInfra;
 
         try {
             console.log('🚀 Launching Puppeteer for high-quality rendering...');
@@ -17724,11 +17876,69 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     isBoss: e.isBoss
                 }));
 
+                // Use terrain captured when the Discord map image was generated (always in sync).
+                // Fall back to computing from game.map if no image has been generated yet.
+                let terrain = game.terrainData || null;
+                if (!terrain && game.map) {
+                    terrain = [];
+                    for (const [coord, cell] of game.map.entries()) {
+                        if (cell.type !== 'ocean') {
+                            const nums = game.coordToNumbers(coord);
+                            const entry = { x: nums.x, y: nums.y - 1, type: cell.type };
+                            if (cell.name) entry.name = cell.name;
+                            terrain.push(entry);
+                        }
+                    }
+                }
+                terrain = terrain || [];
+
+                // Infrastructure: prefer captured (synced with Discord image), fall back to computing from map
+                let infrastructure = game.infrastructureData || null;
+                if (!infrastructure && game.map) {
+                    infrastructure = [];
+                    const infraMapSize = 75;
+                    const islandGroupsFallback = this.identifyIslandGroups(game, infraMapSize);
+                    for (const islandGroup of islandGroupsFallback) {
+                        if (islandGroup.length < 3) continue;
+                        const groupSeed = islandGroup.reduce((sum, cell) => sum + cell.x * 7 + cell.y * 13, 0);
+                        if (groupSeed % 100 > 30) continue;
+                        const infraType = this.chooseInfrastructureType(islandGroup.length, groupSeed);
+                        const centerX = Math.round(islandGroup.reduce((sum, cell) => sum + cell.x, 0) / islandGroup.length);
+                        const centerY = Math.round(islandGroup.reduce((sum, cell) => sum + cell.y, 0) / islandGroup.length);
+                        const cluster = this.generateInfrastructureCluster(infraType, centerX, centerY, islandGroup, groupSeed);
+                        for (let idx = 0; idx < cluster.length; idx++) {
+                            const item = cluster[idx];
+                            if (item.x < 0 || item.x >= infraMapSize || item.y < 0 || item.y >= infraMapSize) continue;
+                            const entry = { x: item.x, y: item.y, type: item.type };
+                            if (idx === 0) {
+                                if (item.type === 'major_city') entry.name = this.nameGenerator.generateCityName();
+                                else if (item.type === 'port_facility') entry.name = this.nameGenerator.generateCityName();
+                                else if (item.type === 'town') entry.name = this.nameGenerator.generateTownName();
+                            }
+                            if (item.type !== 'mine') {
+                                const destructSeed = (item.x * 17 + item.y * 31 + groupSeed) % 100;
+                                if (destructSeed < 8) entry.state = 'destroyed';
+                                else if (destructSeed < 19) entry.state = 'abandoned';
+                            }
+                            infrastructure.push(entry);
+                        }
+                    }
+                    if (game.mines) {
+                        for (const mineCoord of game.mines) {
+                            try {
+                                const nums = game.coordToNumbers(mineCoord);
+                                infrastructure.push({ x: nums.x, y: nums.y - 1, type: 'mine' });
+                            } catch (e) { /* skip */ }
+                        }
+                    }
+                }
+                infrastructure = infrastructure || [];
+
                 // Return game state
                 res.json({
                     channelId,
                     guildId: game.guildId,
-                    mapSize: game.mapSize,
+                    mapSize: 75,
                     currentTurn: game.turnNumber || game.currentTurn,
                     phase: game.phase,
                     weather: game.weather,
@@ -17736,9 +17946,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     missionObjective: game.missionObjective || game.currentObjective,
                     players: playersArray,
                     enemies: enemiesArray,
-                    islands: game.islands,
+                    terrain,
+                    infrastructure,
                     turnOrder: game.turnOrder,
-                    hasMapImage: !!game.mapImagePath
                 });
             } catch (error) {
                 console.error('Error fetching game state:', error);
@@ -18234,6 +18444,45 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 res.json({ maps, templates });
             } catch (error) {
                 console.error('Error fetching maps:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // POST /api/admin/maps — create new custom map
+        app.post('/api/admin/maps', authenticateAPIKey, async (req, res) => {
+            try {
+                const mapData = req.body;
+                if (!mapData.id) mapData.id = `map_${Date.now()}`;
+                const saved = await this.customMapSystem.saveCustomMap(mapData);
+                saved ? res.json({ success: true, id: mapData.id })
+                      : res.status(500).json({ error: 'Failed to save map' });
+            } catch (error) {
+                console.error('Error creating map:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // PUT /api/admin/maps/:id — update existing custom map
+        app.put('/api/admin/maps/:id', authenticateAPIKey, async (req, res) => {
+            try {
+                const mapData = { ...req.body, id: req.params.id };
+                const saved = await this.customMapSystem.saveCustomMap(mapData);
+                saved ? res.json({ success: true })
+                      : res.status(500).json({ error: 'Failed to update map' });
+            } catch (error) {
+                console.error('Error updating map:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // DELETE /api/admin/maps/:id — delete custom map
+        app.delete('/api/admin/maps/:id', authenticateAPIKey, async (req, res) => {
+            try {
+                const deleted = await this.customMapSystem.deleteCustomMap(req.params.id);
+                deleted ? res.json({ success: true })
+                        : res.status(404).json({ error: 'Map not found' });
+            } catch (error) {
+                console.error('Error deleting map:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });

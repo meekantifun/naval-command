@@ -355,6 +355,52 @@ class GameUtils {
         return targets[0].player;
     }
 
+    /**
+     * Smart target selection for AI — coordinates focus fire and finishing blows.
+     * @param {object} ai - The attacking AI unit
+     * @param {object} game - Current game state
+     * @param {object|null} focusTarget - Pre-designated focus target (most wounded player), or null
+     * @returns {object|null} Best player to attack
+     */
+    static findBestTarget(ai, game, focusTarget) {
+        const players = Array.from(game.players.values()).filter(p => p.alive);
+        if (players.length === 0) return null;
+
+        const aiRange = ai.stats?.range || 10;
+
+        const scored = players.map(player => {
+            const distance = game.calculateDistance(ai.position, player.position);
+            const maxHP  = player.stats?.health || player.maxHealth || 100;
+            const curHP  = player.currentHealth ?? player.health ?? maxHP;
+            const hpPct  = Math.max(0, Math.min(1, curHP / maxHP));
+
+            let score = 0;
+
+            // Focus-fire bonus: pile on the designated weakest target
+            if (focusTarget && player.id === focusTarget.id) score += 40;
+
+            // Wound priority: prefer finishing off damaged ships
+            score += (1 - hpPct) * 50;
+
+            // Killing blow bonus: very strong preference for near-death targets
+            if (hpPct < 0.25) score += 30;
+            if (hpPct < 0.10) score += 20; // Almost dead — finish it
+
+            // Range preference: heavily prefer already-reachable targets
+            if (distance <= aiRange) {
+                score += 30;
+            } else {
+                // Penalise out-of-range targets proportionally to how far they are
+                score -= (distance - aiRange) * 1.5;
+            }
+
+            return { player, distance, score };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        return scored[0].player;
+    }
+
     static findNearestPlayerAircraft(ai, game) {
         let nearest = null;
         let minDistance = Infinity;

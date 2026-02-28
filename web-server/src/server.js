@@ -424,6 +424,45 @@ app.get('/api/admin/maps', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Create new custom map
+app.post('/api/admin/maps', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/maps', req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error creating map:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to create map'
+    });
+  }
+});
+
+// Update existing custom map
+app.put('/api/admin/maps/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.put(`/api/admin/maps/${req.params.id}`, req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error updating map:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to update map'
+    });
+  }
+});
+
+// Delete custom map
+app.delete('/api/admin/maps/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.delete(`/api/admin/maps/${req.params.id}`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error deleting map:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to delete map'
+    });
+  }
+});
+
 // Start a game
 app.post('/api/admin/start-game', ensureAuthenticated, async (req, res) => {
   try {
