@@ -17991,19 +17991,19 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Game is full' });
                 }
 
-                const playerEntry = this.getGuildPlayerData(guildId, userId);
-                if (!playerEntry || !playerEntry.characters || playerEntry.characters.size === 0) {
+                const playerEntry = this.characterManager.getGuildPlayerData(guildId, userId);
+                if (!playerEntry || !playerEntry.characters || Object.keys(playerEntry.characters).length === 0) {
                     return res.status(400).json({ error: 'You have no characters' });
                 }
 
                 let character;
                 let resolvedName = characterName;
                 if (characterName) {
-                    character = playerEntry.characters.get(characterName);
+                    character = playerEntry.characters[characterName];
                     if (!character) return res.status(400).json({ error: 'Character not found' });
                 } else {
-                    resolvedName = playerEntry.activeCharacter || playerEntry.characters.keys().next().value;
-                    character = playerEntry.characters.get(resolvedName);
+                    resolvedName = playerEntry.activeCharacter || Object.keys(playerEntry.characters)[0];
+                    character = playerEntry.characters[resolvedName];
                 }
 
                 character = this.fixCharacterDataStructure(character);
