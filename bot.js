@@ -17850,21 +17850,21 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 // Convert Maps to arrays
                 const playersArray = Array.from(game.players.values()).map(p => ({
-                    userId: p.userId,
+                    userId: p.userId || p.id,
                     username: p.username,
-                    characterAlias: p.characterAlias,
+                    characterAlias: p.characterAlias || p.displayName,
                     shipClass: p.shipClass,
                     x: p.x,
                     y: p.y,
-                    health: p.health,
+                    health: p.health ?? p.currentHealth,
                     maxHealth: p.maxHealth,
                     onFire: p.onFire,
                     flooding: p.flooding,
-                    sunk: p.sunk,
+                    sunk: p.sunk ?? !p.alive,
                     weapons: p.weapons,
                     aircraftSquadrons: p.aircraftSquadrons,
-                    actionsThisTurn: p.actionsThisTurn,
-                    maxActions: p.maxActions
+                    actionsThisTurn: p.actionsThisTurn ?? 0,
+                    maxActions: p.maxActions ?? p.actionPoints ?? 2
                 }));
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => ({
@@ -18038,8 +18038,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 res.json({
                     success: true,
                     player: {
-                        userId: player.userId,
-                        characterAlias: player.characterAlias,
+                        userId: player.userId || player.id,
+                        characterAlias: player.characterAlias || player.displayName,
                         x: player.x,
                         y: player.y,
                         actionsThisTurn: player.actionsThisTurn
@@ -18233,6 +18233,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!success) {
                     return res.status(400).json({ error: 'Failed to join game' });
                 }
+
+                // Set characterAlias so the web UI can display the character name
+                const joinedPlayer = game.players.get(userId);
+                if (joinedPlayer) joinedPlayer.characterAlias = resolvedName;
 
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true, characterName: resolvedName });
@@ -18826,18 +18830,24 @@ class NavalBattle {
 
         if (this.players.size >= this.maxPlayers) return false;
         
+        const maxActions = shipClass.includes('Carrier') ? 3 : 2;
         const player = {
             ...playerData,
             id: userId,
+            userId: userId,
             shipClass: shipClass,
             displayName: memberObject.displayName,
             username: memberObject.user.username,
             position: null,
             currentHealth: playerData.stats.health,
+            health: playerData.stats.health,
             maxHealth: playerData.stats.health,
-            actionPoints: shipClass.includes('Carrier') ? 3 : 2,
+            actionPoints: maxActions,
+            actionsThisTurn: 0,
+            maxActions: maxActions,
             onFire: false,
             flooding: false,
+            sunk: false,
             fireTimer: 0,
             floodTimer: 0,
             damageControlCooldown: 0,
@@ -18849,9 +18859,9 @@ class NavalBattle {
             depth: shipClass === 'Submarine' ? 'surface' : null,
             alive: true,
             tonnage: playerData.tonnage || this.getDefaultTonnage(shipClass),
-            speedKnots: playerData.speedKnots || this.getDefaultSpeed(shipClass), // ← Make sure this line has a comma
-            aaSystems: playerData.aaSystems ? [...playerData.aaSystems] : [], // ← Add this line
-            aaSystem: null // ← Remove single system since we're using multiple
+            speedKnots: playerData.speedKnots || this.getDefaultSpeed(shipClass),
+            aaSystems: playerData.aaSystems ? [...playerData.aaSystems] : [],
+            aaSystem: null
         };
         
         this.players.set(userId, player);

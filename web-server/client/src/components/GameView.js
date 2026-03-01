@@ -293,9 +293,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
       <div className="game-content">
         <div className="game-sidebar">
 
-          {/* Your Ships */}
+          {/* Allied Ships */}
           <div className="sidebar-section">
-            <h3>Your Ships</h3>
+            <h3>Allied Ships</h3>
             {userPlayers.length === 0 ? (
               <p className="no-ships">No ships in this game</p>
             ) : (
