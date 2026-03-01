@@ -855,7 +855,20 @@ function drawInfraIcon(ctx, px, py, pw, ph, type, name, state, mineImg) {
 
 // ── Map component ──────────────────────────────────────────────────────────
 
-function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [] }) {
+function getShipAbbr(shipClass) {
+  if (!shipClass) return '?';
+  const s = shipClass.toLowerCase();
+  if (s.includes('submarine')) return 'SS';
+  if (s.includes('carrier')) return 'CV';
+  if (s.includes('battleship')) return 'BB';
+  if (s.includes('heavy')) return 'CA';
+  if (s.includes('light')) return 'CL';
+  if (s.includes('destroyer')) return 'DD';
+  if (s.includes('cruiser')) return 'CR';
+  return shipClass.slice(0, 2).toUpperCase();
+}
+
+function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null }) {
   const canvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
   const [mineImg, setMineImg] = useState(null);
@@ -876,6 +889,14 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [] })
     for (const c of spawnZoneCoords) s.add(`${c.x},${c.y}`);
     return s;
   }, [spawnZoneCoords]);
+
+  const activePlayers = useMemo(() =>
+    (gameState?.players || []).filter(p => !p.sunk && p.x != null),
+  [gameState]);
+
+  const activeEnemies = useMemo(() =>
+    (gameState?.enemies || []).filter(e => !e.sunk && e.x != null),
+  [gameState]);
 
   const terrainMap = useMemo(() => {
     const tm = new Map();
@@ -983,6 +1004,48 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [] })
       ctx.fillText(String(y + 1), MARGIN - 5, MARGIN + y * CELL + CELL / 2);
     }
 
+    // Enemies (red)
+    for (const enemy of activeEnemies) {
+      const cx = MARGIN + enemy.x * CELL + CELL / 2;
+      const cy = MARGIN + enemy.y * CELL + CELL / 2;
+      const r = CELL / 2 - 1;
+      ctx.fillStyle = 'rgba(220,38,38,0.88)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.60)'; ctx.lineWidth = 1;
+      ctx.stroke();
+      if (enemy.onFire) {
+        ctx.fillStyle = '#fb923c';
+        ctx.beginPath(); ctx.arc(cx + r - 2, cy - r + 2, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 6px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(getShipAbbr(enemy.shipClass), cx, cy + 0.5);
+    }
+
+    // Players (blue = own, green = allied)
+    for (const player of activePlayers) {
+      const cx = MARGIN + player.x * CELL + CELL / 2;
+      const cy = MARGIN + player.y * CELL + CELL / 2;
+      const r = CELL / 2 - 1;
+      const isOwn = player.userId === myUserId;
+      ctx.fillStyle = isOwn ? 'rgba(79,172,254,0.92)' : 'rgba(72,187,120,0.88)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = isOwn ? 1.5 : 1;
+      ctx.stroke();
+      if (player.onFire) {
+        ctx.fillStyle = '#fb923c';
+        ctx.beginPath(); ctx.arc(cx + r - 2, cy - r + 2, 2.5, 0, Math.PI * 2); ctx.fill();
+      } else if (player.flooding) {
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath(); ctx.arc(cx + r - 2, cy - r + 2, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 6px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(getShipAbbr(player.shipClass), cx, cy + 0.5);
+    }
+
     // Hover highlight
     if (hoveredCell) {
       const { x, y } = hoveredCell;
@@ -1000,7 +1063,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [] })
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg, spawnSet]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg, spawnSet, activePlayers, activeEnemies, myUserId]);
 
   useEffect(() => {
     if (canvasRef.current && gameState) drawMap();

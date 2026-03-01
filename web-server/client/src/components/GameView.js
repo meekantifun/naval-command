@@ -666,6 +666,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
             onCellClick={handleMapClick}
             selectedCell={selectedCell}
             spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
+            myUserId={user.id}
           />
         </div>
       </div>

@@ -17957,10 +17957,19 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     infrastructure,
                     turnOrder: game.turnOrder,
                     gmId: game.gmId,
-                    spawnZoneCoords: (game.spawnZoneCoords || []).map(coord => {
-                        const nums = game.coordToNumbers(coord);
-                        return { x: nums.x, y: nums.y - 1 };
-                    }),
+                    spawnZoneCoords: (() => {
+                        const occupiedCoords = new Set(
+                            Array.from(game.players.values())
+                                .filter(p => p.x != null)
+                                .map(p => game.generateExtendedCoordinate(p.x, p.y + 1))
+                        );
+                        return (game.spawnZoneCoords || [])
+                            .filter(coord => !occupiedCoords.has(coord))
+                            .map(coord => {
+                                const nums = game.coordToNumbers(coord);
+                                return { x: nums.x, y: nums.y - 1 };
+                            });
+                    })(),
                 });
             } catch (error) {
                 console.error('Error fetching game state:', error);
