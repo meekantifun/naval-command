@@ -869,18 +869,13 @@ function getShipType(shipClass) {
 function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null }) {
   const canvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
-  const [mineImg, setMineImg] = useState(null);
+  // mineImg is loaded via iconsRef below; keep this null so the fallback never draws
+  const mineImg = null;
 
   const mapSize = (gameState && gameState.mapSize) || 75;
   const canvasW = MARGIN + mapSize * CELL;
   const canvasH = MARGIN + mapSize * CELL;
 
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => setMineImg(img);
-    img.onerror = () => setMineImg(null);
-    img.src = '/mine.png';
-  }, []);
 
   const iconsRef = useRef({});
   const [iconsLoaded, setIconsLoaded] = useState(false);
@@ -898,6 +893,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     }
     toLoad.push(['fire',  '/icons/Fire.png']);
     toLoad.push(['flood', '/icons/Flood.png']);
+    toLoad.push(['mine',  '/icons/mine.png']);
     let remaining = toLoad.length;
     for (const [key, src] of toLoad) {
       const img = new Image();
@@ -982,9 +978,44 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.beginPath(); ctx.moveTo(MARGIN, hy); ctx.lineTo(MARGIN + mapSize * CELL, hy); ctx.stroke();
     }
 
+    // Build set of mine coords visible to any alive player (≤5 cell Euclidean distance)
+    const visibleMines = new Set();
+    for (const item of infrastructure) {
+      if (item.type !== 'mine') continue;
+      for (const p of allPlayers) {
+        if (!p.sunk && p.x != null && p.y != null) {
+          const dist = Math.sqrt(Math.pow(p.x - item.x, 2) + Math.pow(p.y - item.y, 2));
+          if (dist <= 5) { visibleMines.add(`${item.x},${item.y}`); break; }
+        }
+      }
+    }
+
     // Infrastructure — overlap prevention via occupied cell set
     const occupiedCells = new Set();
+    const mineIconImg = iconsRef.current['mine'] || null;
     for (const item of infrastructure) {
+      // Mines: skip if no player is close enough to reveal them
+      if (item.type === 'mine') {
+        if (!visibleMines.has(`${item.x},${item.y}`)) continue;
+        // Draw mine icon centered in its cell
+        const px = MARGIN + item.x * CELL;
+        const py = MARGIN + item.y * CELL;
+        if (mineIconImg) {
+          const scale = Math.min(CELL / mineIconImg.width, CELL / mineIconImg.height);
+          const dw = mineIconImg.width * scale;
+          const dh = mineIconImg.height * scale;
+          ctx.save();
+          ctx.drawImage(mineIconImg, px + (CELL - dw) / 2, py + (CELL - dh) / 2, dw, dh);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#7c3aed';
+          ctx.beginPath();
+          ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        continue;
+      }
+
       const span = getInfraSpan(item.type);
       const startCX = item.x - Math.floor(span.w / 2);
       const startCY = item.y - Math.floor(span.h / 2);
@@ -1010,7 +1041,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       const pw = span.w * CELL;
       const ph = span.h * CELL;
       ctx.save();
-      drawInfraIcon(ctx, px, py, pw, ph, item.type, item.name || null, item.state || null, mineImg);
+      drawInfraIcon(ctx, px, py, pw, ph, item.type, item.name || null, item.state || null, null);
       ctx.restore();
     }
 
@@ -1140,7 +1171,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg, spawnSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
 
   useEffect(() => {
     if (canvasRef.current && gameState) drawMap();
