@@ -885,6 +885,10 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
   const iconsRef = useRef({});
   const [iconsLoaded, setIconsLoaded] = useState(false);
 
+  // Per-unit rotation angle (radians) and last-known position for delta tracking
+  const rotationsRef    = useRef({});  // key → angle
+  const prevPositionsRef = useRef({}); // key → { x, y }
+
   useEffect(() => {
     const toLoad = [];
     for (const set of ['class', 'enemy', 'sunk_player', 'sunk_enemy']) {
@@ -1023,6 +1027,33 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.fillText(String(y + 1), MARGIN - 5, MARGIN + y * CELL + CELL / 2);
     }
 
+    // ── Update unit rotations ──────────────────────────────────────────────
+    // Right side of icon = bow (forward).  angle is standard canvas atan2:
+    //   0 = east, +π/2 = south, −π/2 = north, ±π = west
+    {
+      const CENTER = (mapSize - 1) / 2;   // 37 for a 75-cell map
+      const rotations     = rotationsRef.current;
+      const prevPositions = prevPositionsRef.current;
+
+      const track = (key, unit) => {
+        if (unit.x == null || unit.y == null) return;
+        const prev = prevPositions[key];
+        if (prev === undefined) {
+          // First appearance — face toward map centre
+          const dx = CENTER - unit.x;
+          const dy = CENTER - unit.y;
+          rotations[key] = (dx === 0 && dy === 0) ? 0 : Math.atan2(dy, dx);
+        } else if (prev.x !== unit.x || prev.y !== unit.y) {
+          // Moved — face direction of travel
+          rotations[key] = Math.atan2(unit.y - prev.y, unit.x - prev.x);
+        }
+        prevPositions[key] = { x: unit.x, y: unit.y };
+      };
+
+      for (const p of allPlayers) track(`p_${p.userId}`, p);
+      for (const e of allEnemies) track(`e_${e.id}`,     e);
+    }
+
     // ── Draw units ──────────────────────────────────────────────────────────
     const icons = iconsRef.current;
     const OVR = Math.round(CELL * 0.40); // overlay icon size (~6px at CELL=16)
@@ -1030,30 +1061,33 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     function drawUnit(unit, isEnemy) {
       const px = MARGIN + unit.x * CELL;
       const py = MARGIN + unit.y * CELL;
-      const sunk = unit.sunk || false;
-      const type = getShipType(unit.shipClass);
+      const cx = px + CELL / 2;
+      const cy = py + CELL / 2;
+      const sunk  = unit.sunk || false;
+      const type  = getShipType(unit.shipClass);
       const iconSet = sunk
         ? (isEnemy ? 'sunk_enemy' : 'sunk_player')
         : (isEnemy ? 'enemy' : 'class');
-      const img = icons[`${iconSet}/${type}`];
+      const img   = icons[`${iconSet}/${type}`];
+      const angle = (rotationsRef.current[isEnemy ? `e_${unit.id}` : `p_${unit.userId}`]) ?? 0;
 
       ctx.save();
       if (sunk) ctx.globalAlpha = 0.42;
 
       if (img) {
-        // Maintain aspect ratio, centred inside the cell
+        // Maintain aspect ratio, rotate around cell centre
         const iw = img.naturalWidth  || CELL;
         const ih = img.naturalHeight || CELL;
         const scale = Math.min(CELL / iw, CELL / ih);
         const dw = iw * scale;
         const dh = ih * scale;
-        const dx = px + (CELL - dw) / 2;
-        const dy = py + (CELL - dh) / 2;
-        ctx.drawImage(img, dx, dy, dw, dh);
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
       } else {
-        // Fallback: filled circle
+        // Fallback: filled circle (no rotation needed)
         ctx.fillStyle = isEnemy ? 'rgba(220,38,38,0.88)' : (unit.userId === myUserId ? 'rgba(79,172,254,0.92)' : 'rgba(72,187,120,0.88)');
-        ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, CELL / 2 - 1, 0, Math.PI * 2); ctx.fill();
       }
       ctx.restore();
 
