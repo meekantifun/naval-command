@@ -557,11 +557,11 @@
 }
 
 .scs-icon {
-  width: 24px;
-  height: 24px;
+  height: 28px;
+  width: auto;
+  max-width: 44px;
   object-fit: contain;
   flex-shrink: 0;
-  image-rendering: pixelated;
 }
 
 .scs-name {

@@ -1041,7 +1041,15 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       if (sunk) ctx.globalAlpha = 0.42;
 
       if (img) {
-        ctx.drawImage(img, px, py, CELL, CELL);
+        // Maintain aspect ratio, centred inside the cell
+        const iw = img.naturalWidth  || CELL;
+        const ih = img.naturalHeight || CELL;
+        const scale = Math.min(CELL / iw, CELL / ih);
+        const dw = iw * scale;
+        const dh = ih * scale;
+        const dx = px + (CELL - dw) / 2;
+        const dy = py + (CELL - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
       } else {
         // Fallback: filled circle
         ctx.fillStyle = isEnemy ? 'rgba(220,38,38,0.88)' : (unit.userId === myUserId ? 'rgba(79,172,254,0.92)' : 'rgba(72,187,120,0.88)');
