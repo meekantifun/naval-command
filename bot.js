@@ -59,6 +59,7 @@ class NavalWarfareBot {
         });
 
         this.games = new Map();
+        this.endedGames = new Map(); // cache for web dashboard MVP screen (auto-expires 30min)
         this.playerData = new Map();
         this.shopSystem = new ShopSystem(this);
         this.levelingSystem = new LevelingSystem(this);
@@ -5429,6 +5430,56 @@ class NavalWarfareBot {
         }
 
         this.savePlayerData();
+
+        // Cache end-game state for web dashboard MVP screen
+        try {
+            game.phase = 'ended';
+            let mvpAvatarURL = null;
+            if (mvpCandidate) {
+                try {
+                    const discordUser = await this.client.users.fetch(mvpCandidate.playerId);
+                    mvpAvatarURL = discordUser.displayAvatarURL({ extension: 'png', size: 256 });
+                } catch (e) { /* ignore avatar fetch failure */ }
+            }
+            const endSnapshot = {
+                channelId: game.channelId,
+                guildId: game.guildId,
+                phase: 'ended',
+                currentTurn: game.turnNumber || game.currentTurn,
+                mapSize: 75,
+                weather: game.weather,
+                players: Array.from(game.players.values()).map(p => ({
+                    userId: p.userId || p.id,
+                    username: p.username,
+                    characterAlias: p.characterAlias || p.displayName,
+                    shipClass: p.shipClass,
+                    x: p.x, y: p.y,
+                    sunk: p.sunk ?? !p.alive,
+                })),
+                enemies: [],
+                terrain: game.terrainData || [],
+                infrastructure: game.infrastructureData || [],
+                mvp: mvpCandidate ? {
+                    userId: mvpCandidate.playerId,
+                    username: mvpCandidate.username,
+                    avatarURL: mvpAvatarURL,
+                    score: Math.round(mvpCandidate.score),
+                    stats: {
+                        damageDealt: mvpCandidate.damageDealt || 0,
+                        damageReceived: mvpCandidate.damageReceived || 0,
+                        kills: mvpCandidate.kills || 0,
+                        hits: mvpCandidate.hits || 0,
+                        shots: mvpCandidate.shots || 0,
+                        criticalHits: mvpCandidate.criticalHits || 0,
+                        gameStartTime: mvpCandidate.gameStartTime || Date.now(),
+                    }
+                } : null,
+            };
+            this.endedGames.set(game.channelId, endSnapshot);
+            setTimeout(() => this.endedGames.delete(game.channelId), 30 * 60 * 1000);
+            await this.broadcastGameUpdate(game.channelId);
+        } catch (e) { console.error('Error caching ended game:', e); }
+
         this.games.delete(game.channelId);
 
         // Update status when sortie ends
@@ -17845,6 +17896,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const game = this.games.get(channelId);
 
                 if (!game) {
+                    const ended = this.endedGames.get(channelId);
+                    if (ended) return res.json(ended);
                     return res.status(404).json({ error: 'Game not found' });
                 }
 
@@ -18400,6 +18453,28 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (game.updateInterval) { clearInterval(game.updateInterval); game.updateInterval = null; }
                 if (game.qrfTimer) { clearTimeout(game.qrfTimer); game.qrfTimer = null; }
                 game.phase = 'ended';
+                // Cache for web dashboard before deletion
+                this.endedGames.set(channelId, {
+                    channelId,
+                    guildId: game.guildId,
+                    phase: 'ended',
+                    currentTurn: game.turnNumber || game.currentTurn,
+                    mapSize: 75,
+                    weather: game.weather,
+                    players: Array.from(game.players.values()).map(p => ({
+                        userId: p.userId || p.id,
+                        username: p.username,
+                        characterAlias: p.characterAlias || p.displayName,
+                        shipClass: p.shipClass,
+                        x: p.x, y: p.y,
+                        sunk: p.sunk ?? !p.alive,
+                    })),
+                    enemies: [],
+                    terrain: game.terrainData || [],
+                    infrastructure: game.infrastructureData || [],
+                    mvp: null,
+                });
+                setTimeout(() => this.endedGames.delete(channelId), 30 * 60 * 1000);
                 await this.broadcastGameUpdate(channelId);
                 this.games.delete(channelId);
                 res.json({ success: true });

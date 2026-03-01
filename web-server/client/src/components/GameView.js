@@ -6,6 +6,121 @@ import './GameView.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
+// ── Confetti canvas animation ─────────────────────────────────────────────────
+function Confetti() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const COLORS = ['#FFD700', '#FFA500', '#FF6B6B', '#4facfe', '#48bb78', '#a78bfa', '#fff'];
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+    const pieces = Array.from({ length: 130 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      w: 8 + Math.random() * 8,
+      h: 4 + Math.random() * 5,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vy: 1.8 + Math.random() * 2.8,
+      vx: (Math.random() - 0.5) * 1.4,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.12,
+    }));
+    let animId;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of pieces) {
+        ctx.save();
+        ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.rotSpeed;
+        if (p.y > canvas.height + 10) {
+          p.y = -p.h - 10;
+          p.x = Math.random() * canvas.width;
+        }
+      }
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+    const onResize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    window.addEventListener('resize', onResize);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize); };
+  }, []);
+  return <canvas ref={canvasRef} className="confetti-canvas" />;
+}
+
+// ── MVP end-screen overlay ────────────────────────────────────────────────────
+function MVPScreen({ mvp, onBack }) {
+  const accuracy = mvp?.stats?.shots > 0
+    ? ((mvp.stats.hits / mvp.stats.shots) * 100).toFixed(1)
+    : '0.0';
+  const duration = mvp?.stats?.gameStartTime
+    ? Math.round((Date.now() - mvp.stats.gameStartTime) / 60000)
+    : 0;
+
+  return (
+    <div className="mvp-overlay">
+      <Confetti />
+      <div className="mvp-card">
+        <div className="mvp-title">⚓ Battle Complete</div>
+        {mvp ? (
+          <>
+            <div className="mvp-subtitle">Most Valuable Player</div>
+            <div className="mvp-avatar-wrapper">
+              <img
+                src={mvp.avatarURL || '/icons/class/destroyer.png'}
+                alt={mvp.username}
+                className="mvp-avatar"
+                onError={e => { e.target.src = '/icons/class/destroyer.png'; }}
+              />
+              <img src="/icons/crown.png" alt="Crown" className="mvp-crown" />
+            </div>
+            <div className="mvp-username">{mvp.username}</div>
+            <div className="mvp-score">MVP Score: {mvp.score.toLocaleString()}</div>
+            <div className="mvp-stats-grid">
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Damage Dealt</span>
+                <span className="mvp-stat-value">{(mvp.stats?.damageDealt || 0).toLocaleString()}</span>
+              </div>
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Kills</span>
+                <span className="mvp-stat-value">{mvp.stats?.kills || 0}</span>
+              </div>
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Accuracy</span>
+                <span className="mvp-stat-value">{accuracy}%</span>
+              </div>
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Critical Hits</span>
+                <span className="mvp-stat-value">{mvp.stats?.criticalHits || 0}</span>
+              </div>
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Battle Duration</span>
+                <span className="mvp-stat-value">{duration}m</span>
+              </div>
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Damage Taken</span>
+                <span className="mvp-stat-value">{(mvp.stats?.damageReceived || 0).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="mvp-reward">🌟 Double XP &amp; Currency Awarded</div>
+          </>
+        ) : (
+          <div className="mvp-no-mvp">Battle ended</div>
+        )}
+        <button className="mvp-back-btn" onClick={onBack}>← Back to Games</button>
+      </div>
+    </div>
+  );
+}
+
 // Matches the bot's generateExtendedCoordinate for x = 0..74
 function colLabel(x) {
   if (x < 26) return String.fromCharCode(65 + x);
@@ -233,7 +348,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
         { withCredentials: true }
       );
       setConfirmEndBattle(false);
-      onBack();
+      // stay on page — MVP screen will appear via broadcast/state update
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to end battle');
     }
@@ -470,6 +585,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   return (
     <div className="game-view">
+      {gameState?.phase === 'ended' && (
+        <MVPScreen mvp={gameState.mvp} onBack={onBack} />
+      )}
       <header className="game-header">
         <div className="game-header-left">
           <button onClick={onBack} className="btn btn-secondary">← Back</button>
