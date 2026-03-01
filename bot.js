@@ -17958,8 +17958,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     turnOrder: game.turnOrder,
                     gmId: game.gmId,
                     spawnZoneCoords: (game.spawnZoneCoords || []).map(coord => {
-                        const [x, y] = coord.split(',').map(Number);
-                        return { x, y };
+                        const nums = game.coordToNumbers(coord);
+                        return { x: nums.x, y: nums.y - 1 };
                     }),
                 });
             } catch (error) {
@@ -18265,7 +18265,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (game.phase !== 'joining') return res.status(400).json({ error: 'Game is not in joining phase' });
                 const player = game.players.get(userId);
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
-                const coordStr = `${x},${y}`;
+                const coordStr = game.generateExtendedCoordinate(x, y + 1);
                 if (!(game.spawnZoneCoords || []).includes(coordStr)) {
                     return res.status(400).json({ error: 'Cell is not in spawn zone' });
                 }
@@ -18273,7 +18273,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (occupied) return res.status(400).json({ error: 'Cell is already occupied' });
                 player.x = x;
                 player.y = y;
-                player.position = { x, y };
+                player.position = coordStr;
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
             } catch (error) {
