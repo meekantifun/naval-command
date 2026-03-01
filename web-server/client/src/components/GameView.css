@@ -443,6 +443,58 @@
 
 .cell-info-panel .cell-info-close:hover { color: #fff; }
 
+.cell-info-panel .cell-info-infra {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.cell-info-panel .infra-type-label {
+  font-size: 11px;
+  color: #8e9297;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+
+.cell-info-panel .infra-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 5px;
+}
+
+.cell-info-panel .infra-state-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cell-info-panel .infra-state-destroyed {
+  background: rgba(237, 66, 69, 0.2);
+  color: #f56565;
+  border: 1px solid rgba(237, 66, 69, 0.4);
+}
+
+.cell-info-panel .infra-state-abandoned {
+  background: rgba(114, 118, 125, 0.2);
+  color: #a0aec0;
+  border: 1px solid rgba(114, 118, 125, 0.4);
+}
+
+.cell-info-panel .infra-state-burning {
+  background: rgba(255, 100, 0, 0.2);
+  color: #f6ad55;
+  border: 1px solid rgba(255, 100, 0, 0.4);
+  animation: flicker 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes flicker {
+  from { opacity: 1; }
+  to   { opacity: 0.65; }
+}
+
 .cell-info-panel .cell-info-terrain {
   padding: 6px 12px;
   color: #b9bbbe;

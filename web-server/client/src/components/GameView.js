@@ -651,7 +651,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const INFRA_LABELS = {
       major_city: '🏙️ Major City', port_city: '🏙️ Port City', town: '🏘️ Town',
       military_base: '🪖 Military Base', military_outpost: '🪖 Military Outpost', outpost: '🪖 Outpost',
-      airfield: '✈️ Airfield', airfield_base: '✈️ Airfield', small_airfield: '✈️ Small Airfield',
+      airfield: '✈️ Airfield', airfield_base: '✈️ Airfield Base', small_airfield: '✈️ Small Airfield',
       port_facility: '⚓ Port Facility', industrial: '🏭 Industrial', lighthouse: '🗼 Lighthouse',
       port_gun: '💣 Coastal Gun', mine: '💣 Naval Mine',
     };
@@ -660,9 +660,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
       const tc = gameState.terrain.find(c => c.x === x && c.y === y);
       if (tc) terrainLabel = (tc.name ? `${TERRAIN_LABELS[tc.type] || tc.type}: ${tc.name}` : TERRAIN_LABELS[tc.type]) || tc.type;
     }
-    // Override with infrastructure label if this cell is covered by any infrastructure footprint
     const ic = infraCellMap.get(`${x},${y}`);
-    if (ic) terrainLabel = (terrainLabel !== '🌊 Ocean' ? terrainLabel + ' — ' : '') + (INFRA_LABELS[ic.type] || ic.type);
+    // If infra covers this cell, keep terrain only if it adds useful info (not plain Ocean)
+    if (ic && terrainLabel === '🌊 Ocean') terrainLabel = null;
 
     return (
       <div className="cell-info-panel">
@@ -671,7 +671,25 @@ function GameView({ channelId, user, onBack, onLogout }) {
           <button className="cell-info-close" onClick={() => { setSelectedCell(null); setAttackState(null); }}>✕</button>
         </div>
 
-        <div className="cell-info-terrain">{terrainLabel}</div>
+        {terrainLabel && <div className="cell-info-terrain">{terrainLabel}</div>}
+
+        {ic && (() => {
+          const stateTag = ic.state === 'destroyed' ? { label: 'Destroyed', cls: 'infra-state-destroyed', icon: '💥' }
+                         : ic.state === 'abandoned'  ? { label: 'Abandoned',  cls: 'infra-state-abandoned',  icon: '🏚️' }
+                         : ic.state === 'burning'    ? { label: 'On Fire',    cls: 'infra-state-burning',    icon: '🔥' }
+                         : null;
+          return (
+            <div className="cell-info-infra">
+              <div className="infra-type-label">{INFRA_LABELS[ic.type] || ic.type}</div>
+              {ic.name && <div className="infra-name">{ic.name}{ic.state === 'burning' ? ' 🔥' : ''}</div>}
+              {stateTag && (
+                <div className={`infra-state-badge ${stateTag.cls}`}>
+                  {stateTag.icon} {stateTag.label}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {players.length > 0 && (
           <div className="cell-info-section">
