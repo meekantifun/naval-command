@@ -906,7 +906,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
               {/* Spawn Enemy */}
               <div className="gm-row">
                 <select value={gmEnemyType} onChange={e => { setGmEnemyType(e.target.value); setGmSpawnMode(false); }}>
-                  {['destroyer', 'light_cruiser', 'heavy_cruiser', 'battleship', 'carrier', 'submarine'].map(t =>
+                  {['destroyer', 'light_cruiser', 'heavy_cruiser', 'battleship', 'carrier'].map(t =>
                     <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                   )}
                 </select>

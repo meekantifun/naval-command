@@ -2753,13 +2753,27 @@ class NavalWarfareBot {
                        shipClass.includes('destroyer') || 
                        name.includes('[dd]');
                        
+            case 'light_cruiser':
+                return aiType === 'cruiser' ||
+                       aiType === 'lightcruiser' ||
+                       aiType === 'light_cruiser' ||
+                       shipClass.includes('cruiser') ||
+                       name.includes('[cl]');
+
+            case 'heavy_cruiser':
+                return aiType === 'cruiser' ||
+                       aiType === 'heavy_cruiser' ||
+                       aiType === 'heavycruiser' ||
+                       shipClass.includes('cruiser') ||
+                       name.includes('[ca]');
+
             case 'cruiser':
-                return aiType === 'cruiser' || 
+                return aiType === 'cruiser' ||
                        aiType === 'lightcruiser' ||
                        aiType === 'light_cruiser' ||
                        aiType === 'heavy_cruiser' ||
-                       shipClass.includes('cruiser') || 
-                       name.includes('[cl]') || 
+                       shipClass.includes('cruiser') ||
+                       name.includes('[cl]') ||
                        name.includes('[ca]');
                                
             case 'battleship':
