@@ -224,11 +224,12 @@ app.post('/api/game/:channelId/move', ensureAuthenticated, async (req, res) => {
 
 app.post('/api/game/:channelId/attack', ensureAuthenticated, async (req, res) => {
   try {
-    const { targetId, weaponType, characterAlias } = req.body;
+    const { targetId, weaponType, shellType, characterAlias } = req.body;
     const response = await botAPI.post(`/api/game/${req.params.channelId}/attack`, {
       userId: req.user.id,
       targetId,
       weaponType,
+      shellType,
       characterAlias
     });
 
@@ -283,6 +284,76 @@ app.post('/api/game/:channelId/moveair', ensureAuthenticated, async (req, res) =
     res.status(error.response?.status || 500).json({
       error: error.response?.data?.error || 'Failed to move aircraft'
     });
+  }
+});
+
+app.post('/api/game/:channelId/spawn', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/spawn`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to set spawn' });
+  }
+});
+
+app.post('/api/game/:channelId/damage-control', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/damage-control`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to perform damage control' });
+  }
+});
+
+app.post('/api/game/:channelId/end-turn', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/end-turn`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to end turn' });
+  }
+});
+
+app.post('/api/game/:channelId/weather', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/weather`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to set weather' });
+  }
+});
+
+app.post('/api/game/:channelId/spawn-enemy', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/spawn-enemy`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to spawn enemy' });
+  }
+});
+
+app.post('/api/game/:channelId/end', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/end`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to end battle' });
+  }
+});
+
+app.post('/api/game/:channelId/apply-status', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/apply-status`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to apply status' });
   }
 });
 

@@ -855,7 +855,7 @@ function drawInfraIcon(ctx, px, py, pw, ph, type, name, state, mineImg) {
 
 // ── Map component ──────────────────────────────────────────────────────────
 
-function GameMap({ gameState, onCellClick, selectedCell }) {
+function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [] }) {
   const canvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
   const [mineImg, setMineImg] = useState(null);
@@ -870,6 +870,12 @@ function GameMap({ gameState, onCellClick, selectedCell }) {
     img.onerror = () => setMineImg(null);
     img.src = '/mine.png';
   }, []);
+
+  const spawnSet = useMemo(() => {
+    const s = new Set();
+    for (const c of spawnZoneCoords) s.add(`${c.x},${c.y}`);
+    return s;
+  }, [spawnZoneCoords]);
 
   const terrainMap = useMemo(() => {
     const tm = new Map();
@@ -910,6 +916,17 @@ function GameMap({ gameState, onCellClick, selectedCell }) {
       ctx.strokeStyle = colors.stroke;
       ctx.lineWidth = 0.5;
       ctx.strokeRect(px + 0.25, py + 0.25, CELL - 0.5, CELL - 0.5);
+    }
+
+    // Spawn zone highlight (green overlay)
+    if (spawnSet.size > 0) {
+      ctx.fillStyle = 'rgba(0, 200, 100, 0.25)';
+      for (const key of spawnSet) {
+        const [sx, sy] = key.split(',').map(Number);
+        if (sx >= 0 && sx < mapSize && sy >= 0 && sy < mapSize) {
+          ctx.fillRect(MARGIN + sx * CELL, MARGIN + sy * CELL, CELL, CELL);
+        }
+      }
     }
 
     // Grid lines
@@ -983,7 +1000,7 @@ function GameMap({ gameState, onCellClick, selectedCell }) {
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg, spawnSet]);
 
   useEffect(() => {
     if (canvasRef.current && gameState) drawMap();

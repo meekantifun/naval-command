@@ -17864,7 +17864,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     weapons: p.weapons,
                     aircraftSquadrons: p.aircraftSquadrons,
                     actionsThisTurn: p.actionsThisTurn ?? 0,
-                    maxActions: p.maxActions ?? p.actionPoints ?? 2
+                    maxActions: p.maxActions ?? p.actionPoints ?? 2,
+                    damageControlCooldown: p.damageControlCooldown ?? 0,
+                    bleeding: p.bleeding ?? false
                 }));
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => ({
@@ -17954,6 +17956,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     terrain,
                     infrastructure,
                     turnOrder: game.turnOrder,
+                    gmId: game.gmId,
+                    spawnZoneCoords: (game.spawnZoneCoords || []).map(coord => {
+                        const [x, y] = coord.split(',').map(Number);
+                        return { x, y };
+                    }),
                 });
             } catch (error) {
                 console.error('Error fetching game state:', error);
@@ -18055,7 +18062,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
         app.post('/api/game/:channelId/attack', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
-                const { userId, targetId, weaponType, characterAlias } = req.body;
+                const { userId, targetId, weaponType, shellType, characterAlias } = req.body;
                 const game = this.games.get(channelId);
 
                 if (!game) {
@@ -18105,7 +18112,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
 
                 // Perform attack using existing combat system
+                if (shellType) weapon._webShellType = shellType;
                 const attackResult = await this.performAttack(player, target, weapon, game);
+                delete weapon._webShellType;
 
                 player.actionsThisTurn++;
 
@@ -18242,6 +18251,185 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 res.json({ success: true, characterName: resolvedName });
             } catch (error) {
                 console.error('Error joining game via web:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Player picks spawn location
+        app.post('/api/game/:channelId/spawn', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, x, y } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (game.phase !== 'joining') return res.status(400).json({ error: 'Game is not in joining phase' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                const coordStr = `${x},${y}`;
+                if (!(game.spawnZoneCoords || []).includes(coordStr)) {
+                    return res.status(400).json({ error: 'Cell is not in spawn zone' });
+                }
+                const occupied = Array.from(game.players.values()).some(p => p.x === x && p.y === y);
+                if (occupied) return res.status(400).json({ error: 'Cell is already occupied' });
+                player.x = x;
+                player.y = y;
+                player.position = { x, y };
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error setting spawn:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Damage control action
+        app.post('/api/game/:channelId/damage-control', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.actionsThisTurn >= player.maxActions) {
+                    return res.status(400).json({ error: 'No actions remaining this turn' });
+                }
+                if ((player.damageControlCooldown ?? 0) > 0) {
+                    return res.status(400).json({ error: `Damage control on cooldown (${player.damageControlCooldown} turns)` });
+                }
+                if (!player.onFire && !player.flooding && !player.bleeding) {
+                    return res.status(400).json({ error: 'No damage conditions to control' });
+                }
+                player.onFire = false;
+                player.flooding = false;
+                player.bleeding = false;
+                player.fireTimer = 0;
+                player.floodTimer = 0;
+                player.damageControlCooldown = 8;
+                player.actionsThisTurn++;
+                player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error performing damage control:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // End player's turn
+        app.post('/api/game/:channelId/end-turn', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                player.actionsThisTurn = player.maxActions;
+                player.actionPoints = 0;
+                this.finalizePlayerTurn(player);
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error ending turn:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: Change weather
+        app.post('/api/game/:channelId/weather', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, condition } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const valid = ['clear', 'rainy', 'foggy', 'thunderstorm', 'hurricane'];
+                if (!valid.includes(condition)) return res.status(400).json({ error: 'Invalid weather condition' });
+                game.weather = condition;
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error changing weather:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: Spawn an enemy ship
+        app.post('/api/game/:channelId/spawn-enemy', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, shipType } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (game.enemies.size >= 20) return res.status(400).json({ error: 'Too many enemies (max 20)' });
+                const ai = this.spawnSpecificAI(game, shipType);
+                if (!ai) return res.status(400).json({ error: `Could not spawn enemy of type: ${shipType}` });
+                ai.x = ai.position?.x ?? 0;
+                ai.y = ai.position?.y ?? 0;
+                ai.sunk = false;
+                game.enemies.set(ai.id, ai);
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true, enemyId: ai.id });
+            } catch (error) {
+                console.error('Error spawning enemy:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: End the battle
+        app.post('/api/game/:channelId/end', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (game.turnTimer) { clearTimeout(game.turnTimer); game.turnTimer = null; }
+                if (game.battleTimer) { clearTimeout(game.battleTimer); game.battleTimer = null; }
+                if (game.updateInterval) { clearInterval(game.updateInterval); game.updateInterval = null; }
+                if (game.qrfTimer) { clearTimeout(game.qrfTimer); game.qrfTimer = null; }
+                game.phase = 'ended';
+                await this.broadcastGameUpdate(channelId);
+                this.games.delete(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error ending battle:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: Apply status to a unit
+        app.post('/api/game/:channelId/apply-status', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, targetId, targetType, status } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const unit = targetType === 'player'
+                    ? game.players.get(targetId)
+                    : game.enemies.get(targetId);
+                if (!unit) return res.status(404).json({ error: 'Target unit not found' });
+                if (status === 'fire') {
+                    unit.onFire = true;
+                    unit.fireTimer = 10;
+                } else if (status === 'flood') {
+                    unit.flooding = true;
+                    unit.floodTimer = 10;
+                } else if (status === 'kill') {
+                    unit.alive = false;
+                    unit.sunk = true;
+                    unit.health = 0;
+                    unit.currentHealth = 0;
+                } else {
+                    return res.status(400).json({ error: 'Invalid status. Use fire, flood, or kill' });
+                }
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error applying status:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });

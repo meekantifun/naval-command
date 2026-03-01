@@ -26,6 +26,15 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [actionMode, setActionMode] = useState('move');
   const [selectedCell, setSelectedCell] = useState(null);
 
+  // New state for feature parity
+  const [attackState, setAttackState] = useState(null);
+  // null | { targetId, targetName, step: 'weapon'|'shell'|'confirm', weaponType?, weaponName?, shellType? }
+  const [confirmEndBattle, setConfirmEndBattle] = useState(false);
+  const [gmWeather, setGmWeather] = useState('clear');
+  const [gmEnemyType, setGmEnemyType] = useState('destroyer');
+  const [gmStatusTarget, setGmStatusTarget] = useState('');
+  const [gmStatusAction, setGmStatusAction] = useState('fire');
+
   const audioRef = useRef(null);
   const prevGameStateRef = useRef(null);
 
@@ -43,6 +52,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
       }
     }
   }, [gameState, user.id]);
+
+  // Keep selectedPlayer in sync with fresh game state
+  useEffect(() => {
+    if (gameState && selectedPlayer) {
+      const fresh = gameState.players.find(p => p.userId === selectedPlayer.userId);
+      if (fresh) setSelectedPlayer(fresh);
+    }
+  }, [gameState]);
 
   // Initialize turn alert audio
   useEffect(() => {
@@ -87,6 +104,20 @@ function GameView({ channelId, user, onBack, onLogout }) {
     return s;
   }, [gameState]);
 
+  // Spawn zone set for highlighting
+  const spawnSet = useMemo(() => {
+    const s = new Set();
+    (gameState?.spawnZoneCoords || []).forEach(c => s.add(`${c.x},${c.y}`));
+    return s;
+  }, [gameState]);
+
+  // Current user's player object
+  const myPlayer = useMemo(() =>
+    gameState?.players?.find(p => p.userId === user.id), [gameState, user.id]);
+
+  const isGM = gameState?.gmId === user.id;
+  const needsSpawn = myPlayer && myPlayer.x == null && gameState?.phase === 'joining';
+
   const setupWebSocket = () => {
     const newSocket = io(API_URL, { withCredentials: true });
     newSocket.on('connect', () => newSocket.emit('joinGame', channelId));
@@ -124,24 +155,108 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
-  const handleAttack = async (targetId) => {
-    if (!selectedPlayer) return;
-    const weapon = selectedPlayer.weapons && selectedPlayer.weapons[0];
-    if (!weapon) { alert('No weapons available'); return; }
+  const handleSpawn = async (x, y) => {
     try {
-      await axios.post(`${API_URL}/api/game/${channelId}/attack`,
-        { targetId, weaponType: weapon.type, characterAlias: selectedPlayer.characterAlias },
+      await axios.post(`${API_URL}/api/game/${channelId}/spawn`,
+        { x, y },
         { withCredentials: true }
       );
+      setSelectedCell(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to set spawn location');
+    }
+  };
+
+  const handleDamageControl = async () => {
+    if (!selectedPlayer) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/damage-control`,
+        {},
+        { withCredentials: true }
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to perform damage control');
+    }
+  };
+
+  const handleEndTurn = async () => {
+    if (!selectedPlayer) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/end-turn`,
+        {},
+        { withCredentials: true }
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to end turn');
+    }
+  };
+
+  const handleAttackFull = async (targetId, weaponType, shellType) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/attack`,
+        { targetId, weaponType, shellType, characterAlias: selectedPlayer?.characterAlias },
+        { withCredentials: true }
+      );
+      setAttackState(null);
       setSelectedCell(null);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to attack');
     }
   };
 
+  const handleWeather = async (condition) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/weather`,
+        { condition },
+        { withCredentials: true }
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to set weather');
+    }
+  };
+
+  const handleSpawnEnemy = async (shipType) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/spawn-enemy`,
+        { shipType },
+        { withCredentials: true }
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to spawn enemy');
+    }
+  };
+
+  const handleEndBattle = async () => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/end`,
+        {},
+        { withCredentials: true }
+      );
+      setConfirmEndBattle(false);
+      onBack();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to end battle');
+    }
+  };
+
+  const handleApplyStatus = async (targetId, targetType, status) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/apply-status`,
+        { targetId, targetType, status },
+        { withCredentials: true }
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to apply status');
+    }
+  };
+
   const getAttackRange = () => {
-    if (!selectedPlayer || !selectedPlayer.weapons || selectedPlayer.weapons.length === 0) return 0;
-    return selectedPlayer.weapons[0].range || 10;
+    if (!selectedPlayer) return 0;
+    const weapons = Array.isArray(selectedPlayer.weapons)
+      ? selectedPlayer.weapons
+      : Object.values(selectedPlayer.weapons || {});
+    if (weapons.length === 0) return 0;
+    return Math.max(...weapons.map(w => w.range || 0));
   };
 
   const isInRange = (ex, ey) => {
@@ -149,6 +264,77 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const dx = ex - selectedPlayer.x;
     const dy = ey - selectedPlayer.y;
     return Math.sqrt(dx * dx + dy * dy) <= getAttackRange();
+  };
+
+  const renderAttackFlow = (e) => {
+    const weapons = Array.isArray(selectedPlayer.weapons)
+      ? selectedPlayer.weapons
+      : Object.values(selectedPlayer.weapons || {});
+
+    if (attackState?.targetId !== e.id) {
+      return (
+        <button className="btn-attack-unit" onClick={() =>
+          setAttackState({ targetId: e.id, targetName: e.name, step: 'weapon' })
+        }>⚔️ Attack</button>
+      );
+    }
+
+    if (attackState.step === 'weapon') {
+      return (
+        <div className="attack-flow">
+          <div className="attack-flow-label">Choose weapon</div>
+          <div className="attack-flow-buttons">
+            {weapons.map(w => (
+              <button key={w.type || w.name} onClick={() => {
+                const isTorpedo = (w.type || '').toLowerCase().includes('torpedo');
+                setAttackState({
+                  ...attackState,
+                  weaponType: w.type,
+                  weaponName: w.name || w.type,
+                  step: isTorpedo ? 'confirm' : 'shell',
+                  shellType: isTorpedo ? 'torpedo' : null,
+                });
+              }}>
+                {w.name || w.type}
+              </button>
+            ))}
+            <button className="btn-cancel" onClick={() => setAttackState(null)}>✕ Cancel</button>
+          </div>
+        </div>
+      );
+    }
+
+    if (attackState.step === 'shell') {
+      return (
+        <div className="attack-flow">
+          <div className="attack-flow-label">Shell type</div>
+          <div className="attack-flow-buttons">
+            <button onClick={() => setAttackState({ ...attackState, shellType: 'ap', step: 'confirm' })}>AP</button>
+            <button onClick={() => setAttackState({ ...attackState, shellType: 'he', step: 'confirm' })}>HE</button>
+            <button className="btn-cancel" onClick={() => setAttackState({ ...attackState, step: 'weapon' })}>← Back</button>
+          </div>
+        </div>
+      );
+    }
+
+    if (attackState.step === 'confirm') {
+      return (
+        <div className="attack-flow">
+          <div className="attack-flow-confirm">
+            Attack <strong>{attackState.targetName}</strong> with {attackState.weaponName}
+            {attackState.shellType && attackState.shellType !== 'torpedo' ? ` (${attackState.shellType.toUpperCase()})` : ''}?
+          </div>
+          <div className="attack-flow-buttons">
+            <button onClick={() => handleAttackFull(attackState.targetId, attackState.weaponType, attackState.shellType)}>
+              ✅ Confirm
+            </button>
+            <button className="btn-cancel" onClick={() => setAttackState(null)}>✕ Cancel</button>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   const renderCellInfo = () => {
@@ -159,6 +345,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
     const enemies = (gameState.enemies || []).filter(e => !e.sunk && e.x === x && e.y === y);
     const isLand = landSet.has(`${x},${y}`);
+    const isSpawnCell = spawnSet.has(`${x},${y}`);
     const canMove = selectedPlayer && !selectedPlayer.sunk &&
       selectedPlayer.actionsThisTurn < selectedPlayer.maxActions && !isLand;
     const canAttackAny = selectedPlayer && !selectedPlayer.sunk &&
@@ -188,7 +375,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
       <div className="cell-info-panel">
         <div className="cell-info-header">
           <span className="cell-coord">Cell {coord}</span>
-          <button className="cell-info-close" onClick={() => setSelectedCell(null)}>✕</button>
+          <button className="cell-info-close" onClick={() => { setSelectedCell(null); setAttackState(null); }}>✕</button>
         </div>
 
         <div className="cell-info-terrain">{terrainLabel}</div>
@@ -207,6 +394,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   <div className="unit-hp-text">{p.health}/{p.maxHealth} HP</div>
                   {p.onFire && <span className="unit-status">🔥</span>}
                   {p.flooding && <span className="unit-status">💧</span>}
+                  {p.bleeding && <span className="unit-status">🩸</span>}
                 </div>
               );
             })}
@@ -226,9 +414,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   <div className="unit-hp-bar"><div className="unit-hp-fill" style={{ width: `${hpPct}%`, background: hpPct > 50 ? '#f56565' : hpPct > 25 ? '#ed8936' : '#c53030' }} /></div>
                   <div className="unit-hp-text">{e.health}/{e.maxHealth} HP</div>
                   <div className="unit-range-info">{inRange ? '✅ In range' : '❌ Out of range'}</div>
-                  {canAttackAny && inRange && (
-                    <button className="btn-attack-unit" onClick={() => handleAttack(e.id)}>⚔️ Attack</button>
-                  )}
+                  {canAttackAny && inRange && renderAttackFlow(e)}
                 </div>
               );
             })}
@@ -240,14 +426,20 @@ function GameView({ channelId, user, onBack, onLogout }) {
         )}
 
         <div className="cell-info-actions">
-          {canMove && (
+          {needsSpawn && isSpawnCell && (
+            <button className="btn-move-here" onClick={() => handleSpawn(x, y)}>⚓ Spawn Here</button>
+          )}
+          {needsSpawn && !isSpawnCell && (
+            <div className="cell-info-hint">Not a valid spawn zone</div>
+          )}
+          {!needsSpawn && canMove && (
             <button className="btn-move-here" onClick={() => handleMove(x, y)}>🚢 Move Here</button>
           )}
           {!selectedPlayer && <div className="cell-info-hint">Select a ship to take actions</div>}
-          {selectedPlayer && selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions && (
+          {selectedPlayer && selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions && !needsSpawn && (
             <div className="cell-info-hint">No actions remaining</div>
           )}
-          {isLand && selectedPlayer && <div className="cell-info-hint">Cannot move to land</div>}
+          {isLand && selectedPlayer && !needsSpawn && <div className="cell-info-hint">Cannot move to land</div>}
         </div>
       </div>
     );
@@ -282,7 +474,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
         <div className="game-header-left">
           <button onClick={onBack} className="btn btn-secondary">← Back</button>
           <h2>Game #{channelId.slice(-6)}</h2>
-          <span className="game-info">Turn {gameState.currentTurn} • {gameState.phase}</span>
+          <span className="game-info">Turn {gameState.currentTurn} • {gameState.phase}{gameState.weather ? ` • ${gameState.weather}` : ''}</span>
         </div>
         <div className="game-header-right">
           <span className="user-name">{user.username}</span>
@@ -303,7 +495,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                 {userPlayers.map((player, idx) => (
                   <div
                     key={idx}
-                    className={`ship-card ${selectedPlayer === player ? 'selected' : ''} ${player.sunk ? 'sunk' : ''}`}
+                    className={`ship-card ${selectedPlayer?.userId === player.userId ? 'selected' : ''} ${player.sunk ? 'sunk' : ''}`}
                     onClick={() => setSelectedPlayer(player)}
                   >
                     <div className="ship-name">{player.characterAlias || player.shipClass}</div>
@@ -315,6 +507,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     </div>
                     {player.onFire && <div className="status-badge fire">🔥 On Fire</div>}
                     {player.flooding && <div className="status-badge flooding">💧 Flooding</div>}
+                    {player.bleeding && <div className="status-badge fire">🩸 Bleeding</div>}
                     {player.sunk && <div className="status-badge sunk">💀 Sunk</div>}
                   </div>
                 ))}
@@ -337,6 +530,25 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   disabled={selectedPlayer.sunk || selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}>
                   🎯 Attack
                 </button>
+                {!selectedPlayer.sunk && (
+                  <>
+                    <button
+                      className="btn btn-warning"
+                      disabled={
+                        (selectedPlayer.damageControlCooldown ?? 0) > 0 ||
+                        (!selectedPlayer.onFire && !selectedPlayer.flooding && !selectedPlayer.bleeding) ||
+                        selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions
+                      }
+                      onClick={handleDamageControl}
+                    >
+                      🔧 Damage Control
+                      {(selectedPlayer.damageControlCooldown ?? 0) > 0 && ` (${selectedPlayer.damageControlCooldown}t)`}
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleEndTurn}>
+                      ✋ End Turn
+                    </button>
+                  </>
+                )}
               </div>
               <p className="action-help">Click any cell on the map to inspect it</p>
             </div>
@@ -346,7 +558,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
           {selectedCell ? renderCellInfo() : (
             <div className="sidebar-section cell-info-placeholder">
               <h3>Cell Info</h3>
-              <p className="cell-info-hint">Click any square on the map to see what's there</p>
+              {needsSpawn
+                ? <p className="cell-info-hint">Click a highlighted green spawn cell to place your ship</p>
+                : <p className="cell-info-hint">Click any square on the map to see what's there</p>
+              }
             </div>
           )}
 
@@ -365,6 +580,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       <div className="stat"><span>HP:</span><span className={enemy.health < enemy.maxHealth * 0.3 ? 'danger' : ''}>{enemy.health}/{enemy.maxHealth}</span></div>
                       <div className="stat"><span>Position:</span><span>{enemy.x != null ? coordLabel(enemy.x, enemy.y) : '?'}</span></div>
                     </div>
+                    {enemy.onFire && <div className="status-badge fire">🔥 On Fire</div>}
+                    {enemy.flooding && <div className="status-badge flooding">💧 Flooding</div>}
                     {enemy.isBoss && <div className="status-badge boss">👑 Boss</div>}
                   </div>
                 ))
@@ -372,13 +589,83 @@ function GameView({ channelId, user, onBack, onLogout }) {
             </div>
           </div>
 
+          {/* GM Controls */}
+          {isGM && (
+            <div className="sidebar-section gm-controls">
+              <h3>⚙️ GM Controls</h3>
+
+              {/* Weather */}
+              <div className="gm-row">
+                <select value={gmWeather} onChange={e => setGmWeather(e.target.value)}>
+                  {['clear', 'rainy', 'foggy', 'thunderstorm', 'hurricane'].map(w =>
+                    <option key={w} value={w}>{w}</option>
+                  )}
+                </select>
+                <button onClick={() => handleWeather(gmWeather)}>Set Weather</button>
+              </div>
+
+              {/* Spawn Enemy */}
+              <div className="gm-row">
+                <select value={gmEnemyType} onChange={e => setGmEnemyType(e.target.value)}>
+                  {['destroyer', 'light_cruiser', 'heavy_cruiser', 'battleship', 'carrier', 'submarine'].map(t =>
+                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+                  )}
+                </select>
+                <button onClick={() => handleSpawnEnemy(gmEnemyType)}>Spawn Enemy</button>
+              </div>
+
+              {/* Apply Status */}
+              <div className="gm-row">
+                <select value={gmStatusTarget} onChange={e => setGmStatusTarget(e.target.value)}>
+                  <option value="">Select unit...</option>
+                  {[...gameState.players, ...gameState.enemies].filter(u => !u.sunk).map(u => {
+                    const id = u.userId || u.id;
+                    const type = u.userId ? 'player' : 'enemy';
+                    const label = u.characterAlias || u.name || u.username;
+                    return (
+                      <option key={id} value={`${id}:${type}`}>{label}</option>
+                    );
+                  })}
+                </select>
+                <select value={gmStatusAction} onChange={e => setGmStatusAction(e.target.value)}>
+                  <option value="fire">🔥 Fire</option>
+                  <option value="flood">💧 Flood</option>
+                  <option value="kill">💀 Kill</option>
+                </select>
+                <button
+                  disabled={!gmStatusTarget}
+                  onClick={() => {
+                    const [id, type] = gmStatusTarget.split(':');
+                    handleApplyStatus(id, type, gmStatusAction);
+                  }}
+                >Apply</button>
+              </div>
+
+              {/* End Battle */}
+              {!confirmEndBattle
+                ? <button className="btn-gm-danger" onClick={() => setConfirmEndBattle(true)}>🔴 End Battle</button>
+                : (
+                  <div className="gm-confirm">
+                    <span>End the battle?</span>
+                    <button onClick={handleEndBattle}>Yes</button>
+                    <button onClick={() => setConfirmEndBattle(false)}>No</button>
+                  </div>
+                )
+              }
+            </div>
+          )}
+
         </div>
 
         <div className="game-main">
+          {needsSpawn && (
+            <div className="spawn-banner">⚓ Select your spawn location — click a highlighted green cell</div>
+          )}
           <GameMap
             gameState={gameState}
             onCellClick={handleMapClick}
             selectedCell={selectedCell}
+            spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
           />
         </div>
       </div>

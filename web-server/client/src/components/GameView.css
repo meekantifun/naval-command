@@ -517,3 +517,35 @@
 .btn-move-here:hover { background: #4752C4; }
 
 .cell-info-hint { color: #72767d; font-size: 11px; text-align: center; }
+
+/* ===== SPAWN BANNER ===== */
+.spawn-banner { background: #2d6a2d; color: #90ee90; padding: 8px 16px; border-radius: 6px; margin-bottom: 8px; font-weight: 600; text-align: center; }
+
+/* ===== BUTTONS ===== */
+.btn-warning { background: #e08a00; color: #fff; }
+.btn-warning:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== ATTACK FLOW ===== */
+.attack-flow { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.attack-flow-label { font-size: 12px; color: #72767d; text-transform: uppercase; letter-spacing: 0.05em; }
+.attack-flow-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.attack-flow-buttons button { flex: 1; padding: 6px; font-size: 12px; background: #40444b; color: #dcddde; border: none; border-radius: 4px; cursor: pointer; }
+.attack-flow-buttons button:hover { background: #5865f2; color: #fff; }
+.attack-flow-buttons .btn-cancel { background: #36393f; color: #72767d; }
+.attack-flow-buttons .btn-cancel:hover { background: #40444b; color: #dcddde; }
+.attack-flow-confirm { font-size: 12px; color: #dcddde; margin-bottom: 4px; }
+
+/* ===== GM CONTROLS ===== */
+.gm-controls { border-left: 3px solid #faa61a; }
+.gm-controls h3 { color: #faa61a; }
+.gm-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.gm-row select { flex: 1; background: #36393f; color: #dcddde; border: 1px solid #40444b; border-radius: 4px; padding: 4px 6px; font-size: 12px; }
+.gm-row button { background: #40444b; color: #dcddde; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.gm-row button:hover { background: #5865f2; color: #fff; }
+.btn-gm-danger { width: 100%; background: #ed4245; color: #fff; border: none; border-radius: 6px; padding: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-gm-danger:hover { background: #c0392b; }
+.gm-confirm { display: flex; align-items: center; gap: 8px; }
+.gm-confirm span { flex: 1; color: #f56565; font-size: 13px; }
+.gm-confirm button { padding: 5px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.gm-confirm button:first-of-type { background: #ed4245; color: #fff; }
+.gm-confirm button:last-of-type { background: #40444b; color: #dcddde; }
