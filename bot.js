@@ -18537,6 +18537,63 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // GM: Start the battle from web dashboard
+        app.post('/api/game/:channelId/start-battle', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (game.phase !== 'joining') return res.status(400).json({ error: 'Game is not in joining phase' });
+                if (game.players.size < 1) return res.status(400).json({ error: 'Need at least 1 player to start' });
+
+                // Check all players have picked spawn positions
+                const waiting = [];
+                for (const [pId, player] of game.players.entries()) {
+                    if (!player.position) waiting.push(pId);
+                }
+                if (waiting.length > 0) {
+                    return res.status(400).json({ error: 'Some players have not selected their spawn position', waiting });
+                }
+
+                // Respond immediately, then kick off the battle asynchronously
+                res.json({ success: true, message: 'Battle starting...' });
+
+                (async () => {
+                    try {
+                        const channel = await this.client.channels.fetch(channelId).catch(() => null);
+
+                        await game.initializeBattle();
+                        await this.spawnConfiguredEnemies(game);
+
+                        const objectiveType = game.setupState?.objectiveConfig?.type;
+                        if (objectiveType) {
+                            const objective = this.missions.getObjective(objectiveType);
+                            if (objective) {
+                                game.currentObjective = objective;
+                                if (objective.setup) objective.setup(game);
+                            }
+                        }
+
+                        await this.broadcastGameUpdate(channelId);
+
+                        if (channel) {
+                            await channel.send('🚢 **Battle started via web dashboard!** The GM has launched the mission.');
+                            try { await this.updateGameDisplay(game, channel); } catch (e) { /* best-effort */ }
+                            this.startPlayerMonitoring(game, channel);
+                            this.startTurnSystem(game, channel);
+                        }
+                    } catch (err) {
+                        console.error('Error starting battle from web:', err);
+                    }
+                })();
+            } catch (error) {
+                console.error('Error in start-battle endpoint:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // ==================== ADMIN PANEL ENDPOINTS ====================
 
         // Get bot's guilds (for filtering mutual servers)

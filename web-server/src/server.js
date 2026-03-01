@@ -357,6 +357,16 @@ app.post('/api/game/:channelId/apply-status', ensureAuthenticated, async (req, r
   }
 });
 
+app.post('/api/game/:channelId/start-battle', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/start-battle`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to start battle' });
+  }
+});
+
 // WebSocket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);

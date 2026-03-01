@@ -665,6 +665,84 @@
   text-shadow: 0 0 4px rgba(255, 255, 255, 0.65);
 }
 
+/* ===== PHASE BADGES (header) ===== */
+.phase-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.phase-spawn  { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); }
+.phase-battle { background: rgba(239, 68,  68,  0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+.phase-qrf    { background: rgba(251, 146, 60,  0.2);  color: #fdba74; border: 1px solid rgba(251,146,60,0.4); }
+
+/* ===== QRF BANNER ===== */
+.qrf-banner {
+  background: rgba(251, 146, 60, 0.12);
+  border-bottom: 2px solid rgba(251, 146, 60, 0.5);
+  color: #fdba74;
+  padding: 10px 24px;
+  font-size: 13px;
+  text-align: center;
+}
+.qrf-banner code { background: rgba(0,0,0,0.3); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+/* ===== SPAWN PHASE SIDEBAR ===== */
+.spawn-phase-section h3 { color: #6ee7b7; }
+
+.spawn-roster { display: flex; flex-direction: column; gap: 6px; }
+
+.spawn-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.spawn-roster-row.spawned  { background: rgba(16, 185, 129, 0.1); }
+.spawn-roster-row.waiting  { background: rgba(100, 100, 100, 0.1); }
+
+.spawn-status-icon { font-size: 14px; flex-shrink: 0; }
+.spawn-player-name { font-weight: 600; color: #fff; flex: 1; }
+.spawn-ship-class  { font-size: 11px; color: #72767d; }
+
+.spawn-warning {
+  font-size: 12px;
+  color: #f6ad55;
+  background: rgba(246, 173, 85, 0.1);
+  border: 1px solid rgba(246,173,85,0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+
+.btn-start-battle {
+  width: 100%;
+  background: #10b981;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.btn-start-battle:hover:not(:disabled) { background: #059669; }
+.btn-start-battle:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+
+.spawn-hint-text, .spawn-ready-text {
+  font-size: 13px;
+  color: #b9bbbe;
+  line-height: 1.5;
+  text-align: center;
+  padding: 4px 0;
+}
+.spawn-ready-text { color: #6ee7b7; }
+
 /* ===== SPAWN BANNER ===== */
 .spawn-banner { background: #2d6a2d; color: #90ee90; padding: 8px 16px; border-radius: 6px; margin-bottom: 8px; font-weight: 600; text-align: center; }
 

@@ -219,7 +219,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     prevGameStateRef.current = gameState;
 
     if (!prev) return; // skip first load
-    if (gameState.phase !== 'player_turn') return;
+    if (gameState.phase !== 'battle') return;
 
     const myPlayer = gameState.players.find(p => p.userId === user.id && !p.sunk);
     if (!myPlayer) return;
@@ -521,6 +521,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
+  const handleStartBattle = async () => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/start-battle`, {}, { withCredentials: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to start battle');
+    }
+  };
+
   const handleEndBattle = async () => {
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/end`,
@@ -788,7 +796,13 @@ function GameView({ channelId, user, onBack, onLogout }) {
         <div className="game-header-left">
           <button onClick={onBack} className="btn btn-secondary">← Back</button>
           <h2>Game #{channelId.slice(-6)}</h2>
-          <span className="game-info">Turn {gameState.currentTurn} • {gameState.phase}{gameState.weather ? ` • ${gameState.weather}` : ''}</span>
+          {gameState.phase === 'joining' ? (
+            <span className="phase-badge phase-spawn">⚓ Spawn Phase</span>
+          ) : gameState.phase === 'battle' && gameState.players.every(p => p.sunk) ? (
+            <span className="phase-badge phase-qrf">🚁 QRF Phase</span>
+          ) : gameState.phase === 'battle' ? (
+            <span className="phase-badge phase-battle">⚔️ Battle • Turn {gameState.currentTurn}{gameState.weather ? ` • ${gameState.weather}` : ''}</span>
+          ) : null}
         </div>
         <div className="game-header-right">
           <span className="user-name">{user.username}</span>
@@ -796,8 +810,79 @@ function GameView({ channelId, user, onBack, onLogout }) {
         </div>
       </header>
 
+      {/* QRF banner */}
+      {gameState.phase === 'battle' && gameState.players.length > 0 && gameState.players.every(p => p.sunk) && (
+        <div className="qrf-banner">
+          🚁 <strong>QRF Phase</strong> — All players have been eliminated. New reinforcements can join via Discord (<code>/join</code>).
+        </div>
+      )}
+
       <div className="game-content">
         <div className="game-sidebar">
+
+          {/* ── SPAWN PHASE SIDEBAR ── */}
+          {gameState.phase === 'joining' && (
+            <>
+              <div className="sidebar-section spawn-phase-section">
+                <h3>⚓ Players Joined</h3>
+                {gameState.players.length === 0 ? (
+                  <p className="no-ships">No players yet — join via Discord with <code>/join</code></p>
+                ) : (
+                  <div className="spawn-roster">
+                    {gameState.players.map(p => {
+                      const hasSpawn = p.x != null;
+                      return (
+                        <div key={p.userId} className={`spawn-roster-row ${hasSpawn ? 'spawned' : 'waiting'}`}>
+                          <span className="spawn-status-icon">{hasSpawn ? '✅' : '⏳'}</span>
+                          <span className="spawn-player-name">{p.characterAlias || p.username || p.userId}</span>
+                          <span className="spawn-ship-class">{p.shipClass}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {isGM && (
+                <div className="sidebar-section">
+                  <h3>⚙️ GM Controls</h3>
+                  {(() => {
+                    const unspawned = gameState.players.filter(p => p.x == null);
+                    const canStart = gameState.players.length > 0 && unspawned.length === 0;
+                    return (
+                      <>
+                        {unspawned.length > 0 && (
+                          <p className="spawn-warning">⚠️ {unspawned.length} player{unspawned.length > 1 ? 's' : ''} still need to pick a spawn point.</p>
+                        )}
+                        <button
+                          className="btn btn-start-battle"
+                          disabled={!canStart}
+                          onClick={handleStartBattle}
+                        >
+                          🚀 Start Battle
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {!isGM && needsSpawn && (
+                <div className="sidebar-section">
+                  <p className="spawn-hint-text">⚓ Click a highlighted cell on the map to pick your spawn point.</p>
+                </div>
+              )}
+
+              {!isGM && !needsSpawn && myPlayer && (
+                <div className="sidebar-section">
+                  <p className="spawn-ready-text">✅ Spawn selected — waiting for GM to start the battle.</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── NORMAL BATTLE SIDEBAR ── */}
+          {gameState.phase !== 'joining' && <>
 
           {/* Allied Ships */}
           <div className="sidebar-section">
@@ -1008,6 +1093,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
             </div>
           )}
 
+          </>} {/* end battle-only sidebar content */}
+
         </div>
 
         <div className="game-main">
@@ -1019,7 +1106,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
               gameState={gameState}
               onCellClick={handleMapClick}
               selectedCell={selectedCell}
-              spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
+              spawnZoneCoords={gameState.phase === 'joining' ? (gameState.spawnZoneCoords || []) : []}
               myUserId={user.id}
             />
             <div className="battle-log-panel">
