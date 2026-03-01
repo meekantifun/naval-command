@@ -855,17 +855,15 @@ function drawInfraIcon(ctx, px, py, pw, ph, type, name, state, mineImg) {
 
 // ── Map component ──────────────────────────────────────────────────────────
 
-function getShipAbbr(shipClass) {
-  if (!shipClass) return '?';
+function getShipType(shipClass) {
+  if (!shipClass) return 'auxiliary';
   const s = shipClass.toLowerCase();
-  if (s.includes('submarine')) return 'SS';
-  if (s.includes('carrier')) return 'CV';
-  if (s.includes('battleship')) return 'BB';
-  if (s.includes('heavy')) return 'CA';
-  if (s.includes('light')) return 'CL';
-  if (s.includes('destroyer')) return 'DD';
-  if (s.includes('cruiser')) return 'CR';
-  return shipClass.slice(0, 2).toUpperCase();
+  if (s.includes('submarine')) return 'submarine';
+  if (s.includes('carrier')) return 'carrier';
+  if (s.includes('battleship')) return 'battleship';
+  if (s.includes('cruiser')) return 'cruiser';
+  if (s.includes('destroyer')) return 'destroyer';
+  return 'auxiliary';
 }
 
 function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null }) {
@@ -884,18 +882,40 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     img.src = '/mine.png';
   }, []);
 
+  const iconsRef = useRef({});
+  const [iconsLoaded, setIconsLoaded] = useState(false);
+
+  useEffect(() => {
+    const toLoad = [];
+    for (const set of ['class', 'enemy', 'sunk_player', 'sunk_enemy']) {
+      for (const type of ['destroyer', 'battleship', 'carrier', 'cruiser', 'submarine', 'auxiliary']) {
+        toLoad.push([`${set}/${type}`, `/icons/${set}/${type}.png`]);
+      }
+    }
+    toLoad.push(['fire',  '/icons/Fire.png']);
+    toLoad.push(['flood', '/icons/Flood.png']);
+    toLoad.push(['crown', '/icons/crown.png']);
+    let remaining = toLoad.length;
+    for (const [key, src] of toLoad) {
+      const img = new Image();
+      img.onload = () => { iconsRef.current[key] = img; if (--remaining === 0) setIconsLoaded(true); };
+      img.onerror = () => {                              if (--remaining === 0) setIconsLoaded(true); };
+      img.src = src;
+    }
+  }, []);
+
   const spawnSet = useMemo(() => {
     const s = new Set();
     for (const c of spawnZoneCoords) s.add(`${c.x},${c.y}`);
     return s;
   }, [spawnZoneCoords]);
 
-  const activePlayers = useMemo(() =>
-    (gameState?.players || []).filter(p => !p.sunk && p.x != null),
+  const allPlayers = useMemo(() =>
+    (gameState?.players || []).filter(p => p.x != null),
   [gameState]);
 
-  const activeEnemies = useMemo(() =>
-    (gameState?.enemies || []).filter(e => !e.sunk && e.x != null),
+  const allEnemies = useMemo(() =>
+    (gameState?.enemies || []).filter(e => e.x != null),
   [gameState]);
 
   const terrainMap = useMemo(() => {
@@ -1004,47 +1024,62 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.fillText(String(y + 1), MARGIN - 5, MARGIN + y * CELL + CELL / 2);
     }
 
-    // Enemies (red)
-    for (const enemy of activeEnemies) {
-      const cx = MARGIN + enemy.x * CELL + CELL / 2;
-      const cy = MARGIN + enemy.y * CELL + CELL / 2;
-      const r = CELL / 2 - 1;
-      ctx.fillStyle = 'rgba(220,38,38,0.88)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.60)'; ctx.lineWidth = 1;
-      ctx.stroke();
-      if (enemy.onFire) {
-        ctx.fillStyle = '#fb923c';
-        ctx.beginPath(); ctx.arc(cx + r - 2, cy - r + 2, 2.5, 0, Math.PI * 2); ctx.fill();
+    // ── Draw units ──────────────────────────────────────────────────────────
+    const icons = iconsRef.current;
+    const OVR = Math.round(CELL * 0.40); // overlay icon size (~6px at CELL=16)
+
+    function drawUnit(unit, isEnemy) {
+      const px = MARGIN + unit.x * CELL;
+      const py = MARGIN + unit.y * CELL;
+      const sunk = unit.sunk || false;
+      const type = getShipType(unit.shipClass);
+      const iconSet = sunk
+        ? (isEnemy ? 'sunk_enemy' : 'sunk_player')
+        : (isEnemy ? 'enemy' : 'class');
+      const img = icons[`${iconSet}/${type}`];
+
+      ctx.save();
+      if (sunk) ctx.globalAlpha = 0.42;
+
+      if (img) {
+        ctx.drawImage(img, px, py, CELL, CELL);
+      } else {
+        // Fallback: filled circle
+        ctx.fillStyle = isEnemy ? 'rgba(220,38,38,0.88)' : (unit.userId === myUserId ? 'rgba(79,172,254,0.92)' : 'rgba(72,187,120,0.88)');
+        ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 1, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 6px monospace';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(getShipAbbr(enemy.shipClass), cx, cy + 0.5);
+      ctx.restore();
+
+      if (!sunk) {
+        // Fire overlay — top-right corner
+        if (unit.onFire && icons['fire']) {
+          ctx.drawImage(icons['fire'], px + CELL - OVR, py, OVR, OVR);
+        }
+        // Flood overlay — top-left corner
+        if ((unit.flooding || unit.bleeding) && icons['flood']) {
+          ctx.drawImage(icons['flood'], px, py, OVR, OVR);
+        }
+        // Boss crown — top-right above cell
+        if (unit.isBoss && icons['crown']) {
+          ctx.drawImage(icons['crown'], px + CELL - OVR, py - OVR, OVR, OVR);
+        }
+        // Own-player white border highlight
+        if (!isEnemy && unit.userId === myUserId) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.90)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(px + 0.75, py + 0.75, CELL - 1.5, CELL - 1.5);
+        }
+      }
     }
 
-    // Players (blue = own, green = allied)
-    for (const player of activePlayers) {
-      const cx = MARGIN + player.x * CELL + CELL / 2;
-      const cy = MARGIN + player.y * CELL + CELL / 2;
-      const r = CELL / 2 - 1;
-      const isOwn = player.userId === myUserId;
-      ctx.fillStyle = isOwn ? 'rgba(79,172,254,0.92)' : 'rgba(72,187,120,0.88)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = isOwn ? 1.5 : 1;
-      ctx.stroke();
-      if (player.onFire) {
-        ctx.fillStyle = '#fb923c';
-        ctx.beginPath(); ctx.arc(cx + r - 2, cy - r + 2, 2.5, 0, Math.PI * 2); ctx.fill();
-      } else if (player.flooding) {
-        ctx.fillStyle = '#60a5fa';
-        ctx.beginPath(); ctx.arc(cx + r - 2, cy - r + 2, 2.5, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 6px monospace';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(getShipAbbr(player.shipClass), cx, cy + 0.5);
-    }
+    // Sunk units first (behind active)
+    for (const e of allEnemies.filter(e =>  e.sunk)) drawUnit(e, true);
+    for (const p of allPlayers.filter(p =>  p.sunk)) drawUnit(p, false);
+    // Active enemies
+    for (const e of allEnemies.filter(e => !e.sunk)) drawUnit(e, true);
+    // Allied players, own ship always on top
+    for (const p of allPlayers.filter(p => !p.sunk && p.userId !== myUserId)) drawUnit(p, false);
+    for (const p of allPlayers.filter(p => !p.sunk && p.userId === myUserId)) drawUnit(p, false);
 
     // Hover highlight
     if (hoveredCell) {
@@ -1063,7 +1098,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg, spawnSet, activePlayers, activeEnemies, myUserId]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, mineImg, spawnSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
 
   useEffect(() => {
     if (canvasRef.current && gameState) drawMap();
