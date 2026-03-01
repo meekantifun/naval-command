@@ -525,7 +525,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/start-battle`, {}, { withCredentials: true });
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to start battle');
+      const status = err.response?.status;
+      const msg = err.response?.data?.error || err.response?.data || err.message || 'Failed to start battle';
+      alert(`Error ${status || '(no response)'}: ${JSON.stringify(msg)}`);
     }
   };
 

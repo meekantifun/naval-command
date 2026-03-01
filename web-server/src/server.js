@@ -363,7 +363,8 @@ app.post('/api/game/:channelId/start-battle', ensureAuthenticated, async (req, r
       { ...req.body, userId: req.user.id });
     res.json(r.data);
   } catch (error) {
-    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to start battle' });
+    console.error('[start-battle proxy]', error.message, 'status:', error.response?.status, 'data:', JSON.stringify(error.response?.data));
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || error.message || 'Failed to start battle' });
   }
 });
 
