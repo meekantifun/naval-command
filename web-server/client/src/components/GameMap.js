@@ -894,7 +894,6 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     }
     toLoad.push(['fire',  '/icons/Fire.png']);
     toLoad.push(['flood', '/icons/Flood.png']);
-    toLoad.push(['crown', '/icons/crown.png']);
     let remaining = toLoad.length;
     for (const [key, src] of toLoad) {
       const img = new Image();
@@ -1058,10 +1057,6 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
         // Flood overlay — top-left corner
         if ((unit.flooding || unit.bleeding) && icons['flood']) {
           ctx.drawImage(icons['flood'], px, py, OVR, OVR);
-        }
-        // Boss crown — top-right above cell
-        if (unit.isBoss && icons['crown']) {
-          ctx.drawImage(icons['crown'], px + CELL - OVR, py - OVR, OVR, OVR);
         }
         // Own-player white border highlight
         if (!isEnemy && unit.userId === myUserId) {
