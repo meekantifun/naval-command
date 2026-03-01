@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
 import GameMap from './GameMap';
@@ -153,6 +153,16 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const audioRef = useRef(null);
   const prevGameStateRef = useRef(null);
 
+  // Battle log
+  const [localLog, setLocalLog] = useState([]);
+  const logIdRef = useRef(0);
+  const prevStateForLogRef = useRef(null);
+
+  const addLogEntry = useCallback((text, type = 'info') => {
+    const id = `log-${++logIdRef.current}`;
+    setLocalLog(prev => [{ id, text, type, ts: new Date() }, ...prev].slice(0, 300));
+  }, []);
+
   useEffect(() => {
     fetchGameState();
     setupWebSocket();
@@ -207,6 +217,119 @@ function GameView({ channelId, user, onBack, onLogout }) {
       audioRef.current?.play().catch(() => {});
     }
   }, [gameState, user]);
+
+  // Battle log: diff game states to generate events
+  useEffect(() => {
+    if (!gameState) return;
+    const prev = prevStateForLogRef.current;
+    prevStateForLogRef.current = gameState;
+
+    if (!prev) {
+      addLogEntry(`📋 Battle log started — Turn ${gameState.currentTurn || 1}`, 'system');
+      return;
+    }
+
+    const batch = [];
+    const addE = (text, type) => batch.push({ text, type });
+
+    // Turn change
+    if (gameState.currentTurn && gameState.currentTurn !== prev.currentTurn) {
+      addE(`━━ Turn ${gameState.currentTurn} ━━`, 'turn');
+    }
+
+    // Phase change
+    if (gameState.phase !== prev.phase) {
+      const PHASE_LABELS = {
+        joining:     '⚓ Players are joining the battle',
+        active:      '⚔️ Battle has begun!',
+        player_turn: "🎯 Players' turn",
+        enemy_turn:  '🤖 Enemies are acting',
+        ended:       '🏁 Battle has ended',
+      };
+      addE(PHASE_LABELS[gameState.phase] || `Phase: ${gameState.phase}`, 'system');
+    }
+
+    // Weather change
+    if (gameState.weather && gameState.weather !== prev.weather) {
+      const WX = { clear: '☀️', rainy: '🌧️', foggy: '🌫️', thunderstorm: '⛈️', hurricane: '🌀' };
+      addE(`${WX[gameState.weather] || '🌤️'} Weather: ${gameState.weather}`, 'system');
+    }
+
+    // Player events
+    const prevPMap = new Map((prev.players || []).map(p => [p.userId, p]));
+    for (const p of (gameState.players || [])) {
+      const pp = prevPMap.get(p.userId);
+      const name = p.characterAlias || p.username || 'Unknown';
+
+      if (!pp) {
+        if (p.x != null) addE(`⚓ ${name} spawned at ${coordLabel(p.x, p.y)}`, 'spawn');
+        continue;
+      }
+
+      // Spawned (had no position before)
+      if (pp.x == null && p.x != null) {
+        addE(`⚓ ${name} spawned at ${coordLabel(p.x, p.y)}`, 'spawn');
+      // Moved
+      } else if (pp.x != null && p.x != null && (pp.x !== p.x || pp.y !== p.y)) {
+        addE(`🚢 ${name} moved to ${coordLabel(p.x, p.y)}`, 'move');
+      }
+
+      // Took damage
+      const ppHp = pp.health ?? pp.maxHealth ?? 0;
+      const pHp  = p.health  ?? 0;
+      if (!pp.sunk && ppHp > pHp) {
+        addE(`💥 ${name} took ${ppHp - pHp} damage (${pHp}/${p.maxHealth} HP)`, 'damage');
+      }
+
+      // Sunk
+      if (!pp.sunk && p.sunk) addE(`💀 ${name} has been sunk!`, 'death');
+
+      // Status applied
+      if (!pp.onFire   && p.onFire)   addE(`🔥 ${name} caught fire!`,         'status');
+      if (!pp.flooding && p.flooding) addE(`💧 ${name} started flooding!`,     'status');
+      if (!pp.bleeding && p.bleeding) addE(`🩸 ${name} is bleeding!`,           'status');
+
+      // Status cleared
+      if (pp.onFire   && !p.onFire   && !p.sunk) addE(`🔧 ${name}'s fire was extinguished`,    'status-clear');
+      if (pp.flooding && !p.flooding && !p.sunk) addE(`🔧 ${name} stopped flooding`,            'status-clear');
+    }
+
+    // Enemy events
+    const prevEMap = new Map((prev.enemies || []).map(e => [e.id, e]));
+    for (const e of (gameState.enemies || [])) {
+      const pe   = prevEMap.get(e.id);
+      const name = e.name || 'Enemy';
+
+      if (!pe) {
+        if (e.x != null) addE(`⚠️ ${name} appeared!`, 'enemy-spawn');
+        continue;
+      }
+
+      // Moved
+      if (pe.x != null && e.x != null && (pe.x !== e.x || pe.y !== e.y)) {
+        addE(`🚢 ${name} moved to ${coordLabel(e.x, e.y)}`, 'enemy-move');
+      }
+
+      // Took damage
+      const peHp = pe.health ?? pe.maxHealth ?? 0;
+      const eHp  = e.health  ?? 0;
+      if (!pe.sunk && peHp > eHp) {
+        addE(`💥 ${name} took ${peHp - eHp} damage (${eHp}/${e.maxHealth} HP)`, 'hit');
+      }
+
+      // Destroyed
+      if (!pe.sunk && e.sunk) addE(`💥 ${name} has been destroyed!`, 'death');
+
+      // Status
+      if (!pe.onFire   && e.onFire)   addE(`🔥 ${name} caught fire!`,     'status');
+      if (!pe.flooding && e.flooding) addE(`💧 ${name} started flooding!`, 'status');
+    }
+
+    if (batch.length > 0) {
+      const withMeta = batch.map(e => ({ ...e, id: `log-${++logIdRef.current}`, ts: new Date() }));
+      setLocalLog(prev => [...withMeta, ...prev].slice(0, 300));
+    }
+  }, [gameState, addLogEntry]);
 
   // Build a fast land-lookup Set from terrain data: "x,y" keys for island/reef cells
   const landSet = useMemo(() => {
@@ -308,6 +431,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   const handleAttackFull = async (targetId, weaponType, shellType) => {
     try {
+      const attacker = selectedPlayer?.characterAlias || selectedPlayer?.username || 'You';
+      const weapon   = attackState?.weaponName || weaponType || 'weapon';
+      const target   = attackState?.targetName || 'target';
+      const shell    = shellType && shellType !== 'torpedo' ? ` (${shellType.toUpperCase()})` : '';
+      addLogEntry(`⚔️ ${attacker} fires ${weapon}${shell} at ${target}`, 'attack');
       await axios.post(`${API_URL}/api/game/${channelId}/attack`,
         { targetId, weaponType, shellType, characterAlias: selectedPlayer?.characterAlias },
         { withCredentials: true }
@@ -779,13 +907,34 @@ function GameView({ channelId, user, onBack, onLogout }) {
           {needsSpawn && (
             <div className="spawn-banner">⚓ Select your spawn location — click a highlighted green cell</div>
           )}
-          <GameMap
-            gameState={gameState}
-            onCellClick={handleMapClick}
-            selectedCell={selectedCell}
-            spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
-            myUserId={user.id}
-          />
+          <div className="map-and-log">
+            <GameMap
+              gameState={gameState}
+              onCellClick={handleMapClick}
+              selectedCell={selectedCell}
+              spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
+              myUserId={user.id}
+            />
+            <div className="battle-log-panel">
+              <div className="battle-log-header">
+                📋 Battle Log
+                <span className="battle-log-count">{localLog.length}</span>
+              </div>
+              <div className="battle-log-entries">
+                {localLog.length === 0
+                  ? <div className="log-empty">Waiting for events…</div>
+                  : localLog.map(entry => (
+                    <div key={entry.id} className={`log-entry log-${entry.type}`}>
+                      <div className="log-time">
+                        {entry.ts.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </div>
+                      <div className="log-text">{entry.text}</div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
