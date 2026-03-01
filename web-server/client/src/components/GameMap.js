@@ -1035,23 +1035,28 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       const rotations     = rotationsRef.current;
       const prevPositions = prevPositionsRef.current;
 
-      const track = (key, unit) => {
+      const track = (key, unit, isEnemy) => {
         if (unit.x == null || unit.y == null) return;
         const prev = prevPositions[key];
         if (prev === undefined) {
-          // First appearance — face toward map centre
-          const dx = CENTER - unit.x;
-          const dy = CENTER - unit.y;
-          rotations[key] = (dx === 0 && dy === 0) ? 0 : Math.atan2(dy, dx);
+          if (isEnemy) {
+            // Enemies spawn with a random heading
+            rotations[key] = Math.random() * Math.PI * 2;
+          } else {
+            // Players face toward map centre on spawn
+            const dx = CENTER - unit.x;
+            const dy = CENTER - unit.y;
+            rotations[key] = (dx === 0 && dy === 0) ? 0 : Math.atan2(dy, dx);
+          }
         } else if (prev.x !== unit.x || prev.y !== unit.y) {
-          // Moved — face direction of travel
+          // Moved — face direction of travel (same for both)
           rotations[key] = Math.atan2(unit.y - prev.y, unit.x - prev.x);
         }
         prevPositions[key] = { x: unit.x, y: unit.y };
       };
 
-      for (const p of allPlayers) track(`p_${p.userId}`, p);
-      for (const e of allEnemies) track(`e_${e.id}`,     e);
+      for (const p of allPlayers) track(`p_${p.userId}`, p, false);
+      for (const e of allEnemies) track(`e_${e.id}`,     e, true);
     }
 
     // ── Draw units ──────────────────────────────────────────────────────────
