@@ -961,27 +961,42 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.strokeRect(px + 0.25, py + 0.25, CELL - 0.5, CELL - 0.5);
     }
 
-    // Spawn zone highlight — pulsing glow (driven by Date.now() so it animates each RAF frame)
+    // Spawn zone highlight — pulsing fill + glowing perimeter outline
     if (spawnSet.size > 0) {
       const t = Date.now() / 1000;
-      // Sine wave with 1.4 s period, range 0→1
-      const pulse = 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 1.4));
-      const fillAlpha   = 0.18 + 0.32 * pulse;   // 0.18 → 0.50
-      const strokeAlpha = 0.45 + 0.55 * pulse;   // 0.45 → 1.00
+      const pulse = 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 1.4)); // 0→1, 1.4s cycle
 
+      // 1. Fill all cells
+      const fillAlpha = 0.15 + 0.25 * pulse; // 0.15 → 0.40
+      ctx.fillStyle = `rgba(0, 230, 120, ${fillAlpha})`;
+      for (const key of spawnSet) {
+        const [sx, sy] = key.split(',').map(Number);
+        if (sx < 0 || sx >= mapSize || sy < 0 || sy >= mapSize) continue;
+        ctx.fillRect(MARGIN + sx * CELL, MARGIN + sy * CELL, CELL, CELL);
+      }
+
+      // 2. Build perimeter path — only edges where the neighbour is NOT in the spawn zone
+      ctx.beginPath();
       for (const key of spawnSet) {
         const [sx, sy] = key.split(',').map(Number);
         if (sx < 0 || sx >= mapSize || sy < 0 || sy >= mapSize) continue;
         const px = MARGIN + sx * CELL;
         const py = MARGIN + sy * CELL;
-        // Fill
-        ctx.fillStyle = `rgba(0, 230, 120, ${fillAlpha})`;
-        ctx.fillRect(px, py, CELL, CELL);
-        // Glowing border
-        ctx.strokeStyle = `rgba(80, 255, 160, ${strokeAlpha})`;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(px + 0.75, py + 0.75, CELL - 1.5, CELL - 1.5);
+        if (!spawnSet.has(`${sx},${sy - 1}`)) { ctx.moveTo(px, py);        ctx.lineTo(px + CELL, py);        } // top
+        if (!spawnSet.has(`${sx},${sy + 1}`)) { ctx.moveTo(px, py + CELL); ctx.lineTo(px + CELL, py + CELL); } // bottom
+        if (!spawnSet.has(`${sx - 1},${sy}`)) { ctx.moveTo(px, py);        ctx.lineTo(px, py + CELL);        } // left
+        if (!spawnSet.has(`${sx + 1},${sy}`)) { ctx.moveTo(px + CELL, py); ctx.lineTo(px + CELL, py + CELL); } // right
       }
+
+      // 3. Stroke with multi-layer glow (shadow + bright core line)
+      const glowAlpha = 0.5 + 0.5 * pulse; // 0.50 → 1.00
+      ctx.lineCap = 'square';
+      ctx.shadowColor = `rgba(80, 255, 160, ${glowAlpha})`;
+      ctx.shadowBlur = 8 + 6 * pulse; // 8 → 14 px glow radius
+      ctx.strokeStyle = `rgba(80, 255, 160, ${glowAlpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0; // reset shadow so it doesn't bleed into other draws
     }
 
     // Grid lines

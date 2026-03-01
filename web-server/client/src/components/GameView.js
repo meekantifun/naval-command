@@ -1114,7 +1114,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
               gameState={gameState}
               onCellClick={handleMapClick}
               selectedCell={selectedCell}
-              spawnZoneCoords={gameState.phase === 'joining' ? (gameState.spawnZoneCoords || []) : []}
+              spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
               myUserId={user.id}
             />
             <div className="battle-log-panel">
