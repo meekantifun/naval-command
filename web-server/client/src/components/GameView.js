@@ -878,6 +878,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   <p className="spawn-ready-text">✅ Spawn selected — waiting for GM to start the battle.</p>
                 </div>
               )}
+
+              {/* Cell info for spawn selection */}
+              {selectedCell ? renderCellInfo() : (
+                <div className="sidebar-section cell-info-placeholder">
+                  <h3>Cell Info</h3>
+                  <p className="cell-info-hint">Click a highlighted green spawn cell to place your ship</p>
+                </div>
+              )}
             </>
           )}
 

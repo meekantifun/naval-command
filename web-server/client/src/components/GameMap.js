@@ -876,6 +876,9 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
   const canvasW = MARGIN + mapSize * CELL;
   const canvasH = MARGIN + mapSize * CELL;
 
+  // Ref to always hold the latest drawMap so the animation loop can call it without stale closures
+  const drawMapFnRef = useRef(null);
+  const animFrameRef = useRef(null);
 
   const iconsRef = useRef({});
   const [iconsLoaded, setIconsLoaded] = useState(false);
@@ -958,14 +961,26 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.strokeRect(px + 0.25, py + 0.25, CELL - 0.5, CELL - 0.5);
     }
 
-    // Spawn zone highlight (green overlay)
+    // Spawn zone highlight — pulsing glow (driven by Date.now() so it animates each RAF frame)
     if (spawnSet.size > 0) {
-      ctx.fillStyle = 'rgba(0, 200, 100, 0.25)';
+      const t = Date.now() / 1000;
+      // Sine wave with 1.4 s period, range 0→1
+      const pulse = 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 1.4));
+      const fillAlpha   = 0.18 + 0.32 * pulse;   // 0.18 → 0.50
+      const strokeAlpha = 0.45 + 0.55 * pulse;   // 0.45 → 1.00
+
       for (const key of spawnSet) {
         const [sx, sy] = key.split(',').map(Number);
-        if (sx >= 0 && sx < mapSize && sy >= 0 && sy < mapSize) {
-          ctx.fillRect(MARGIN + sx * CELL, MARGIN + sy * CELL, CELL, CELL);
-        }
+        if (sx < 0 || sx >= mapSize || sy < 0 || sy >= mapSize) continue;
+        const px = MARGIN + sx * CELL;
+        const py = MARGIN + sy * CELL;
+        // Fill
+        ctx.fillStyle = `rgba(0, 230, 120, ${fillAlpha})`;
+        ctx.fillRect(px, py, CELL, CELL);
+        // Glowing border
+        ctx.strokeStyle = `rgba(80, 255, 160, ${strokeAlpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(px + 0.75, py + 0.75, CELL - 1.5, CELL - 1.5);
       }
     }
 
@@ -1173,9 +1188,28 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     }
   }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
 
+  // Always keep ref current so the animation loop never has a stale drawMap
+  drawMapFnRef.current = drawMap;
+
+  // Normal redraw when state changes (no spawn animation)
   useEffect(() => {
     if (canvasRef.current && gameState) drawMap();
   }, [drawMap, gameState]);
+
+  // Spawn zone pulse animation — starts/stops based on whether there are spawn zones
+  const hasSpawnZones = spawnZoneCoords.length > 0;
+  useEffect(() => {
+    if (!hasSpawnZones) {
+      cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+    const loop = () => {
+      if (canvasRef.current && drawMapFnRef.current) drawMapFnRef.current();
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+    animFrameRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [hasSpawnZones]);
 
   const getGridCoords = (e) => {
     const canvas = canvasRef.current;
