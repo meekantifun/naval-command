@@ -368,6 +368,34 @@ function GameView({ channelId, user, onBack, onLogout }) {
     return s;
   }, [gameState]);
 
+  // Map every cell covered by an infrastructure footprint → the infrastructure item
+  // Mirrors INFRA_SPAN from GameMap.js (centered on item.x, item.y)
+  const infraCellMap = useMemo(() => {
+    const SPAN = {
+      major_city:     { w: 3, h: 3 },
+      port_facility:  { w: 3, h: 3 },
+      military_base:  { w: 2, h: 2 },
+      industrial:     { w: 2, h: 2 },
+      airfield:       { w: 3, h: 2 },
+      airfield_base:  { w: 3, h: 2 },
+      small_airfield: { w: 2, h: 1 },
+      town:           { w: 2, h: 2 },
+    };
+    const map = new Map();
+    for (const item of (gameState?.infrastructure || [])) {
+      const span = SPAN[item.type] || { w: 1, h: 1 };
+      const sx = item.x - Math.floor(span.w / 2);
+      const sy = item.y - Math.floor(span.h / 2);
+      for (let dx = 0; dx < span.w; dx++) {
+        for (let dy = 0; dy < span.h; dy++) {
+          const key = `${sx + dx},${sy + dy}`;
+          if (!map.has(key)) map.set(key, item); // first writer wins (largest drawn first)
+        }
+      }
+    }
+    return map;
+  }, [gameState]);
+
   // Current user's player object
   const myPlayer = useMemo(() =>
     gameState?.players?.find(p => p.userId === user.id), [gameState, user.id]);
@@ -632,11 +660,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
       const tc = gameState.terrain.find(c => c.x === x && c.y === y);
       if (tc) terrainLabel = (tc.name ? `${TERRAIN_LABELS[tc.type] || tc.type}: ${tc.name}` : TERRAIN_LABELS[tc.type]) || tc.type;
     }
-    // Override with infrastructure label if present on this cell
-    if (gameState.infrastructure) {
-      const ic = gameState.infrastructure.find(c => c.x === x && c.y === y);
-      if (ic) terrainLabel = (terrainLabel !== '🌊 Ocean' ? terrainLabel + ' — ' : '') + (INFRA_LABELS[ic.type] || ic.type);
-    }
+    // Override with infrastructure label if this cell is covered by any infrastructure footprint
+    const ic = infraCellMap.get(`${x},${y}`);
+    if (ic) terrainLabel = (terrainLabel !== '🌊 Ocean' ? terrainLabel + ' — ' : '') + (INFRA_LABELS[ic.type] || ic.type);
 
     return (
       <div className="cell-info-panel">
