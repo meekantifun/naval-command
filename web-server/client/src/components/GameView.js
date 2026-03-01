@@ -132,6 +132,24 @@ function coordLabel(x, y) {
   return `${colLabel(x)}${y + 1}`;
 }
 
+function getShipType(shipClass) {
+  if (!shipClass) return 'auxiliary';
+  const sc = shipClass.toLowerCase();
+  if (sc.includes('submarine')) return 'submarine';
+  if (sc.includes('carrier'))   return 'carrier';
+  if (sc.includes('battleship')) return 'battleship';
+  if (sc.includes('cruiser'))   return 'cruiser';
+  if (sc.includes('destroyer')) return 'destroyer';
+  return 'auxiliary';
+}
+
+function hpBarColor(pct) {
+  if (pct <= 0)  return '#111111';
+  if (pct <= 25) return '#ef4444';
+  if (pct <= 50) return '#eab308';
+  return '#22c55e';
+}
+
 function GameView({ channelId, user, onBack, onLogout }) {
   const [gameState, setGameState] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -738,25 +756,39 @@ function GameView({ channelId, user, onBack, onLogout }) {
               <p className="no-ships">No ships in this game</p>
             ) : (
               <div className="ship-list">
-                {userPlayers.map((player, idx) => (
-                  <div
-                    key={idx}
-                    className={`ship-card ${selectedPlayer?.userId === player.userId ? 'selected' : ''} ${player.sunk ? 'sunk' : ''}`}
-                    onClick={() => setSelectedPlayer(player)}
-                  >
-                    <div className="ship-name">{player.characterAlias || player.shipClass}</div>
-                    <div className="ship-class">{player.shipClass}</div>
-                    <div className="ship-stats">
-                      <div className="stat"><span>HP:</span><span className={player.health < player.maxHealth * 0.3 ? 'danger' : ''}>{player.health}/{player.maxHealth}</span></div>
-                      <div className="stat"><span>Actions:</span><span>{player.actionsThisTurn}/{player.maxActions}</span></div>
-                      <div className="stat"><span>Position:</span><span>{player.x != null ? coordLabel(player.x, player.y) : 'Not placed'}</span></div>
+                {userPlayers.map((player, idx) => {
+                  const hpPct = player.maxHealth > 0
+                    ? Math.max(0, Math.min(100, Math.round((player.health / player.maxHealth) * 100)))
+                    : 0;
+                  return (
+                    <div
+                      key={idx}
+                      className={`ship-card-simple ${selectedPlayer?.userId === player.userId ? 'selected' : ''} ${player.sunk ? 'sunk' : ''}`}
+                      onClick={() => setSelectedPlayer(player)}
+                    >
+                      <div className="scs-header">
+                        <img
+                          className="scs-icon"
+                          src={`/icons/${player.sunk ? 'sunk_player' : 'class'}/${getShipType(player.shipClass)}.png`}
+                          alt=""
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                        <span className="scs-name">{player.characterAlias || player.shipClass}</span>
+                        <span className="scs-status">
+                          {player.onFire   && '🔥'}
+                          {player.flooding && '💧'}
+                          {player.bleeding && '🩸'}
+                        </span>
+                      </div>
+                      <div className="scs-hp-bar">
+                        <div className="scs-hp-fill" style={{ width: `${hpPct}%`, background: hpBarColor(hpPct) }} />
+                        <span className="scs-hp-text" style={{ color: player.sunk ? '#fff' : '#000' }}>
+                          {player.health ?? 0}/{player.maxHealth ?? 0}
+                        </span>
+                      </div>
                     </div>
-                    {player.onFire && <div className="status-badge fire">🔥 On Fire</div>}
-                    {player.flooding && <div className="status-badge flooding">💧 Flooding</div>}
-                    {player.bleeding && <div className="status-badge fire">🩸 Bleeding</div>}
-                    {player.sunk && <div className="status-badge sunk">💀 Sunk</div>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -818,19 +850,34 @@ function GameView({ channelId, user, onBack, onLogout }) {
               {gameState.enemies.filter(e => !e.sunk).length === 0 ? (
                 <p className="no-enemies">No enemies remaining</p>
               ) : (
-                gameState.enemies.filter(e => !e.sunk).map((enemy) => (
-                  <div key={enemy.id} className="enemy-card">
-                    <div className="enemy-name">{enemy.name}</div>
-                    <div className="enemy-class">{enemy.shipClass}</div>
-                    <div className="enemy-stats">
-                      <div className="stat"><span>HP:</span><span className={enemy.health < enemy.maxHealth * 0.3 ? 'danger' : ''}>{enemy.health}/{enemy.maxHealth}</span></div>
-                      <div className="stat"><span>Position:</span><span>{enemy.x != null ? coordLabel(enemy.x, enemy.y) : '?'}</span></div>
+                gameState.enemies.filter(e => !e.sunk).map((enemy) => {
+                  const hpPct = enemy.maxHealth > 0
+                    ? Math.max(0, Math.min(100, Math.round((enemy.health / enemy.maxHealth) * 100)))
+                    : 0;
+                  return (
+                    <div key={enemy.id} className="ship-card-simple enemy">
+                      <div className="scs-header">
+                        <img
+                          className="scs-icon"
+                          src={`/icons/enemy/${getShipType(enemy.shipClass)}.png`}
+                          alt=""
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                        <span className="scs-name">{enemy.name}{enemy.isBoss ? ' ⚠️' : ''}</span>
+                        <span className="scs-status">
+                          {enemy.onFire   && '🔥'}
+                          {enemy.flooding && '💧'}
+                        </span>
+                      </div>
+                      <div className="scs-hp-bar">
+                        <div className="scs-hp-fill" style={{ width: `${hpPct}%`, background: hpBarColor(hpPct) }} />
+                        <span className="scs-hp-text" style={{ color: '#000' }}>
+                          {enemy.health ?? 0}/{enemy.maxHealth ?? 0}
+                        </span>
+                      </div>
                     </div>
-                    {enemy.onFire && <div className="status-badge fire">🔥 On Fire</div>}
-                    {enemy.flooding && <div className="status-badge flooding">💧 Flooding</div>}
-                    {enemy.isBoss && <div className="status-badge boss">👑 Boss</div>}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

@@ -518,6 +518,101 @@
 
 .cell-info-hint { color: #72767d; font-size: 11px; text-align: center; }
 
+/* ===== SIMPLIFIED SHIP / ENEMY CARDS ===== */
+.ship-card-simple {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.ship-card-simple:hover {
+  background: rgba(255, 255, 255, 0.13);
+  transform: translateX(4px);
+}
+
+.ship-card-simple.selected {
+  border-color: #4facfe;
+  background: rgba(79, 172, 254, 0.15);
+}
+
+.ship-card-simple.sunk {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ship-card-simple.sunk:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Header row: icon + name + status emojis */
+.scs-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.scs-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.scs-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scs-status {
+  font-size: 13px;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+
+/* HP bar */
+.scs-hp-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.scs-hp-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.35s ease, background-color 0.35s ease;
+}
+
+.scs-hp-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  pointer-events: none;
+  z-index: 1;
+  /* white halo keeps black text legible on dark background */
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.65);
+}
+
 /* ===== SPAWN BANNER ===== */
 .spawn-banner { background: #2d6a2d; color: #90ee90; padding: 8px 16px; border-radius: 6px; margin-bottom: 8px; font-weight: 600; text-align: center; }
 
