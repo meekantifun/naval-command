@@ -557,9 +557,9 @@
 }
 
 .scs-icon {
-  height: 28px;
+  height: 14px;
   width: auto;
-  max-width: 44px;
+  max-width: 24px;
   object-fit: contain;
   flex-shrink: 0;
 }
