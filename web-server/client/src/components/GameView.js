@@ -165,6 +165,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [confirmEndBattle, setConfirmEndBattle] = useState(false);
   const [gmWeather, setGmWeather] = useState('clear');
   const [gmEnemyType, setGmEnemyType] = useState('destroyer');
+  const [gmSpawnMode, setGmSpawnMode] = useState(false);
   const [gmStatusTarget, setGmStatusTarget] = useState('');
   const [gmStatusAction, setGmStatusAction] = useState('fire');
 
@@ -395,6 +396,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
   };
 
   const handleMapClick = (x, y) => {
+    if (gmSpawnMode) {
+      handleSpawnEnemy(gmEnemyType, x, y);
+      setGmSpawnMode(false);
+      return;
+    }
     setSelectedCell({ x, y });
   };
 
@@ -476,10 +482,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
-  const handleSpawnEnemy = async (shipType) => {
+  const handleSpawnEnemy = async (shipType, x, y) => {
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/spawn-enemy`,
-        { shipType },
+        { shipType, x, y },
         { withCredentials: true }
       );
     } catch (err) {
@@ -899,13 +905,23 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
               {/* Spawn Enemy */}
               <div className="gm-row">
-                <select value={gmEnemyType} onChange={e => setGmEnemyType(e.target.value)}>
+                <select value={gmEnemyType} onChange={e => { setGmEnemyType(e.target.value); setGmSpawnMode(false); }}>
                   {['destroyer', 'light_cruiser', 'heavy_cruiser', 'battleship', 'carrier', 'submarine'].map(t =>
                     <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                   )}
                 </select>
-                <button onClick={() => handleSpawnEnemy(gmEnemyType)}>Spawn Enemy</button>
+                <button
+                  className={gmSpawnMode ? 'gm-spawn-active' : ''}
+                  onClick={() => setGmSpawnMode(m => !m)}
+                >
+                  {gmSpawnMode ? '✕ Cancel' : 'Place'}
+                </button>
               </div>
+              {gmSpawnMode && (
+                <div className="gm-spawn-hint">
+                  Click a cell on the map to place the {gmEnemyType.replace(/_/g, ' ')}
+                </div>
+              )}
 
               {/* Apply Status */}
               <div className="gm-row">

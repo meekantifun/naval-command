@@ -17924,15 +17924,15 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => ({
                     id: e.id,
-                    name: e.name,
+                    name: e.name || e.customName,
                     shipClass: e.shipClass,
                     x: e.x,
                     y: e.y,
-                    health: e.health,
+                    health: e.health ?? e.currentHealth,
                     maxHealth: e.maxHealth,
                     onFire: e.onFire,
                     flooding: e.flooding,
-                    sunk: e.sunk,
+                    sunk: e.sunk ?? !e.alive,
                     isBoss: e.isBoss
                 }));
 
@@ -18421,16 +18421,21 @@ Use \`/stats\` during a battle to view your current ship statistics!
         app.post('/api/game/:channelId/spawn-enemy', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
-                const { userId, shipType } = req.body;
+                const { userId, shipType, x, y } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
                 if (game.enemies.size >= 20) return res.status(400).json({ error: 'Too many enemies (max 20)' });
                 const ai = this.spawnSpecificAI(game, shipType);
                 if (!ai) return res.status(400).json({ error: `Could not spawn enemy of type: ${shipType}` });
-                ai.x = ai.position?.x ?? 0;
-                ai.y = ai.position?.y ?? 0;
+                // Use GM-chosen cell; fall back to 0,0 only if not provided
+                ai.x = (typeof x === 'number') ? x : 0;
+                ai.y = (typeof y === 'number') ? y : 0;
+                ai.position = game.generateExtendedCoordinate(ai.x, ai.y + 1);
                 ai.sunk = false;
+                ai.alive = true;
+                // Ensure name is set for web serialization
+                if (!ai.name) ai.name = ai.customName;
                 game.enemies.set(ai.id, ai);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true, enemyId: ai.id });
