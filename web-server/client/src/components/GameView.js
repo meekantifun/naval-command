@@ -26,6 +26,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [actionMode, setActionMode] = useState('move');
   const [selectedCell, setSelectedCell] = useState(null);
 
+  const audioRef = useRef(null);
+  const prevGameStateRef = useRef(null);
+
   useEffect(() => {
     fetchGameState();
     setupWebSocket();
@@ -40,6 +43,38 @@ function GameView({ channelId, user, onBack, onLogout }) {
       }
     }
   }, [gameState, user.id]);
+
+  // Initialize turn alert audio
+  useEffect(() => {
+    audioRef.current = new Audio('/turn-alert.mp3');
+    audioRef.current.volume = 0.8;
+  }, []);
+
+  // Play alert when it becomes this user's turn
+  useEffect(() => {
+    if (!gameState || !user) return;
+
+    const prev = prevGameStateRef.current;
+    prevGameStateRef.current = gameState;
+
+    if (!prev) return; // skip first load
+    if (gameState.phase !== 'player_turn') return;
+
+    const myPlayer = gameState.players.find(p => p.userId === user.id && !p.sunk);
+    if (!myPlayer) return;
+
+    const prevMyPlayer = prev.players.find(p => p.userId === user.id);
+    if (!prevMyPlayer) return;
+
+    // Fire when a new full round starts (currentTurn incremented) and our actions are fresh
+    const newRound = gameState.currentTurn !== prev.currentTurn;
+    // Fire when our actionsThisTurn resets mid-round (bot moved to our sub-turn)
+    const actionsReset = prevMyPlayer.actionsThisTurn > 0 && myPlayer.actionsThisTurn === 0;
+
+    if ((newRound || actionsReset) && myPlayer.actionsThisTurn === 0) {
+      audioRef.current?.play().catch(() => {});
+    }
+  }, [gameState, user]);
 
   // Build a fast land-lookup Set from terrain data: "x,y" keys for island/reef cells
   const landSet = useMemo(() => {
