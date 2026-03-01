@@ -18543,9 +18543,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { channelId } = req.params;
                 const { userId } = req.body;
                 const game = this.games.get(channelId);
+                console.log(`[start-battle] channelId=${channelId} userId=${userId} game=${game ? 'found' : 'not found'} phase=${game?.phase} gmId=${game?.gmId} players=${game?.players?.size}`);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
-                if (game.phase !== 'joining') return res.status(400).json({ error: 'Game is not in joining phase' });
+                if (userId !== game.gmId) return res.status(403).json({ error: `Not the GM (you: ${userId}, gm: ${game.gmId})` });
+                if (game.phase !== 'joining') return res.status(400).json({ error: `Game is not in joining phase (phase: ${game.phase})` });
                 if (game.players.size < 1) return res.status(400).json({ error: 'Need at least 1 player to start' });
 
                 // Check all players have picked spawn positions
