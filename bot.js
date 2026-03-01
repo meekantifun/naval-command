@@ -664,37 +664,42 @@ class NavalWarfareBot {
                     const guildIdFile = path.join(guildDir, 'guild_id.txt');
 
                     if (fs.existsSync(dataFile)) {
-                        // Get the actual guild ID from guild_id.txt or use folder name as fallback
-                        let guildId = folderName;
-                        if (fs.existsSync(guildIdFile)) {
-                            guildId = fs.readFileSync(guildIdFile, 'utf8').trim();
-                        }
-
-                        const guildData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-                        const guildMap = new Map();
-
-                        for (const [playerId, playerEntry] of Object.entries(guildData)) {
-                            if (playerEntry.characters && typeof playerEntry.characters === 'object') {
-                                const charactersMap = new Map();
-                                for (const [charName, charData] of Object.entries(playerEntry.characters)) {
-                                    if (charData.aircraft && typeof charData.aircraft === 'object') {
-                                        const aircraftMap = new Map(Object.entries(charData.aircraft));
-                                        charData.aircraft = aircraftMap;
-                                    }
-                                    charactersMap.set(charName, charData);
-                                }
-
-                                guildMap.set(playerId, {
-                                    ...playerEntry,
-                                    characters: charactersMap
-                                });
-                            } else {
-                                guildMap.set(playerId, playerEntry);
+                        try {
+                            // Get the actual guild ID from guild_id.txt or use folder name as fallback
+                            let guildId = folderName;
+                            if (fs.existsSync(guildIdFile)) {
+                                guildId = fs.readFileSync(guildIdFile, 'utf8').trim();
                             }
-                        }
 
-                        this.playerData.set(guildId, guildMap);
-                        console.log(`📂 Loaded data for guild ${guildId} from folder: ${folderName}`);
+                            const guildData = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+                            const guildMap = new Map();
+
+                            for (const [playerId, playerEntry] of Object.entries(guildData)) {
+                                if (playerEntry.characters && typeof playerEntry.characters === 'object') {
+                                    const charactersMap = new Map();
+                                    for (const [charName, charData] of Object.entries(playerEntry.characters)) {
+                                        if (charData.aircraft && typeof charData.aircraft === 'object') {
+                                            const aircraftMap = new Map(Object.entries(charData.aircraft));
+                                            charData.aircraft = aircraftMap;
+                                        }
+                                        charactersMap.set(charName, charData);
+                                    }
+
+                                    guildMap.set(playerId, {
+                                        ...playerEntry,
+                                        characters: charactersMap
+                                    });
+                                } else {
+                                    guildMap.set(playerId, playerEntry);
+                                }
+                            }
+
+                            this.playerData.set(guildId, guildMap);
+                            console.log(`📂 Loaded data for guild ${guildId} from folder: ${folderName}`);
+                        } catch (fileError) {
+                            console.error(`❌ Failed to load player data for server "${folderName}": ${fileError.message}`);
+                            console.error(`   → Skipping corrupted/invalid file: ${dataFile}`);
+                        }
                     }
                 }
             }
