@@ -669,7 +669,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     ));
     const showAbove = clientY > 150;
     const posStyle = showAbove
-      ? { top: clientY - MARGIN_PX, transform: 'translateY(-100%)' }
+      ? { top: clientY - 28, transform: 'translateY(-100%)' }
       : { top: clientY + MARGIN_PX };
     const coord = coordLabel(x, y);
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
