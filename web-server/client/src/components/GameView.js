@@ -658,15 +658,16 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
     const { x, y, clientX = window.innerWidth / 2, clientY = window.innerHeight / 2 } = selectedCell;
 
-    // Smart positioning: default right+down of click, flip if near viewport edge
+    // Position centered above the clicked cell; fall back below if near top of viewport
     const POPUP_W = 272;
-    const POPUP_H = 380; // approximate max height
+    const POPUP_H = 380;
     const MARGIN_PX = 12;
-    const left = (clientX + MARGIN_PX + POPUP_W > window.innerWidth)
-      ? Math.max(MARGIN_PX, clientX - POPUP_W - MARGIN_PX)
-      : clientX + MARGIN_PX;
-    const top = (clientY + MARGIN_PX + POPUP_H > window.innerHeight)
-      ? Math.max(MARGIN_PX, clientY - POPUP_H)
+    const left = Math.max(MARGIN_PX, Math.min(
+      clientX - POPUP_W / 2,
+      window.innerWidth - POPUP_W - MARGIN_PX
+    ));
+    const top = (clientY - POPUP_H - MARGIN_PX >= MARGIN_PX)
+      ? clientY - POPUP_H - MARGIN_PX
       : clientY + MARGIN_PX;
     const coord = coordLabel(x, y);
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
