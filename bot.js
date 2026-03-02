@@ -12260,8 +12260,8 @@ class NavalWarfareBot {
                 }
                 .spawn-cell {
                     fill: #10b981;
-                    stroke: #059669;
-                    stroke-width: 1;
+                    stroke: #064e3b;
+                    stroke-width: 1.5;
                 }
             </style>
         </defs>`;
@@ -12315,7 +12315,7 @@ class NavalWarfareBot {
 
         // Add all infrastructure elements
         for (const element of infrastructureElements) {
-            svg += element;
+            svg += element.svg || element;
         }
 
         // Draw clean grid lines
