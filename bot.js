@@ -5485,6 +5485,7 @@ class NavalWarfareBot {
                         hits: mvpCandidate.hits || 0,
                         shots: mvpCandidate.shots || 0,
                         criticalHits: mvpCandidate.criticalHits || 0,
+                        distanceTravelled: Math.round(mvpCandidate.distanceTravelled || 0),
                         gameStartTime: mvpCandidate.gameStartTime || Date.now(),
                     }
                 } : null,
@@ -6904,6 +6905,10 @@ class NavalWarfareBot {
                 if (angle < 0) angle += 360;
 
                 player.direction = angle;
+
+                // Track distance travelled (Euclidean cells × 5 km/cell)
+                const cellsMovedEuclidean = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                game.updateMVPStats(player.id || player.userId, 'distanceTravelled', cellsMovedEuclidean * 5);
             }
         }
 
@@ -18110,6 +18115,12 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Cannot move onto land' });
                 }
 
+                // Track distance travelled before updating position
+                const oldX = player.x ?? x;
+                const oldY = player.y ?? y;
+                const cellsMoved = Math.sqrt((x - oldX) ** 2 + (y - oldY) ** 2);
+                game.updateMVPStats(userId, 'distanceTravelled', cellsMoved * 5);
+
                 // Update player position
                 player.x = x;
                 player.y = y;
@@ -20264,6 +20275,7 @@ class NavalBattle {
                 criticalHits: 0,
                 aircraftShot: 0,
                 teamSupport: 0, // Supporting actions like repairs, etc.
+                distanceTravelled: 0,
                 gameStartTime: Date.now()
             });
         }
@@ -20307,6 +20319,9 @@ class NavalBattle {
                     break;
                 case 'teamSupport':
                     stats.teamSupport += value;
+                    break;
+                case 'distanceTravelled':
+                    stats.distanceTravelled += value;
                     break;
             }
         }

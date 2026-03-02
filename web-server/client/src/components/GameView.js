@@ -116,6 +116,10 @@ function MVPScreen({ mvp, onBack }) {
                 <span className="mvp-stat-label">Damage Taken</span>
                 <span className="mvp-stat-value">{(mvp.stats?.damageReceived || 0).toLocaleString()}</span>
               </div>
+              <div className="mvp-stat">
+                <span className="mvp-stat-label">Distance Travelled</span>
+                <span className="mvp-stat-value">{(mvp.stats?.distanceTravelled || 0).toLocaleString()} km</span>
+              </div>
             </div>
             <div className="mvp-reward">🌟 Double XP &amp; Currency Awarded</div>
           </>
