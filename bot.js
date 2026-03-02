@@ -5372,11 +5372,14 @@ class NavalWarfareBot {
             for (const message of recoveryMessages) await channel.send(message);
             
             game.turnNumber++;
-            
+
             // Update display every few turns
             if (game.turnNumber % 3 === 0) {
                 await this.updateGameDisplay(game, channel);
             }
+
+            // Sync web dashboard every turn
+            this.broadcastGameUpdate(game.channelId).catch(() => {});
             
             // Check win conditions
             if (this.checkWinConditions(game)) {
@@ -6986,11 +6989,14 @@ class NavalWarfareBot {
         } catch (error) {
             console.error('❌ Map update error:', error);
             // Send a fallback message if map update fails
-            await interaction.followUp({ 
+            await interaction.followUp({
                 content: '⚠️ Map update failed, but movement was successful.',
-                flags: MessageFlags.Ephemeral 
+                flags: MessageFlags.Ephemeral
             });
         }
+
+        // Sync web dashboard
+        this.broadcastGameUpdate(game.channelId).catch(() => {});
     }
 
     moveConvoyShips(game, channel) {
@@ -7426,6 +7432,9 @@ class NavalWarfareBot {
             console.error('❌ Error updating map after attack:', error);
         }
 
+        // Sync web dashboard
+        this.broadcastGameUpdate(game.channelId).catch(() => {});
+
         // End turn if no AP left
         if (player.actionPoints <= 0) {
             this.endPlayerTurn(player);
@@ -7792,9 +7801,11 @@ class NavalWarfareBot {
                 await this.updateGameDisplay(game, interaction.channel);
             } catch (error) {
                 console.error('❌ Error updating map after damage control:', error);
-                // Continue silently - damage control still worked
             }
         }
+
+        // Sync web dashboard
+        this.broadcastGameUpdate(game.channelId).catch(() => {});
     }
 
     getRangeModifier(distance, maxRange) {
@@ -18139,6 +18150,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         actionsThisTurn: player.actionsThisTurn
                     }
                 });
+
+                // Sync Discord map display (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error moving player:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -18212,6 +18228,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     success: true,
                     result: attackResult
                 });
+
+                // Sync Discord map display (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error attacking:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -18397,6 +18418,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
+                // Sync Discord map display (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error performing damage control:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -18417,6 +18442,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 this.finalizePlayerTurn(player);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
+                // Sync Discord map display (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error ending turn:', error);
                 res.status(500).json({ error: 'Internal server error' });
