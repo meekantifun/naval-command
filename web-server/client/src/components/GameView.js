@@ -434,13 +434,13 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
-  const handleMapClick = (x, y) => {
+  const handleMapClick = (x, y, clientX, clientY) => {
     if (gmSpawnMode) {
       handleSpawnEnemy(gmEnemyType, x, y);
       setGmSpawnMode(false);
       return;
     }
-    setSelectedCell({ x, y });
+    setSelectedCell({ x, y, clientX, clientY });
   };
 
   const handleMove = async (x, y) => {
@@ -656,7 +656,18 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const renderCellInfo = () => {
     if (!selectedCell || !gameState) return null;
 
-    const { x, y } = selectedCell;
+    const { x, y, clientX = window.innerWidth / 2, clientY = window.innerHeight / 2 } = selectedCell;
+
+    // Smart positioning: default right+down of click, flip if near viewport edge
+    const POPUP_W = 272;
+    const POPUP_H = 380; // approximate max height
+    const MARGIN_PX = 12;
+    const left = (clientX + MARGIN_PX + POPUP_W > window.innerWidth)
+      ? Math.max(MARGIN_PX, clientX - POPUP_W - MARGIN_PX)
+      : clientX + MARGIN_PX;
+    const top = (clientY + MARGIN_PX + POPUP_H > window.innerHeight)
+      ? Math.max(MARGIN_PX, clientY - POPUP_H)
+      : clientY + MARGIN_PX;
     const coord = coordLabel(x, y);
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
     const enemies = (gameState.enemies || []).filter(e => !e.sunk && e.x === x && e.y === y);
@@ -686,7 +697,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (ic && terrainLabel === '🌊 Ocean') terrainLabel = null;
 
     return (
-      <div className="cell-info-panel">
+      <div className="cell-popup" style={{ left, top }}>
         <div className="cell-info-header">
           <span className="cell-coord">Cell {coord}</span>
           <button className="cell-info-close" onClick={() => { setSelectedCell(null); setAttackState(null); }}>✕</button>
@@ -892,13 +903,6 @@ function GameView({ channelId, user, onBack, onLogout }) {
                 </div>
               )}
 
-              {/* Cell info for spawn selection */}
-              {selectedCell ? renderCellInfo() : (
-                <div className="sidebar-section cell-info-placeholder">
-                  <h3>Cell Info</h3>
-                  <p className="cell-info-hint">Click a highlighted green spawn cell to place your ship</p>
-                </div>
-              )}
             </>
           )}
 
@@ -988,16 +992,6 @@ function GameView({ channelId, user, onBack, onLogout }) {
             </div>
           )}
 
-          {/* Selected Cell Info */}
-          {selectedCell ? renderCellInfo() : (
-            <div className="sidebar-section cell-info-placeholder">
-              <h3>Cell Info</h3>
-              {needsSpawn
-                ? <p className="cell-info-hint">Click a highlighted green spawn cell to place your ship</p>
-                : <p className="cell-info-hint">Click any square on the map to see what's there</p>
-              }
-            </div>
-          )}
 
           {/* Enemies */}
           <div className="sidebar-section">
@@ -1152,6 +1146,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
           </div>
         </div>
       </div>
+
+    {/* Cell info popup — floats over the map at click position */}
+    {renderCellInfo()}
     </div>
   );
 }

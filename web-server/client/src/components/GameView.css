@@ -218,17 +218,7 @@
   }
 }
 
-/* ===== CELL INFO PANEL ===== */
-.cell-info-panel {
-  background: #2f3136;
-  border: 1px solid #4f545c;
-  border-radius: 8px;
-  padding: 0;
-  width: 260px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  font-size: 13px;
-}
+/* ===== CELL INFO POPUP (floating overlay) ===== */
 
 .cell-info-header {
   display: flex;
@@ -403,20 +393,28 @@
   font-size: 12px;
 }
 
-.cell-info-placeholder p {
-  color: #72767d;
-  font-size: 13px;
+
+/* ── Floating cell popup ──────────────────────────────────────────────── */
+.cell-popup {
+  position: fixed;
+  z-index: 9999;
+  width: 272px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #2f3136;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5);
+  pointer-events: all;
+  animation: popup-in 0.12s ease-out;
 }
 
-.cell-info-panel {
-  background: rgba(0,0,0,0.2);
-  border-radius: 8px;
-  overflow: hidden;
-  margin: 0 0 1rem 0;
-  border: 1px solid rgba(255,255,255,0.08);
+@keyframes popup-in {
+  from { opacity: 0; transform: scale(0.94) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
-.cell-info-panel .cell-info-header {
+.cell-popup .cell-info-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -425,14 +423,14 @@
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.cell-info-panel .cell-coord {
+.cell-popup .cell-coord {
   font-weight: 700;
   font-size: 14px;
   color: #fff;
   font-family: monospace;
 }
 
-.cell-info-panel .cell-info-close {
+.cell-popup .cell-info-close {
   background: none;
   border: none;
   color: #72767d;
@@ -441,14 +439,14 @@
   padding: 0;
 }
 
-.cell-info-panel .cell-info-close:hover { color: #fff; }
+.cell-popup .cell-info-close:hover { color: #fff; }
 
-.cell-info-panel .cell-info-infra {
+.cell-popup .cell-info-infra {
   padding: 8px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.cell-info-panel .infra-type-label {
+.cell-popup .infra-type-label {
   font-size: 11px;
   color: #8e9297;
   text-transform: uppercase;
@@ -456,14 +454,14 @@
   margin-bottom: 3px;
 }
 
-.cell-info-panel .infra-name {
+.cell-popup .infra-name {
   font-size: 14px;
   font-weight: 700;
   color: #fff;
   margin-bottom: 5px;
 }
 
-.cell-info-panel .infra-state-badge {
+.cell-popup .infra-state-badge {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 4px;
@@ -471,19 +469,19 @@
   font-weight: 600;
 }
 
-.cell-info-panel .infra-state-destroyed {
+.cell-popup .infra-state-destroyed {
   background: rgba(237, 66, 69, 0.2);
   color: #f56565;
   border: 1px solid rgba(237, 66, 69, 0.4);
 }
 
-.cell-info-panel .infra-state-abandoned {
+.cell-popup .infra-state-abandoned {
   background: rgba(114, 118, 125, 0.2);
   color: #a0aec0;
   border: 1px solid rgba(114, 118, 125, 0.4);
 }
 
-.cell-info-panel .infra-state-burning {
+.cell-popup .infra-state-burning {
   background: rgba(255, 100, 0, 0.2);
   color: #f6ad55;
   border: 1px solid rgba(255, 100, 0, 0.4);
@@ -495,19 +493,19 @@
   to   { opacity: 0.65; }
 }
 
-.cell-info-panel .cell-info-terrain {
+.cell-popup .cell-info-terrain {
   padding: 6px 12px;
   color: #b9bbbe;
   font-size: 12px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.cell-info-panel .cell-info-section {
+.cell-popup .cell-info-section {
   padding: 8px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.cell-info-panel .cell-info-section-title {
+.cell-popup .cell-info-section-title {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;

@@ -1242,7 +1242,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     const coords = getGridCoords(e);
     if (!coords) return;
     const { x, y } = coords;
-    if (x >= 0 && x < mapSize && y >= 0 && y < mapSize) onCellClick(x, y);
+    if (x >= 0 && x < mapSize && y >= 0 && y < mapSize) onCellClick(x, y, e.clientX, e.clientY);
   };
 
   const handleMouseMove = (e) => {
