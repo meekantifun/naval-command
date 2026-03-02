@@ -658,17 +658,19 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
     const { x, y, clientX = window.innerWidth / 2, clientY = window.innerHeight / 2 } = selectedCell;
 
-    // Position centered above the clicked cell; fall back below if near top of viewport
+    // Anchor bottom of popup just above the click point using translateY(-100%)
+    // so it sits directly above the cell regardless of actual popup height.
+    // Fall back to below if the click is near the top of the viewport.
     const POPUP_W = 272;
-    const POPUP_H = 380;
     const MARGIN_PX = 12;
     const left = Math.max(MARGIN_PX, Math.min(
       clientX - POPUP_W / 2,
       window.innerWidth - POPUP_W - MARGIN_PX
     ));
-    const top = (clientY - POPUP_H - MARGIN_PX >= MARGIN_PX)
-      ? clientY - POPUP_H - MARGIN_PX
-      : clientY + MARGIN_PX;
+    const showAbove = clientY > 150;
+    const posStyle = showAbove
+      ? { top: clientY - MARGIN_PX, transform: 'translateY(-100%)' }
+      : { top: clientY + MARGIN_PX };
     const coord = coordLabel(x, y);
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
     const enemies = (gameState.enemies || []).filter(e => !e.sunk && e.x === x && e.y === y);
@@ -698,7 +700,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (ic && terrainLabel === '🌊 Ocean') terrainLabel = null;
 
     return (
-      <div className="cell-popup" style={{ left, top }}>
+      <div className="cell-popup" style={{ left, ...posStyle }}>
         <div className="cell-info-header">
           <span className="cell-coord">Cell {coord}</span>
           <button className="cell-info-close" onClick={() => { setSelectedCell(null); setAttackState(null); }}>✕</button>
