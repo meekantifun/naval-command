@@ -61,9 +61,16 @@ function MVPScreen({ mvp, onBack }) {
   const accuracy = mvp?.stats?.shots > 0
     ? ((mvp.stats.hits / mvp.stats.shots) * 100).toFixed(1)
     : '0.0';
-  const duration = mvp?.stats?.gameStartTime
-    ? Math.round((Date.now() - mvp.stats.gameStartTime) / 60000)
-    : 0;
+  const duration = (() => {
+    const totalSecs = mvp?.stats?.gameStartTime
+      ? Math.round((Date.now() - mvp.stats.gameStartTime) / 1000)
+      : 0;
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  })();
 
   return (
     <div className="mvp-overlay">
@@ -103,7 +110,7 @@ function MVPScreen({ mvp, onBack }) {
               </div>
               <div className="mvp-stat">
                 <span className="mvp-stat-label">Battle Duration</span>
-                <span className="mvp-stat-value">{duration}m</span>
+                <span className="mvp-stat-value">{duration}</span>
               </div>
               <div className="mvp-stat">
                 <span className="mvp-stat-label">Damage Taken</span>
