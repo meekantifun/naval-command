@@ -2872,8 +2872,8 @@ class NavalWarfareBot {
                         const deltaX = newCoords.x - oldCoords.x;
                         const deltaY = newCoords.y - oldCoords.y;
 
-                        // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-                        let angle = Math.atan2(-deltaY, deltaX) * (180 / Math.PI);
+                        // Calculate angle in SVG CW degrees: 0=east, 90=south, 180=west, 270=north
+                        let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
                         if (angle < 0) angle += 360;
 
                         ai.direction = angle;
@@ -6277,7 +6277,7 @@ class NavalWarfareBot {
             const o = this.coordToNumbers(oldPosition);
             const n = this.coordToNumbers(newPosition);
             if (!o || !n) return;
-            let angle = Math.atan2(-(n.y - o.y), n.x - o.x) * (180 / Math.PI);
+            let angle = Math.atan2(n.y - o.y, n.x - o.x) * (180 / Math.PI);
             if (angle < 0) angle += 360;
             ai.direction = angle;
         } catch (e) { /* ignore */ }
@@ -6907,8 +6907,8 @@ class NavalWarfareBot {
                 const deltaX = newCoords.x - oldCoords.x;
                 const deltaY = newCoords.y - oldCoords.y;
 
-                // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-                let angle = Math.atan2(-deltaY, deltaX) * (180 / Math.PI);
+                // Calculate angle in SVG CW degrees: 0=east, 90=south, 180=west, 270=north
+                let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
                 if (angle < 0) angle += 360;
 
                 player.direction = angle;
@@ -9319,8 +9319,8 @@ class NavalWarfareBot {
         const dx = newX - currentPos.x;
         const dy = newY - currentPos.y;
         if (dx !== 0 || dy !== 0) {
-            // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-            let angle = Math.atan2(-dy, dx) * (180 / Math.PI);
+            // Calculate angle in SVG CW degrees: 0=east, 90=south, 180=west, 270=north
+            let angle = Math.atan2(dy, dx) * (180 / Math.PI);
             if (angle < 0) angle += 360;
             aircraft.direction = angle;
         }
@@ -9362,8 +9362,8 @@ class NavalWarfareBot {
             const dx = newX - currentPos.x;
             const dy = newY - currentPos.y;
             if (dx !== 0 || dy !== 0) {
-                // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-                let angle = Math.atan2(-dy, dx) * (180 / Math.PI);
+                // Calculate angle in SVG CW degrees: 0=east, 90=south, 180=west, 270=north
+                let angle = Math.atan2(dy, dx) * (180 / Math.PI);
                 if (angle < 0) angle += 360;
                 aircraft.direction = angle;
             }
@@ -9455,8 +9455,8 @@ class NavalWarfareBot {
 
         // Calculate and store direction based on movement
         if (dx !== 0 || dy !== 0) {
-            // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-            let angle = Math.atan2(-dy, dx) * (180 / Math.PI);
+            // Calculate angle in SVG CW degrees: 0=east, 90=south, 180=west, 270=north
+            let angle = Math.atan2(dy, dx) * (180 / Math.PI);
             if (angle < 0) angle += 360;
             aircraft.direction = angle;
         }
@@ -9507,7 +9507,7 @@ class NavalWarfareBot {
             const dy = newY - currentPos.y;
             if (dx !== 0 || dy !== 0) {
                 // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-                let directionAngle = Math.atan2(-dy, dx) * (180 / Math.PI);
+                let directionAngle = Math.atan2(dy, dx) * (180 / Math.PI);
                 if (directionAngle < 0) directionAngle += 360;
                 aircraft.direction = directionAngle;
             }
@@ -10131,8 +10131,8 @@ class NavalWarfareBot {
 
         // Calculate and store direction based on movement
         if (dx !== 0 || dy !== 0) {
-            // Calculate angle in degrees (0° = East, 90° = North, 180° = West, 270° = South)
-            let angle = Math.atan2(-dy, dx) * (180 / Math.PI);
+            // Calculate angle in SVG CW degrees: 0=east, 90=south, 180=west, 270=north
+            let angle = Math.atan2(dy, dx) * (180 / Math.PI);
             if (angle < 0) angle += 360;
             aircraft.direction = angle;
         }
@@ -12437,8 +12437,8 @@ class NavalWarfareBot {
                         const iconBase64 = this.getShipClassIcon(player.shipClass, player.alive);
 
                         if (iconBase64) {
-                            // Apply rotation based on direction (if available), flip 180°
-                            const rotation = player.direction !== undefined ? (player.direction + 180) % 360 : 180;
+                            // Icons face east (right) by default; direction is SVG CW (0=east, 90=south, 270=north)
+                            const rotation = player.direction ?? 0;
 
                             // Just the icon with rotation
                             svg += `<image x="${pixelX - 6}" y="${pixelY - 6}" width="12" height="12" xlink:href="${iconBase64}" transform="rotate(${rotation} ${pixelX} ${pixelY})"/>`;
@@ -12503,8 +12503,8 @@ class NavalWarfareBot {
                         const enemyIconBase64 = this.getEnemyClassIcon(enemy.shipClass, enemy.alive);
 
                         if (enemyIconBase64) {
-                            // Apply rotation based on direction (if available), flip 180°
-                            const rotation = enemy.direction !== undefined ? (enemy.direction + 180) % 360 : 180;
+                            // Icons face east (right) by default; direction is SVG CW (0=east, 90=south, 270=north)
+                            const rotation = enemy.direction ?? 180; // enemies default to facing west (toward players)
 
                             // Just the icon with rotation
                             svg += `<image x="${pixelX - 6}" y="${pixelY - 6}" width="12" height="12" xlink:href="${enemyIconBase64}" transform="rotate(${rotation} ${pixelX} ${pixelY})"/>`;
