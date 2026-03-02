@@ -11816,8 +11816,8 @@ class NavalWarfareBot {
                     }
                 }, {
                     infraData: game.infrastructureData,
-                    gridX: gridStartX,
-                    gridY: gridStartY,
+                    gridX: leftMargin,
+                    gridY: topMargin,
                     discordCell: cellSize,
                     totalW: totalWidth,
                     totalH: totalHeight
@@ -12650,14 +12650,12 @@ class NavalWarfareBot {
                 try {
                     const cell = game.getMapCell(coord);
 
-                    if (cell.type === 'island') {
+                    if (cell.type === 'island' || cell.type === 'city' || cell.type === 'town' || cell.type === 'minefield') {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="island-cell"/>`;
                     } else if (cell.type === 'reef') {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="reef-cell"/>`;
                     } else if (cell.type === 'spawn') {
                         svg += `<rect x="${pixelX}" y="${pixelY}" width="${cellSize}" height="${cellSize}" class="spawn-cell"/>`;
-
-                        // Spawn zones are for players only - no infrastructure
                     }
                 } catch (error) {
                     // Skip problematic cells
