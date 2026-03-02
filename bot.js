@@ -18477,6 +18477,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Track distance travelled before updating position
                 const oldX = player.x ?? x;
                 const oldY = player.y ?? y;
+                const oldCoord = player.position;
                 const cellsMoved = Math.sqrt((x - oldX) ** 2 + (y - oldY) ** 2);
                 game.updateMVPStats(userId, 'distanceTravelled', cellsMoved * 5);
 
@@ -18500,9 +18501,15 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     }
                 });
 
-                // Sync Discord map display (fire-and-forget)
+                // Announce to Discord and sync map display (fire-and-forget)
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .then(ch => {
+                        if (!ch) return;
+                        const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                        const dist = Math.round(cellsMoved);
+                        ch.send({ content: `🚢 **${pName}** moved ${oldCoord || '?'} → **${player.position}**${dist > 0 ? ` (${dist} cell${dist !== 1 ? 's' : ''})` : ''}` });
+                        this.updateGameDisplay(game, ch);
+                    })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error moving player:', error);
@@ -18578,9 +18585,18 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     result: attackResult
                 });
 
-                // Sync Discord map display (fire-and-forget)
+                // Announce to Discord and sync map display (fire-and-forget)
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .then(ch => {
+                        if (!ch) return;
+                        this.updateGameDisplay(game, ch);
+                        if (attackResult) {
+                            const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                            const tName = target.characterAlias || target.displayName || target.customName || target.username || 'target';
+                            const msgs = (attackResult.messages || []).join(' ');
+                            ch.send({ content: `**${pName}** → **${tName}**: ${msgs}` });
+                        }
+                    })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error attacking:', error);
@@ -18733,6 +18749,14 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.position = coordStr;
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
+                // Announce to Discord (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                        ch.send({ content: `⚓ **${pName}** selected spawn position **${coordStr}**.` });
+                    })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error setting spawn:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -18767,9 +18791,14 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
-                // Sync Discord map display (fire-and-forget)
+                // Announce to Discord and sync map display (fire-and-forget)
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .then(ch => {
+                        if (!ch) return;
+                        this.updateGameDisplay(game, ch);
+                        const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                        ch.send({ content: `🔧 **${pName}** performed damage control — all status effects cleared.` });
+                    })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error performing damage control:', error);
@@ -18791,9 +18820,14 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 this.finalizePlayerTurn(player);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
-                // Sync Discord map display (fire-and-forget)
+                // Announce to Discord and sync map display (fire-and-forget)
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) this.updateGameDisplay(game, ch); })
+                    .then(ch => {
+                        if (!ch) return;
+                        this.updateGameDisplay(game, ch);
+                        const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                        ch.send({ content: `⏰ **${pName}** ended their turn.` });
+                    })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error ending turn:', error);
@@ -18814,6 +18848,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 game.weather = condition;
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
+                // Announce to Discord (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) ch.send({ content: `🌦️ Weather changed to **${condition}** by the GM.` }); })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error changing weather:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -18842,6 +18880,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 game.enemies.set(ai.id, ai);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true, enemyId: ai.id });
+                // Announce to Discord (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) ch.send({ content: `⚠️ GM deployed a **${shipType}** at **${ai.position}**!` }); })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error spawning enemy:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -18883,6 +18925,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     mvp: null,
                 });
                 setTimeout(() => this.endedGames.delete(channelId), 30 * 60 * 1000);
+                // Announce to Discord before deleting game (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => { if (ch) ch.send({ content: `🔴 The battle has been ended by the GM.` }); })
+                    .catch(() => {});
                 await this.broadcastGameUpdate(channelId);
                 this.games.delete(channelId);
                 res.json({ success: true });
@@ -18920,6 +18966,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
+                // Announce to Discord (fire-and-forget)
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        const unitName = unit.characterAlias || unit.displayName || unit.customName || unit.username || 'a unit';
+                        const emoji = status === 'fire' ? '🔥' : status === 'flood' ? '💧' : '💀';
+                        const verb = status === 'fire' ? 'set on fire' : status === 'flood' ? 'flooded' : 'sunk';
+                        ch.send({ content: `${emoji} GM: **${unitName}** has been ${verb}!` });
+                    })
+                    .catch(() => {});
             } catch (error) {
                 console.error('Error applying status:', error);
                 res.status(500).json({ error: 'Internal server error' });
