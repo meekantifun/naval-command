@@ -19316,19 +19316,25 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const game = new NavalBattle(channelId, maxP, userId || 'web-admin', this);
                 game.guildId = guildId;
 
-                // Handle enemy configuration
+                // Handle enemy configuration — must match format expected by spawnConfiguredEnemies()
                 let enemyConfig;
                 if (customEnemies) {
-                    // Custom enemy setup
+                    // Map web field names (singular) to spawnConfiguredEnemies field names (plural)
                     enemyConfig = {
-                        random: false,
-                        customFleet: customEnemies
+                        type: 'custom',
+                        customEnemies: {
+                            destroyers:  parseInt(customEnemies.destroyer    || 0),
+                            cruisers:    parseInt(customEnemies.light_cruiser || 0) + parseInt(customEnemies.heavy_cruiser || 0),
+                            battleships: parseInt(customEnemies.battleship   || 0),
+                            carriers:    parseInt(customEnemies.carrier      || 0),
+                            submarines:  parseInt(customEnemies.submarine    || 0)
+                        }
                     };
                 } else {
-                    // Random enemies
+                    // Preset random enemies
                     enemyConfig = {
-                        count: parseInt(enemyCount || 3),
-                        random: true
+                        type: 'preset',
+                        count: parseInt(enemyCount || 3)
                     };
                 }
 
