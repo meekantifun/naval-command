@@ -11466,6 +11466,360 @@ class NavalWarfareBot {
             console.log('🖼️ Rendering SVG with Puppeteer...');
             await page.setContent(html, { waitUntil: 'networkidle0' });
 
+            // Draw infrastructure using the same Canvas code as the web dashboard
+            if (game.infrastructureData && game.infrastructureData.length > 0) {
+                await page.evaluate((params) => {
+                    const { infraData, gridX, gridY, discordCell, totalW, totalH } = params;
+                    const WEB_CELL = 16;
+                    const SCALE = discordCell / WEB_CELL;
+
+                    document.body.style.position = 'relative';
+                    const canvas = document.createElement('canvas');
+                    canvas.width = totalW; canvas.height = totalH;
+                    Object.assign(canvas.style, { position: 'absolute', top: '0', left: '0', pointerEvents: 'none' });
+                    document.body.appendChild(canvas);
+                    const ctx = canvas.getContext('2d');
+
+                    const INFRA_SPAN = {
+                        major_city: { w: 3, h: 3 }, port_facility: { w: 3, h: 3 },
+                        military_base: { w: 2, h: 2 }, industrial: { w: 2, h: 2 },
+                        airfield: { w: 3, h: 2 }, airfield_base: { w: 3, h: 2 },
+                        small_airfield: { w: 2, h: 1 }, town: { w: 2, h: 2 },
+                    };
+                    function getSpan(t) { return INFRA_SPAN[t] || { w: 1, h: 1 }; }
+
+                    function drawNameLabel(ctx, name, px, py, pw, ph, state) {
+                        ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+                        const tw = ctx.measureText(name).width;
+                        const lx = px + pw / 2, ly = py + ph + 1;
+                        ctx.fillStyle = state === 'destroyed' ? 'rgba(69,10,10,0.88)' : state === 'abandoned' ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.82)';
+                        ctx.fillRect(lx - tw / 2 - 2, ly, tw + 4, 9);
+                        ctx.fillStyle = state === 'destroyed' ? '#fca5a5' : state === 'abandoned' ? '#6b7280' : '#fff';
+                        ctx.fillText(name, lx, ly + 1);
+                    }
+                    function drawFirePlume(ctx, fx, fy, size) {
+                        ctx.fillStyle = 'rgba(234,88,12,0.30)'; ctx.beginPath(); ctx.arc(fx, fy, size * 2.2, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#ea580c'; ctx.beginPath();
+                        ctx.moveTo(fx - size * 0.5, fy + size * 0.6);
+                        ctx.bezierCurveTo(fx - size * 0.55, fy - size * 0.3, fx - size * 0.1, fy - size * 1.3, fx, fy - size * 1.7);
+                        ctx.bezierCurveTo(fx + size * 0.1, fy - size * 1.3, fx + size * 0.55, fy - size * 0.3, fx + size * 0.5, fy + size * 0.6);
+                        ctx.closePath(); ctx.fill();
+                        ctx.fillStyle = '#fbbf24'; ctx.beginPath();
+                        ctx.moveTo(fx - size * 0.25, fy + size * 0.4);
+                        ctx.bezierCurveTo(fx - size * 0.28, fy - size * 0.5, fx - size * 0.05, fy - size, fx, fy - size * 1.25);
+                        ctx.bezierCurveTo(fx + size * 0.05, fy - size, fx + size * 0.28, fy - size * 0.5, fx + size * 0.25, fy + size * 0.4);
+                        ctx.closePath(); ctx.fill();
+                    }
+                    function drawSmokePuff(ctx, fx, fy, r) {
+                        ctx.fillStyle = 'rgba(51,65,85,0.60)'; ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = 'rgba(71,85,105,0.40)'; ctx.beginPath(); ctx.arc(fx - r * 0.5, fy - r * 0.7, r * 0.75, 0, Math.PI * 2); ctx.fill();
+                    }
+                    function drawVegPatch(ctx, fx, fy, size) {
+                        ctx.fillStyle = 'rgba(20,83,45,0.75)'; ctx.beginPath(); ctx.arc(fx, fy, size, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = 'rgba(22,101,52,0.55)';
+                        ctx.beginPath(); ctx.arc(fx - size * 0.55, fy + size * 0.4, size * 0.7, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(fx + size * 0.5, fy - size * 0.35, size * 0.65, 0, Math.PI * 2); ctx.fill();
+                    }
+
+                    function drawDestroyedIcon(ctx, px, py, pw, ph, type, name) {
+                        const cx = px + pw / 2, cy = py + ph / 2;
+                        ctx.fillStyle = '#0f0a0a'; ctx.fillRect(px, py, pw, ph);
+                        ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = 1; ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+                        switch (type) {
+                            case 'major_city':
+                                ctx.fillStyle = '#1c1917'; ctx.fillRect(px+3,py+20,8,ph-24); ctx.fillRect(px+35,py+16,9,ph-20);
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+16,py+8,16,ph-12);
+                                ctx.fillStyle = '#0f0a0a'; ctx.fillRect(px+3,py+14,3,7); ctx.fillRect(px+7,py+16,3,5); ctx.fillRect(px+35,py+10,3,8); ctx.fillRect(px+40,py+12,4,6); ctx.fillRect(px+16,py+4,5,5); ctx.fillRect(px+27,py+5,5,5);
+                                ctx.fillStyle = '#7f1d1d'; ctx.fillRect(px+18,py+14,8,5);
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px,py+ph-4,pw,4);
+                                for (let i=0;i<6;i++) ctx.fillRect(px+3+i*7,py+ph-5,4,3);
+                                drawFirePlume(ctx,px+12,py+18,4); drawFirePlume(ctx,px+28,py+10,5); drawFirePlume(ctx,px+39,py+16,3);
+                                drawSmokePuff(ctx,px+14,py+9,7); drawSmokePuff(ctx,cx,py+5,8); drawSmokePuff(ctx,px+38,py+8,6); break;
+                            case 'port_facility':
+                                ctx.fillStyle = '#1c1917'; ctx.fillRect(px+3,py+18,12,ph-22);
+                                ctx.fillStyle = '#44403c'; ctx.beginPath(); ctx.moveTo(px+3,py+18); ctx.lineTo(px+15,py+22); ctx.lineTo(px+15,py+26); ctx.lineTo(px+3,py+18); ctx.fill();
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+30,py+22,12,ph-26);
+                                ctx.strokeStyle = '#44403c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px+36,py+ph-14); ctx.lineTo(px+33,py+10); ctx.lineTo(px+17,py+16); ctx.stroke();
+                                ctx.lineWidth = 0.75; ctx.beginPath(); ctx.moveTo(px+24,py+13); ctx.lineTo(px+22,py+ph-16); ctx.stroke();
+                                ctx.fillStyle = '#030712'; ctx.fillRect(px,py+ph-12,pw,12);
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+4,py+ph-10,6,3); ctx.fillRect(px+22,py+ph-11,8,4);
+                                drawFirePlume(ctx,px+9,py+14,4); drawFirePlume(ctx,px+32,py+18,4);
+                                drawSmokePuff(ctx,px+12,py+7,6); drawSmokePuff(ctx,px+34,py+10,6); break;
+                            case 'military_base':
+                                ctx.fillStyle = '#1a1a0a'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#2d4a0e'; ctx.lineWidth = 1.5;
+                                ctx.beginPath(); ctx.moveTo(px+2,py+2); ctx.lineTo(px+2,py+ph*0.55); ctx.stroke();
+                                ctx.beginPath(); ctx.moveTo(px+pw-2,py+2); ctx.lineTo(px+pw-2,py+ph*0.38); ctx.stroke();
+                                ctx.beginPath(); ctx.moveTo(px+2,py+ph-2); ctx.lineTo(px+pw*0.42,py+ph-2); ctx.stroke();
+                                ctx.strokeStyle = '#44403c'; ctx.lineWidth = 1;
+                                ctx.beginPath(); ctx.arc(cx,cy,8,0,Math.PI*2); ctx.stroke();
+                                ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.stroke();
+                                ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2); ctx.fill();
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px+4,py+3,4,3); ctx.fillRect(px+20,py+5,3,4); ctx.fillRect(px+7,py+22,4,3); ctx.fillRect(px+19,py+20,3,4);
+                                drawFirePlume(ctx,cx+5,cy-5,3); drawSmokePuff(ctx,cx,cy-9,5); break;
+                            case 'military_outpost': case 'outpost':
+                                ctx.fillStyle = '#1a1a0a'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px+2,py+8,5,4); ctx.fillRect(px+8,py+7,4,5);
+                                drawFirePlume(ctx,cx,cy-2,2.5); break;
+                            case 'industrial':
+                                ctx.fillStyle = '#0a0a12'; ctx.fillRect(px,py,pw,ph);
+                                ctx.fillStyle = '#1e293b'; ctx.fillRect(px+2,py+18,pw-4,ph-20);
+                                ctx.fillStyle = '#334155'; ctx.fillRect(px+2,py+15,pw-4,5);
+                                ctx.fillStyle = '#0a0a12'; ctx.fillRect(px+8,py+13,5,4); ctx.fillRect(px+17,py+14,6,3);
+                                ctx.fillStyle = '#334155'; ctx.fillRect(px+4,py+4,4,13);
+                                ctx.fillStyle = '#0a0a12'; ctx.fillRect(px+4,py+2,2,4);
+                                ctx.fillStyle = '#475569'; ctx.fillRect(px+10,py+14,5,2); ctx.fillRect(px+20,py+15,4,2);
+                                drawFirePlume(ctx,px+6,py+3,4); drawFirePlume(ctx,px+22,py+16,3);
+                                drawSmokePuff(ctx,px+8,py+2,6); drawSmokePuff(ctx,cx,py+4,7); break;
+                            case 'airfield': case 'airfield_base':
+                                ctx.fillStyle = '#1a1a0a'; ctx.fillRect(px,py,pw,ph);
+                                ctx.fillStyle = '#14532d'; ctx.fillRect(px+1,py+1,pw*0.22,ph-2); ctx.fillRect(px+pw*0.78,py+1,pw*0.21,ph-2);
+                                ctx.fillStyle = '#292524';
+                                { const rwX=px+pw*0.25,rwW=pw*0.5; ctx.fillRect(rwX,py+2,rwW,ph-4);
+                                  for (const [cx2,cy2] of [[rwX+rwW*0.25,cy-2],[rwX+rwW*0.72,cy+3]]) {
+                                    ctx.strokeStyle='#44403c';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx2,cy2,5,0,Math.PI*2);ctx.stroke();
+                                    ctx.fillStyle='#1c1917';ctx.beginPath();ctx.arc(cx2,cy2,4,0,Math.PI*2);ctx.fill();
+                                  }
+                                  ctx.fillStyle='#44403c';ctx.fillRect(px+6,py+ph-8,8,3);ctx.fillRect(px+7,py+ph-10,10,2);
+                                  drawFirePlume(ctx,px+10,py+ph-10,3);drawSmokePuff(ctx,px+12,py+ph-14,4);
+                                } break;
+                            case 'small_airfield':
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.strokeStyle = '#44403c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2); ctx.stroke();
+                                ctx.fillStyle = '#1c1917'; ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill(); break;
+                            case 'town':
+                                ctx.fillStyle = '#0f0a0a'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#292524'; ctx.lineWidth = 1.5; ctx.strokeRect(px+3,py+11,14,13);
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px+5,py+14,10,7); ctx.fillRect(px+4,py+22,13,2);
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+10,py+7,2,5);
+                                ctx.fillStyle = '#1c1917'; ctx.fillRect(px+20,py+8,9,5);
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px+19,py+11,11,3); ctx.fillRect(px+14,py+20,4,3); ctx.fillRect(px+22,py+16,5,2);
+                                drawFirePlume(ctx,px+24,py+14,3); drawFirePlume(ctx,px+8,py+10,2.5);
+                                drawSmokePuff(ctx,px+10,py+5,5); drawSmokePuff(ctx,px+26,py+8,4); break;
+                            case 'lighthouse':
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+4,py+ph-4,8,4);
+                                ctx.fillStyle = '#475569'; ctx.fillRect(cx-3,py+7,6,ph-11);
+                                ctx.fillStyle = '#0f0a0a'; ctx.fillRect(cx-3,py+5,3,3); ctx.fillRect(cx,py+4,3,4);
+                                drawFirePlume(ctx,cx,py+5,2.5); break;
+                            case 'port_gun':
+                                ctx.fillStyle = '#1c1917'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px+3,py+8,10,5);
+                                ctx.strokeStyle = '#292524'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx-2,cy+2); ctx.lineTo(px+2,py+ph-2); ctx.stroke();
+                                drawSmokePuff(ctx,cx+2,cy-2,3); break;
+                            default:
+                                ctx.fillStyle = '#1c1917'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#44403c'; ctx.fillRect(px+2,py+ph-6,pw-4,4);
+                                drawFirePlume(ctx,cx,cy,Math.min(pw,ph)/4); break;
+                        }
+                        if (name) drawNameLabel(ctx, name, px, py, pw, ph, 'destroyed');
+                    }
+
+                    function drawAbandonedIcon(ctx, px, py, pw, ph, type, name) {
+                        const cx = px + pw / 2, cy = py + ph / 2;
+                        ctx.fillStyle = '#0d1a0d'; ctx.fillRect(px, py, pw, ph);
+                        ctx.strokeStyle = '#1a3a1a'; ctx.lineWidth = 1; ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+                        switch (type) {
+                            case 'major_city':
+                                ctx.fillStyle = '#1c2a1c'; ctx.fillRect(px+3,py+28,8,ph-32); ctx.fillRect(px+35,py+24,8,ph-28);
+                                ctx.fillStyle = '#182818'; ctx.fillRect(px+14,py+20,16,ph-24);
+                                ctx.fillStyle = '#1c2a1c';
+                                ctx.beginPath(); ctx.arc(px+7,py+28,4,Math.PI,0); ctx.fill();
+                                ctx.beginPath(); ctx.arc(px+22,py+20,8,Math.PI,0); ctx.fill();
+                                ctx.beginPath(); ctx.arc(px+39,py+24,4,Math.PI,0); ctx.fill();
+                                ctx.strokeStyle = '#0d1a0d'; ctx.lineWidth = 0.5;
+                                ctx.beginPath(); ctx.moveTo(px+19,py+22); ctx.lineTo(px+23,py+32); ctx.moveTo(px+36,py+26); ctx.lineTo(px+40,py+34); ctx.stroke();
+                                ctx.fillStyle = '#1a2e1a'; ctx.fillRect(px,py+ph-4,pw,4);
+                                drawVegPatch(ctx,px+9,py+28,4); drawVegPatch(ctx,px+30,py+26,3); drawVegPatch(ctx,cx,py+ph-6,5); drawVegPatch(ctx,px+5,py+ph-5,3); drawVegPatch(ctx,px+42,py+ph-4,3); break;
+                            case 'port_facility':
+                                ctx.fillStyle = '#0d1a2e'; ctx.fillRect(px,py,pw,ph);
+                                ctx.fillStyle = '#0a1220'; ctx.fillRect(px,py+ph-12,pw,12);
+                                ctx.fillStyle = '#1c1a14'; ctx.fillRect(cx-14,py+ph-14,28,3); ctx.fillRect(cx-2,py+ph-22,4,9);
+                                ctx.fillStyle = 'rgba(20,83,45,0.55)'; ctx.fillRect(cx-12,py+ph-14,20,2);
+                                ctx.fillStyle = '#0d1a2e'; ctx.fillRect(px+3,py+16,12,ph-28);
+                                ctx.fillStyle = '#111f2e'; ctx.beginPath(); ctx.arc(px+9,py+16,6,Math.PI,0); ctx.fill();
+                                ctx.fillStyle = '#0d1a2e'; ctx.fillRect(px+32,py+20,12,ph-32);
+                                ctx.fillStyle = '#111f2e'; ctx.beginPath(); ctx.arc(px+38,py+20,6,Math.PI,0); ctx.fill();
+                                drawVegPatch(ctx,px+6,py+22,4); drawVegPatch(ctx,px+38,py+26,3); drawVegPatch(ctx,cx,py+ph-16,3); break;
+                            case 'military_base':
+                                ctx.fillStyle = '#0a140a'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#1a3a0a'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]); ctx.strokeRect(px+2,py+2,pw-4,ph-4); ctx.setLineDash([]);
+                                ctx.fillStyle = '#1c2a0e';
+                                ctx.fillRect(px,py,5,5); ctx.fillRect(px+pw-5,py,5,5); ctx.fillRect(px,py+ph-5,5,5); ctx.fillRect(px+pw-5,py+ph-5,5,5);
+                                ctx.strokeStyle = '#1a4a0a'; ctx.lineWidth = 1;
+                                ctx.beginPath(); ctx.moveTo(cx,py+6); ctx.lineTo(cx,py+ph-6); ctx.moveTo(px+6,cy); ctx.lineTo(px+pw-6,cy); ctx.stroke();
+                                drawVegPatch(ctx,cx,cy,6); drawVegPatch(ctx,cx-6,cy+5,3); drawVegPatch(ctx,cx+7,cy-4,3); break;
+                            case 'military_outpost': case 'outpost':
+                                ctx.fillStyle = '#0a140a'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.strokeStyle = '#1a4a0a'; ctx.lineWidth = 1;
+                                ctx.beginPath(); ctx.moveTo(cx,py+3); ctx.lineTo(cx,py+ph-3); ctx.moveTo(px+3,cy); ctx.lineTo(px+pw-3,cy); ctx.stroke();
+                                drawVegPatch(ctx,cx,cy,pw/3.5); break;
+                            case 'industrial':
+                                ctx.fillStyle = '#0a1020'; ctx.fillRect(px,py,pw,ph);
+                                ctx.fillStyle = '#1e293b'; ctx.fillRect(px+2,py+18,pw-4,ph-20);
+                                ctx.fillStyle = '#0a1020'; ctx.fillRect(px+2,py+15,pw-4,5); ctx.fillRect(px+8,py+13,5,4); ctx.fillRect(px+17,py+14,6,3);
+                                ctx.fillStyle = '#334155'; ctx.fillRect(px+4,py+6,4,12);
+                                drawVegPatch(ctx,px+6,py+5,3); drawVegPatch(ctx,px+14,py+18,4); drawVegPatch(ctx,px+24,py+16,4); drawVegPatch(ctx,px+10,py+ph-6,3); break;
+                            case 'airfield': case 'airfield_base':
+                                ctx.fillStyle = '#0d1a0d'; ctx.fillRect(px,py,pw,ph);
+                                ctx.fillStyle = '#14532d'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#1e293b'; ctx.fillRect(px+pw*0.28,py+3,pw*0.44,ph-6);
+                                ctx.fillStyle = '#14532d'; ctx.fillRect(px+pw*0.31,py+5,3,ph-10); ctx.fillRect(px+pw*0.58,py+3,3,ph-6);
+                                drawVegPatch(ctx,px+8,py+6,4); drawVegPatch(ctx,px+pw-10,py+ph-8,4); drawVegPatch(ctx,cx,cy-4,3); break;
+                            case 'small_airfield':
+                                ctx.fillStyle = '#0d1a0d'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#334155'; ctx.fillRect(px+pw*0.25,py+2,pw*0.5,ph-4);
+                                drawVegPatch(ctx,cx-4,cy,3); drawVegPatch(ctx,cx+5,cy-2,2.5); break;
+                            case 'town':
+                                ctx.fillStyle = '#0d1a0d'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#292524'; ctx.lineWidth = 1; ctx.strokeRect(px+3,py+11,14,13);
+                                ctx.fillStyle = '#1c2a1c'; ctx.fillRect(px+4,py+16,12,8);
+                                ctx.fillStyle = '#292524'; ctx.fillRect(px+10,py+7,2,5);
+                                drawVegPatch(ctx,px+11,py+6,2.5);
+                                ctx.fillStyle = '#1c2a1c'; ctx.fillRect(px+20,py+8,8,5);
+                                drawVegPatch(ctx,px+23,py+10,3); drawVegPatch(ctx,px+9,py+20,4); drawVegPatch(ctx,px+24,py+22,5); drawVegPatch(ctx,px+4,py+ph-5,4); drawVegPatch(ctx,px+16,py+ph-6,3); break;
+                            case 'lighthouse':
+                                ctx.fillStyle = '#94a3b8'; ctx.fillRect(px+4,py+ph-4,8,4);
+                                ctx.fillStyle = '#e2e8f0'; ctx.fillRect(cx-3,py+4,6,ph-8);
+                                ctx.fillStyle = '#166534'; ctx.fillRect(cx-3,py+10,6,3); ctx.fillRect(cx-3,py+18,6,2);
+                                drawVegPatch(ctx,cx-1,py+4,2.5);
+                                ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(cx,py+3,3.5,0,Math.PI*2); ctx.fill(); break;
+                            case 'port_gun':
+                                ctx.fillStyle = '#1c2a1c'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#2a3a1a'; ctx.beginPath(); ctx.arc(cx,cy+2,pw/2-2,0,Math.PI*2); ctx.fill();
+                                ctx.strokeStyle = '#44403c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(px+pw-2,py+ph-2); ctx.stroke();
+                                drawVegPatch(ctx,cx-3,cy+2,3); break;
+                            default:
+                                ctx.fillStyle = '#1c2a1c'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                drawVegPatch(ctx,cx,cy,pw/3.5); break;
+                        }
+                        if (name) drawNameLabel(ctx, name, px, py, pw, ph, 'abandoned');
+                    }
+
+                    function drawInfraIcon(ctx, px, py, pw, ph, type, name, state) {
+                        if (state === 'destroyed') { drawDestroyedIcon(ctx, px, py, pw, ph, type, name); return; }
+                        if (state === 'abandoned')  { drawAbandonedIcon(ctx, px, py, pw, ph, type, name); return; }
+                        const cx = px + pw / 2, cy = py + ph / 2;
+                        switch (type) {
+                            case 'major_city':
+                                ctx.fillStyle = '#0c1a2e'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1; ctx.strokeRect(px+0.5,py+0.5,pw-1,ph-1);
+                                ctx.fillStyle = '#374151'; ctx.fillRect(px,py+ph-4,pw,4);
+                                ctx.fillStyle = '#0f2744'; ctx.fillRect(px+2,py+26,5,ph-30); ctx.fillRect(px+41,py+24,5,ph-28);
+                                ctx.fillStyle = '#1e3a8a'; ctx.fillRect(px+3,py+18,9,ph-22); ctx.fillRect(px+36,py+14,9,ph-18);
+                                ctx.fillStyle = '#1d4ed8'; ctx.fillRect(px+8,py+10,8,ph-14); ctx.fillRect(px+32,py+12,8,ph-16);
+                                ctx.fillStyle = '#92400e'; ctx.fillRect(px+16,py+3,16,ph-7);
+                                ctx.fillStyle = '#f59e0b'; ctx.fillRect(px+17,py+4,14,ph-8);
+                                ctx.fillStyle = '#fcd34d'; ctx.fillRect(px+22,py+2,4,3);
+                                ctx.fillStyle = '#fef3c7';
+                                for (let r=0;r<9;r++) { ctx.fillRect(px+19,py+6+r*4,2,2); ctx.fillRect(px+25,py+6+r*4,2,2); if(r>0) ctx.fillRect(px+22,py+6+r*4,2,2); }
+                                ctx.fillStyle = '#bfdbfe';
+                                for (let r=0;r<5;r++) { ctx.fillRect(px+9,py+12+r*4,2,2); ctx.fillRect(px+13,py+12+r*4,2,2); ctx.fillRect(px+33,py+14+r*4,2,2); ctx.fillRect(px+37,py+14+r*4,2,2); }
+                                if (name) drawNameLabel(ctx,name,px,py,pw,ph,null); break;
+                            case 'port_facility':
+                                ctx.fillStyle = '#0c1a3e'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1; ctx.strokeRect(px+0.5,py+0.5,pw-1,ph-1);
+                                ctx.fillStyle = '#1e40af'; ctx.fillRect(px,py+ph-11,pw,11);
+                                ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 0.5;
+                                for (let i=0;i<2;i++) { ctx.beginPath(); ctx.moveTo(px+2,py+ph-9+i*4); ctx.bezierCurveTo(px+pw*0.3,py+ph-11+i*4,px+pw*0.7,py+ph-7+i*4,px+pw-2,py+ph-9+i*4); ctx.stroke(); }
+                                ctx.fillStyle = '#4b5563'; ctx.fillRect(cx-14,py+ph-13,28,3); ctx.fillRect(cx-3,py+ph-20,6,9);
+                                ctx.fillStyle = '#1e3a8a'; ctx.fillRect(px+3,py+10,14,ph-21); ctx.fillRect(px+31,py+14,14,ph-25);
+                                ctx.fillStyle = '#1d4ed8'; ctx.fillRect(px+3,py+10,14,3); ctx.fillRect(px+31,py+14,14,3);
+                                ctx.fillStyle = '#93c5fd';
+                                for (let r=0;r<4;r++) { ctx.fillRect(px+5,py+15+r*5,3,3); ctx.fillRect(px+11,py+15+r*5,3,3); ctx.fillRect(px+33,py+18+r*5,3,3); ctx.fillRect(px+39,py+18+r*5,3,3); }
+                                ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px+37,py+ph-13); ctx.lineTo(px+37,py+7); ctx.lineTo(px+20,py+7); ctx.stroke();
+                                ctx.lineWidth = 0.75; ctx.strokeStyle = '#64748b'; ctx.beginPath(); ctx.moveTo(px+27,py+7); ctx.lineTo(px+27,py+ph-13); ctx.stroke();
+                                { const ax=px+17,ay=py+12; ctx.strokeStyle='#93c5fd';ctx.lineWidth=1.5; ctx.beginPath();ctx.moveTo(ax+5,ay+2);ctx.lineTo(ax+5,ay+14);ctx.moveTo(ax+2,ay+5);ctx.lineTo(ax+8,ay+5);ctx.stroke(); ctx.beginPath();ctx.arc(ax+5,ay+3,2,0,Math.PI*2);ctx.stroke(); ctx.beginPath();ctx.moveTo(ax+5,ay+14);ctx.lineTo(ax+2,ay+11);ctx.moveTo(ax+5,ay+14);ctx.lineTo(ax+8,ay+11);ctx.stroke(); }
+                                if (name) drawNameLabel(ctx,name,px,py,pw,ph,null); break;
+                            case 'military_base':
+                                ctx.fillStyle = '#1a2e05'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#4d7c0f'; ctx.lineWidth = 2; ctx.strokeRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#365314'; ctx.fillRect(px,py,7,7); ctx.fillRect(px+pw-7,py,7,7); ctx.fillRect(px,py+ph-7,7,7); ctx.fillRect(px+pw-7,py+ph-7,7,7);
+                                ctx.fillStyle = '#2d4a0e'; ctx.fillRect(px+4,py+4,pw-8,ph-8);
+                                ctx.strokeStyle = '#84cc16'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(cx,py+5); ctx.lineTo(cx,py+ph-5); ctx.moveTo(px+5,cy); ctx.lineTo(px+pw-5,cy); ctx.stroke();
+                                ctx.fillStyle = '#84cc16'; ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fill(); break;
+                            case 'military_outpost': case 'outpost':
+                                ctx.fillStyle = '#365314'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.strokeStyle = '#84cc16'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx,py+2); ctx.lineTo(cx,py+ph-2); ctx.moveTo(px+2,cy); ctx.lineTo(px+pw-2,cy); ctx.stroke();
+                                ctx.fillStyle = '#84cc16';
+                                [[2,2],[pw-4,2],[2,ph-4],[pw-4,ph-4]].forEach(([ox,oy]) => ctx.fillRect(px+ox,py+oy,2,2)); break;
+                            case 'airfield': case 'airfield_base':
+                                ctx.fillStyle = '#1e293b'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.strokeRect(px+0.5,py+0.5,pw-1,ph-1);
+                                ctx.fillStyle = '#14532d'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                { const rwX=px+pw*0.25,rwW=pw*0.5;
+                                  ctx.fillStyle='#374151';ctx.fillRect(rwX,py+2,rwW,ph-4);
+                                  ctx.fillStyle='#4b5563';ctx.fillRect(rwX,py+2,2,ph-4);ctx.fillRect(rwX+rwW-2,py+2,2,ph-4);
+                                  ctx.strokeStyle='#fef3c7';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(cx,py+3);ctx.lineTo(cx,py+ph-3);ctx.stroke();ctx.setLineDash([]);
+                                  ctx.fillStyle='#fff';for(let i=0;i<3;i++){ctx.fillRect(rwX+3+i*5,py+3,3,4);ctx.fillRect(rwX+3+i*5,py+ph-7,3,4);}
+                                  ctx.fillStyle='#fef3c7';for(let i=0;i<4;i++){const ly=py+4+i*(ph-8)/3;ctx.fillRect(rwX-3,ly,2,2);ctx.fillRect(rwX+rwW+1,ly,2,2);}
+                                  ctx.strokeStyle='#fbbf24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(rwX+rwW,cy);ctx.lineTo(px+pw-2,cy);ctx.stroke();
+                                } break;
+                            case 'small_airfield':
+                                ctx.fillStyle = '#374151'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1.5;
+                                ctx.beginPath(); ctx.moveTo(px+4,py+2); ctx.lineTo(px+4,py+ph-2); ctx.moveTo(px+pw-4,py+2); ctx.lineTo(px+pw-4,py+ph-2); ctx.moveTo(px+4,cy); ctx.lineTo(px+pw-4,cy); ctx.stroke(); break;
+                            case 'industrial':
+                                ctx.fillStyle = '#1e293b'; ctx.fillRect(px,py,pw,ph);
+                                ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.strokeRect(px+0.5,py+0.5,pw-1,ph-1);
+                                ctx.fillStyle = '#334155'; ctx.fillRect(px+2,py+16,pw-4,ph-18);
+                                ctx.fillStyle = '#475569'; ctx.fillRect(px+2,py+16,pw-4,3);
+                                { const chimneys=[{ox:4,ht:12},{ox:10,ht:18},{ox:17,ht:12},{ox:23,ht:16}];
+                                  for(const ch of chimneys){ if(ch.ox+4>pw-2)continue; ctx.fillStyle='#64748b';ctx.fillRect(px+ch.ox,py+16-ch.ht,4,ch.ht); ctx.fillStyle='rgba(203,213,225,0.55)';ctx.beginPath();ctx.arc(px+ch.ox+2,py+16-ch.ht-4,3,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(px+ch.ox+4,py+16-ch.ht-7,2,0,Math.PI*2);ctx.fill(); }
+                                } break;
+                            case 'town':
+                                ctx.fillStyle = '#2a1200'; ctx.fillRect(px,py,pw,ph);
+                                ctx.fillStyle = '#78350f'; ctx.fillRect(px+pw/2-2,py,4,ph); ctx.fillRect(px,py+ph/2-2,pw,4);
+                                ctx.fillStyle = '#d97706'; ctx.fillRect(px+3,py+11,14,13);
+                                ctx.fillStyle = '#92400e'; ctx.beginPath(); ctx.moveTo(px+1,py+12); ctx.lineTo(px+10,py+4); ctx.lineTo(px+19,py+12); ctx.closePath(); ctx.fill();
+                                ctx.fillStyle = '#78350f'; ctx.fillRect(px+8,py+18,4,6);
+                                ctx.fillStyle = '#fef3c7'; ctx.fillRect(px+4,py+13,3,3); ctx.fillRect(px+14,py+13,3,3);
+                                ctx.fillStyle = '#b45309'; ctx.fillRect(px+20,py+5,9,8);
+                                ctx.fillStyle = '#78350f'; ctx.beginPath(); ctx.moveTo(px+18,py+6); ctx.lineTo(px+24,py+1); ctx.lineTo(px+30,py+6); ctx.closePath(); ctx.fill();
+                                ctx.fillStyle = '#fef3c7'; ctx.fillRect(px+22,py+6,2,2); ctx.fillRect(px+26,py+6,2,2);
+                                ctx.fillStyle = '#166534'; ctx.beginPath(); ctx.arc(px+24,py+22,5,0,Math.PI*2); ctx.fill();
+                                ctx.fillStyle = '#14532d'; ctx.fillRect(px+23,py+27,2,3);
+                                if (name) drawNameLabel(ctx,name,px,py,pw,ph,null); break;
+                            case 'lighthouse':
+                                ctx.fillStyle = '#94a3b8'; ctx.fillRect(px+4,py+ph-4,8,4);
+                                ctx.fillStyle = '#f1f5f9'; ctx.fillRect(cx-3,py+4,6,ph-8);
+                                ctx.fillStyle = '#ef4444'; ctx.fillRect(cx-3,py+8,6,3);
+                                ctx.fillStyle = '#fef08a'; ctx.beginPath(); ctx.arc(cx,py+3,3.5,0,Math.PI*2); ctx.fill();
+                                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.stroke(); break;
+                            case 'port_gun':
+                                ctx.fillStyle = '#1c1917'; ctx.fillRect(px+1,py+1,pw-2,ph-2);
+                                ctx.fillStyle = '#44403c'; ctx.beginPath(); ctx.arc(cx,cy+2,pw/2-2,0,Math.PI*2); ctx.fill();
+                                ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(px+pw-1,py+2); ctx.stroke(); break;
+                            default: break;
+                        }
+                    }
+
+                    // Render all infrastructure, largest spans first
+                    const sorted = [...infraData].sort((a, b) => {
+                        const sa = getSpan(a.type), sb = getSpan(b.type);
+                        return (sb.w * sb.h) - (sa.w * sa.h);
+                    });
+                    for (const item of sorted) {
+                        if (item.type === 'mine') continue;
+                        const span = getSpan(item.type);
+                        const webPW = span.w * WEB_CELL, webPH = span.h * WEB_CELL;
+                        const sx = item.x - Math.floor(span.w / 2);
+                        const sy = item.y - Math.floor(span.h / 2);
+                        ctx.save();
+                        ctx.translate(gridX + sx * discordCell, gridY + sy * discordCell);
+                        ctx.scale(SCALE, SCALE);
+                        drawInfraIcon(ctx, 0, 0, webPW, webPH, item.type, item.name || null, item.state || null);
+                        ctx.restore();
+                    }
+                }, {
+                    infraData: game.infrastructureData,
+                    gridX: gridStartX,
+                    gridY: gridStartY,
+                    discordCell: cellSize,
+                    totalW: totalWidth,
+                    totalH: totalHeight
+                });
+            }
+
             // Take screenshot with transparent background
             const image = await page.screenshot({
                 type: 'png',
@@ -12307,16 +12661,8 @@ class NavalWarfareBot {
             }
         }
 
-        // Generate clustered infrastructure for each island group
-        for (const islandGroup of islandGroups) {
-            const groupInfrastructure = this.generateClusteredInfrastructure(islandGroup, gridStartX, gridStartY, cellSize);
-            infrastructureElements.push(...groupInfrastructure);
-        }
-
-        // Add all infrastructure elements
-        for (const element of infrastructureElements) {
-            svg += element.svg || element;
-        }
+        // Infrastructure is rendered via Canvas overlay in createMapImage (matches web exactly)
+        // (SVG infrastructure generation removed — Canvas path used instead)
 
         // Draw clean grid lines
         svg += `<g class="grid-line">`;
