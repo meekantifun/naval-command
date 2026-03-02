@@ -16,6 +16,7 @@ const fs = require('fs');
 const MissionObjectives = require('./missions');
 const PlayerCreationModule = require('./handlers/playerCreation');
 const AIConfig = require('./systems/aiConfig');
+const FactionConfig = require('./systems/factionConfig');
 const CarrierSystem = require('./systems/carrierSystem');
 const { AIRCRAFT_MOVEMENT_RANGES } = require('./systems/carrierSystem');
 const ShopSystem = require('./systems/shopSystem');
@@ -68,6 +69,7 @@ class NavalWarfareBot {
 
         this.imageGenerationEnabled = false;
         this.aiConfig = new AIConfig();
+        this.factionConfig = new FactionConfig();
         global.navalBot = this;
         this.missions = new MissionObjectives(this);
         this.objectiveTypes = this.missions.getAllObjectives();
@@ -2609,60 +2611,40 @@ class NavalWarfareBot {
     }
 
     async spawnConfiguredEnemies(game) {
-        const config = game.setupState.enemyConfig;
-        
-        if (!config) {
-            return;
-        }
-        
+        const config  = game.setupState.enemyConfig;
+        const faction = game.setupState.enemyFaction || null; // 'abyssal' | 'siren' | 'mixed' | null
+
+        if (!config) return;
+
+        // Helper: spawn one enemy, routing to factionConfig when a faction is selected
+        const spawnOne = (shipType = null) => {
+            if (faction) {
+                return this.spawnFactionEnemy(game, faction, shipType);
+            }
+            // Legacy path: use existing aiConfig pool
+            return shipType ? this.spawnSpecificAI(game, shipType) : game.spawnRandomAI();
+        };
+
         if (config.type === 'preset' && config.count > 0) {
-            // Spawn random enemies
             for (let i = 0; i < config.count; i++) {
-                const ai = game.spawnRandomAI();
-                
-                // FIXED: Use isAICarrierType instead of isAICarrier
-                if (ai && this.isAICarrierType(ai)) {
-                    this.setupAICarrierAircraft(ai, game);
-                }
+                const ai = spawnOne();
+                if (ai && this.isAICarrierType(ai)) this.setupAICarrierAircraft(ai, game);
             }
-            
+
         } else if (config.type === 'custom' && config.customEnemies) {
-            // Spawn custom enemy types
             const custom = config.customEnemies;
-            let totalSpawned = 0;
-            
-            // Spawn each type (existing code...)
-            for (let i = 0; i < custom.destroyers; i++) {
-                const destroyer = this.spawnSpecificAI(game, 'destroyer');
-                if (destroyer) totalSpawned++;
-            }
-            
-            for (let i = 0; i < custom.cruisers; i++) {
-                const cruiser = this.spawnSpecificAI(game, 'cruiser');
-                if (cruiser) totalSpawned++;
-            }
-            
-            for (let i = 0; i < custom.battleships; i++) {
-                const battleship = this.spawnSpecificAI(game, 'battleship');
-                if (battleship) totalSpawned++;
-            }
 
-            for (let i = 0; i < custom.carriers; i++) {
-                const carrier = this.spawnSpecificAI(game, 'carrier');
-                // FIXED: Use isAICarrierType instead of isAICarrier
-                if (carrier && this.isAICarrierType(carrier)) {
-                    this.setupAICarrierAircraft(carrier, game);
-                }
-                if (carrier) totalSpawned++;
+            for (let i = 0; i < custom.destroyers;  i++) spawnOne('destroyer');
+            for (let i = 0; i < custom.cruisers;    i++) spawnOne('cruiser');
+            for (let i = 0; i < custom.battleships; i++) spawnOne('battleship');
+            for (let i = 0; i < custom.carriers;    i++) {
+                const ai = spawnOne('carrier');
+                if (ai && this.isAICarrierType(ai)) this.setupAICarrierAircraft(ai, game);
             }
-
-            for (let i = 0; i < custom.submarines; i++) {
-                const submarine = this.spawnSpecificAI(game, 'submarine');
-                if (submarine) totalSpawned++;
-            }
+            for (let i = 0; i < custom.submarines;  i++) spawnOne('submarine');
         }
-        
-        console.log(`⚔️ Battle initialized with ${game.players.size} players and ${game.enemies.size} AI enemies`);
+
+        console.log(`⚔️ Battle initialized with ${game.players.size} players and ${game.enemies.size} AI enemies (faction: ${faction || 'default'})`);
     }
 
     spawnSpecificAI(game, shipType) {
@@ -2722,6 +2704,67 @@ class NavalWarfareBot {
             console.log(`⚠️ Could not find AI of type: ${shipType} after ${attempts} attempts`);
         }
         
+        return ai;
+    }
+
+    /**
+     * Spawn one enemy from factionConfig (Abyssals / Sirens / mixed).
+     * @param {object} game
+     * @param {'abyssal'|'siren'|'mixed'} faction
+     * @param {string|null} shipType  optional type filter e.g. 'destroyer'
+     */
+    spawnFactionEnemy(game, faction = 'mixed', shipType = null) {
+        const template = shipType
+            ? this.factionConfig.getRandomAIOfType(faction, shipType)
+            : this.factionConfig.getRandomAI(faction);
+
+        if (!template) {
+            console.warn(`⚠️ factionConfig: no template found for faction=${faction} type=${shipType}`);
+            return null;
+        }
+
+        const position = game.getRandomAISpawnPosition();
+        const coordNums = game.coordToNumbers ? game.coordToNumbers(position) : null;
+
+        const ai = {
+            id: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: template.type,
+            shipClass: template.shipClass,
+            customName: template.name,
+            name: template.name,
+            universe: template.universe,
+            position,
+            x: coordNums ? coordNums.x : 0,
+            y: coordNums ? coordNums.y - 1 : 0,
+            alive: true,
+            currentHealth: template.stats.health,
+            maxHealth: template.stats.health,
+            stats: template.stats,
+            weapons: template.weapons,
+            onFire: false,
+            flooding: false,
+            fireTimer: 0,
+            floodTimer: 0,
+            damageControlCooldown: 0,
+            tonnage: template.tonnage,
+            speedKnots: template.speedKnots,
+            armorThickness: template.armorThickness,
+            baseAccuracy: template.baseAccuracy,
+            hangar: template.hangar || 0
+        };
+
+        if (this.isAICarrierType(ai) && template.aircraft) {
+            ai.aircraft = template.aircraft;
+            this.setupAICarrierAircraft(ai, game);
+        }
+
+        const aaSystem = this.generateAAForAI(ai);
+        if (aaSystem) ai.aaSystem = aaSystem;
+
+        ai.direction = GameUtils.getSpawnFacingDirection(game.oppositeSide || 'right');
+
+        game.enemies.set(ai.id, ai);
+        console.log(`🤖 [${template.universe}] Spawned ${ai.customName} at ${position}`);
         return ai;
     }
 
@@ -19293,7 +19336,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
         // Setup a complete game with map generation (Admin Panel)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
-                const { channelId, guildId, maxPlayers, enemyCount, customEnemies, mapType, customMapId, missionType, userId } = req.body;
+                const { channelId, guildId, maxPlayers, enemyCount, customEnemies, mapType, customMapId, missionType, userId, enemyFaction } = req.body;
 
                 if (!channelId || !guildId) {
                     return res.status(400).json({ error: 'channelId and guildId are required' });
@@ -19339,9 +19382,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
 
                 // Initialize setupState
+                const validFactions = ['abyssal', 'siren', 'mixed'];
                 game.setupState = {
                     maxPlayers: maxP,
                     enemyConfig: enemyConfig,
+                    enemyFaction: validFactions.includes(enemyFaction) ? enemyFaction : null,
                     mapConfig: {
                         type: mapType || 'random',
                         customMapId: customMapId || null

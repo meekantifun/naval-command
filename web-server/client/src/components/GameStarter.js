@@ -18,6 +18,7 @@ function GameStarter({ guildId, user }) {
     maxPlayers: 8,
     enemyCount: 3,
     enemySetupType: 'random',
+    enemyFaction: null,
     customEnemies: {
       submarine: 0,
       destroyer: 0,
@@ -82,6 +83,9 @@ function GameStarter({ guildId, user }) {
         payload.enemyCount = parseInt(formData.enemyCount);
       }
 
+      // Faction selection (null = legacy aiConfig pool)
+      if (formData.enemyFaction) payload.enemyFaction = formData.enemyFaction;
+
       if (formData.mapType === 'custom') {
         payload.customMapId = formData.customMapId;
       }
@@ -98,6 +102,7 @@ function GameStarter({ guildId, user }) {
         maxPlayers: 8,
         enemyCount: 3,
         enemySetupType: 'random',
+        enemyFaction: null,
         customEnemies: {
           submarine: 0,
           destroyer: 0,
@@ -165,6 +170,22 @@ function GameStarter({ guildId, user }) {
             <small>Choose enemy configuration type</small>
           </div>
         </div>
+
+        {formData.enemySetupType !== 'none' && (
+          <div className="form-group">
+            <label>Enemy Universe</label>
+            <select
+              value={formData.enemyFaction || ''}
+              onChange={(e) => setFormData({...formData, enemyFaction: e.target.value || null})}
+            >
+              <option value="">Default (original AI pool)</option>
+              <option value="abyssal">Abyssals (KanColle)</option>
+              <option value="siren">Sirens (Azur Lane)</option>
+              <option value="mixed">Mixed — both universes</option>
+            </select>
+            <small>Which enemy faction to draw ships from</small>
+          </div>
+        )}
 
         {formData.enemySetupType === 'random' && (
           <div className="form-group">
