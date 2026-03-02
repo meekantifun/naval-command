@@ -4333,6 +4333,10 @@ class NavalWarfareBot {
         
         // Set new spawn
         player.position = selectedSpawn;
+        // Also set numeric x/y so web dashboard can read position
+        const spawnNums = game.coordToNumbers(selectedSpawn);
+        player.x = spawnNums.x;
+        player.y = spawnNums.y - 1; // coordToNumbers returns 1-indexed y; web uses 0-indexed
         // Set default direction based on spawn side (face toward opposite side +-90°)
         if (player.direction === undefined) {
             player.direction = GameUtils.getSpawnFacingDirection(game.spawnSide || 'left');
@@ -18478,9 +18482,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const cellsMoved = Math.sqrt((x - oldX) ** 2 + (y - oldY) ** 2);
                 game.updateMVPStats(userId, 'distanceTravelled', cellsMoved * 5);
 
-                // Update player position
+                // Update player position (both numeric and coordinate-string formats)
                 player.x = x;
                 player.y = y;
+                player.position = game.generateExtendedCoordinate(x, y + 1); // keep Discord position string in sync
                 player.actionsThisTurn++;
 
                 // Broadcast update to web clients
