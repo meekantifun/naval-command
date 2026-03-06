@@ -59,9 +59,10 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
   const [currentWeapon, setCurrentWeapon] = useState({
     type: 'main',
     caliber: '127mm',
-    configuration: 'single',
+    mountGroups: [],
     customName: ''
   });
+  const [mountGroupInput, setMountGroupInput] = useState({ count: 1, config: 'single' });
 
   const [currentAA, setCurrentAA] = useState({
     caliber: '40mm',
@@ -97,12 +98,12 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
   const torpedoCalibers = ['324mm','356mm','450mm','483mm','533mm','550mm','610mm','650mm','750mm','850mm'];
 
   const weaponConfigurations = [
-    { value: 'single', label: 'Single Mount' },
-    { value: 'twin',   label: 'Twin Mount' },
-    { value: 'triple', label: 'Triple Mount' },
-    { value: 'quad',   label: 'Quad Mount' },
-    { value: 'quin',   label: 'Quintuple Mount' },
-    { value: 'sext',   label: 'Sextuple Mount' }
+    { value: 'single', label: 'Single',    guns: 1 },
+    { value: 'twin',   label: 'Twin',      guns: 2 },
+    { value: 'triple', label: 'Triple',    guns: 3 },
+    { value: 'quad',   label: 'Quad',      guns: 4 },
+    { value: 'quin',   label: 'Quintuple', guns: 5 },
+    { value: 'sext',   label: 'Sextuple',  guns: 6 }
   ];
 
   const aaCaliberGroups = [
@@ -144,23 +145,48 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
 
   const barrelCount = (config) => ({ single: 1, twin: 2, triple: 3, quad: 4, quin: 5, sext: 6 }[config] || 1);
 
+  const totalGuns = (mountGroups) =>
+    (mountGroups || []).reduce((sum, g) => sum + g.count * barrelCount(g.config), 0);
+
+  const mountGroupSummary = (mountGroups) =>
+    (mountGroups || []).map(g => {
+      const label = weaponConfigurations.find(c => c.value === g.config)?.label || g.config;
+      return `${g.count}× ${label}`;
+    }).join(', ');
+
   const autoWeaponName = (w) => {
-    if (w.type === 'torpedo') return `${w.caliber} Torpedo`;
-    const configLabel = weaponConfigurations.find(c => c.value === w.configuration)?.label || w.configuration;
-    return `${w.caliber} ${configLabel}`;
+    const isTorpedo = w.type === 'torpedo';
+    const groups = w.mountGroups || [];
+    if (groups.length === 0) return isTorpedo ? `${w.caliber} Torpedo` : `${w.caliber} Gun`;
+    const summary = mountGroupSummary(groups);
+    return isTorpedo ? `${w.caliber} Torpedo (${summary})` : `${w.caliber} (${summary})`;
+  };
+
+  const addMountGroup = () => {
+    setCurrentWeapon({
+      ...currentWeapon,
+      mountGroups: [...(currentWeapon.mountGroups || []), { count: mountGroupInput.count, config: mountGroupInput.config }]
+    });
+  };
+
+  const removeMountGroup = (i) => {
+    const updated = [...(currentWeapon.mountGroups || [])];
+    updated.splice(i, 1);
+    setCurrentWeapon({ ...currentWeapon, mountGroups: updated });
   };
 
   const addWeapon = () => {
+    if (!currentWeapon.mountGroups || currentWeapon.mountGroups.length === 0) return;
     const weaponId = `${currentWeapon.type}_${Date.now()}`;
     const name = currentWeapon.customName.trim() || autoWeaponName(currentWeapon);
     setFormData({
       ...formData,
       weapons: {
         ...formData.weapons,
-        [weaponId]: { ...currentWeapon, name, barrels: barrelCount(currentWeapon.configuration) }
+        [weaponId]: { ...currentWeapon, name, barrels: totalGuns(currentWeapon.mountGroups) }
       }
     });
-    setCurrentWeapon({ type: 'main', caliber: '127mm', configuration: 'single', customName: '' });
+    setCurrentWeapon({ type: currentWeapon.type, caliber: currentWeapon.caliber, mountGroups: [], customName: '' });
   };
 
   const removeWeapon = (weaponId) => {
@@ -375,18 +401,48 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                     </select>
                   </div>
 
-                  {currentWeapon.type !== 'torpedo' && (
-                    <div className="form-group">
-                      <label>Configuration</label>
-                      <select value={currentWeapon.configuration}
-                        onChange={(e) => setCurrentWeapon({ ...currentWeapon, configuration: e.target.value })}>
+                  <div className="form-group">
+                    <label>{currentWeapon.type === 'torpedo' ? 'Launcher' : 'Mount'} Configuration</label>
+                    <div className="mount-group-input-row">
+                      <input
+                        type="number" min="1" max="20"
+                        value={mountGroupInput.count}
+                        onChange={e => setMountGroupInput({ ...mountGroupInput, count: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="mount-count-input"
+                      />
+                      <span className="mount-x">×</span>
+                      <select
+                        value={mountGroupInput.config}
+                        onChange={e => setMountGroupInput({ ...mountGroupInput, config: e.target.value })}
+                        className="mount-config-select"
+                      >
                         {weaponConfigurations.map(c => (
-                          <option key={c.value} value={c.value}>{c.label}</option>
+                          <option key={c.value} value={c.value}>{c.label} ({c.guns} {currentWeapon.type === 'torpedo' ? 'tubes' : 'guns'})</option>
                         ))}
                       </select>
-                      <small>Use the mount with the most guns per turret.</small>
+                      <button type="button" onClick={addMountGroup} className="btn-add-mount">+ Add</button>
                     </div>
-                  )}
+                    {(currentWeapon.mountGroups || []).length > 0 && (
+                      <div className="mount-groups-list">
+                        {currentWeapon.mountGroups.map((g, i) => {
+                          const label = weaponConfigurations.find(c => c.value === g.config)?.label || g.config;
+                          const guns = barrelCount(g.config);
+                          return (
+                            <div key={i} className="mount-group-tag">
+                              <span>{g.count}× {label} ({g.count * guns} {currentWeapon.type === 'torpedo' ? 'tubes' : 'guns'})</span>
+                              <button type="button" onClick={() => removeMountGroup(i)}>×</button>
+                            </div>
+                          );
+                        })}
+                        <div className="mount-groups-total">
+                          Total: <strong>{totalGuns(currentWeapon.mountGroups)} {currentWeapon.type === 'torpedo' ? 'tubes' : 'guns'}</strong>
+                        </div>
+                      </div>
+                    )}
+                    {(currentWeapon.mountGroups || []).length === 0 && (
+                      <small>Add one or more mount groups. e.g. 2× Quad + 1× Twin = 10 guns.</small>
+                    )}
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -411,7 +467,11 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                         <div>
                           <strong>{weapon.name}</strong>
                           <span className="weapon-meta">
-                            {weapon.type} • {weapon.caliber}{weapon.configuration ? ` • ${weapon.configuration}` : ''}
+                            {weapon.type} • {weapon.caliber}
+                            {weapon.mountGroups && weapon.mountGroups.length > 0
+                              ? ` • ${mountGroupSummary(weapon.mountGroups)} = ${weapon.barrels} guns`
+                              : weapon.configuration ? ` • ${weapon.configuration}` : ''
+                            }
                           </span>
                         </div>
                         <button onClick={() => removeWeapon(id)} className="btn-remove">×</button>

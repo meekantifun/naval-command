@@ -269,6 +269,96 @@
   background: #c03537;
 }
 
+/* Mount group builder */
+.mount-group-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.mount-count-input {
+  width: 60px;
+  padding: 6px 8px;
+  background: #40444b;
+  border: 1px solid #72767d;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}
+
+.mount-x {
+  color: #b9bbbe;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mount-config-select {
+  flex: 1;
+  padding: 6px 8px;
+  background: #40444b;
+  border: 1px solid #72767d;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.btn-add-mount {
+  padding: 6px 12px;
+  background: #5865F2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-add-mount:hover { background: #4752c4; }
+
+.mount-groups-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.mount-group-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #40444b;
+  border: 1px solid #5865F2;
+  border-radius: 12px;
+  padding: 3px 8px 3px 10px;
+  font-size: 12px;
+  color: #fff;
+}
+
+.mount-group-tag button {
+  background: none;
+  border: none;
+  color: #b9bbbe;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.mount-group-tag button:hover { color: #ed4245; }
+
+.mount-groups-total {
+  width: 100%;
+  font-size: 12px;
+  color: #b9bbbe;
+  margin-top: 4px;
+}
+
+.mount-groups-total strong { color: #3ba55d; }
+
 .info-box {
   background: #2f3136;
   padding: 15px;

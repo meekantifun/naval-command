@@ -255,8 +255,14 @@ function CharacterManager({ guildId, user }) {
                             <span>Range: {weapon.range}</span>
                             <span>Reload: {weapon.reload}s</span>
                             <span>Penetration: {weapon.penetration}mm</span>
-                            <span>Barrels: {weapon.barrels || weapon.barrelCount}</span>
-                            {weapon.configuration && <span>Config: {weapon.configuration}</span>}
+                            {weapon.mountGroups && weapon.mountGroups.length > 0 ? (
+                              <span>Mounts: {weapon.mountGroups.map(g => `${g.count}× ${g.config}`).join(', ')} ({weapon.barrels} guns)</span>
+                            ) : (
+                              <>
+                                {(weapon.barrels || weapon.barrelCount) && <span>Barrels: {weapon.barrels || weapon.barrelCount}</span>}
+                                {weapon.configuration && <span>Config: {weapon.configuration}</span>}
+                              </>
+                            )}
                           </div>
                         </div>
                       ))}
