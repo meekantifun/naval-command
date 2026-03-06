@@ -351,7 +351,7 @@ function ShopSection({ user, guild, currencyConfig }) {
           <div className={`pp-item-card ${item.flagship ? 'pp-item-flagship' : ''}`} key={item.id}>
             <div className="pp-item-top">
               {item.iconUrl
-                ? <img src={item.iconUrl} alt={item.name} className="pp-item-icon-img" />
+                ? <img src={item.iconUrl.startsWith('http') ? item.iconUrl : `${API_URL}${item.iconUrl}`} alt={item.name} className="pp-item-icon-img" />
                 : <span className="pp-item-emoji">{item.emoji || '📦'}</span>
               }
               <div className="pp-item-badges">

@@ -35,6 +35,8 @@ const EMPTY_FORM = {
   requirements: { shipClass: [], level: 0, flagship: false }
 };
 
+const resolveIconSrc = (url) => url && url.startsWith('http') ? url : `${API_URL}${url}`;
+
 function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,7 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
   const [form, setForm] = useState(EMPTY_FORM);
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState(null);
+  const [iconUrlInput, setIconUrlInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const iconInputRef = useRef(null);
@@ -70,7 +73,9 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
           flagship: initialEditing.requirements?.flagship || false
         }
       });
-      setIconPreview(initialEditing.iconUrl ? `${API_URL}${initialEditing.iconUrl}` : null);
+      const iurl = initialEditing.iconUrl || '';
+      setIconUrlInput(iurl.startsWith('http') ? iurl : '');
+      setIconPreview(iurl ? resolveIconSrc(iurl) : null);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -90,6 +95,7 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
     setForm(EMPTY_FORM);
     setIconFile(null);
     setIconPreview(null);
+    setIconUrlInput('');
     setError(null);
     setEditing({});
   };
@@ -113,7 +119,9 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
       }
     });
     setIconFile(null);
-    setIconPreview(item.iconUrl ? `${API_URL}${item.iconUrl}` : null);
+    const iurl = item.iconUrl || '';
+    setIconUrlInput(iurl.startsWith('http') ? iurl : '');
+    setIconPreview(iurl ? resolveIconSrc(iurl) : null);
     setError(null);
     setEditing(item);
   };
@@ -140,6 +148,8 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
         if (row.stat) statsObj[row.stat] = Number(row.value);
       }
 
+      const urlIcon = iconUrlInput.trim().startsWith('http') ? iconUrlInput.trim() : null;
+
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -154,7 +164,9 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
           ...(form.requirements.shipClass.length > 0 && { shipClass: form.requirements.shipClass }),
           ...(form.requirements.level > 0 && { level: form.requirements.level }),
           ...(form.requirements.flagship && { flagship: true })
-        }
+        },
+        // Include URL icon directly in payload; null clears a previously set URL icon
+        ...(!iconFile && { iconUrl: urlIcon })
       };
 
       let savedItem;
@@ -268,7 +280,7 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
             <div key={item.id} className="se-item-row">
               <div className="se-item-icon-col">
                 {item.iconUrl
-                  ? <img src={`${API_URL}${item.iconUrl}`} alt="" className="se-item-thumb" />
+                  ? <img src={resolveIconSrc(item.iconUrl)} alt="" className="se-item-thumb" />
                   : <span className="se-item-emoji-thumb">{item.emoji || '📦'}</span>
                 }
               </div>
@@ -337,16 +349,32 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
         {/* Icon */}
         <div className="se-field-row">
           <label className="se-label">Custom Icon</label>
-          <div className="se-icon-row">
-            {iconPreview && <img src={iconPreview} alt="preview" className="se-icon-preview" />}
-            <button className="se-btn-secondary" onClick={() => iconInputRef.current?.click()}>
-              {iconPreview ? 'Change Icon' : 'Upload Icon'}
-            </button>
-            {iconPreview && (
-              <button className="se-btn-secondary" onClick={() => { setIconFile(null); setIconPreview(null); }}>Remove</button>
-            )}
-            <input ref={iconInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
-            <span className="se-hint">PNG/JPG, max 2MB</span>
+          <div className="se-icon-col">
+            <div className="se-icon-row">
+              {iconPreview && <img src={iconPreview} alt="preview" className="se-icon-preview" />}
+              <button className="se-btn-secondary" onClick={() => iconInputRef.current?.click()}>
+                {iconPreview && !iconUrlInput ? 'Change Icon' : 'Upload File'}
+              </button>
+              {iconPreview && (
+                <button className="se-btn-secondary" onClick={() => { setIconFile(null); setIconPreview(null); setIconUrlInput(''); }}>Remove</button>
+              )}
+              <input ref={iconInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
+              <span className="se-hint">PNG/JPG, max 2MB</span>
+            </div>
+            <div className="se-icon-url-row">
+              <span className="se-hint">or paste URL:</span>
+              <input
+                className="se-input se-icon-url-input"
+                placeholder="https://cdn.discordapp.com/emojis/..."
+                value={iconUrlInput}
+                onChange={e => {
+                  const val = e.target.value;
+                  setIconUrlInput(val);
+                  setIconFile(null);
+                  setIconPreview(val.startsWith('http') ? val : null);
+                }}
+              />
+            </div>
           </div>
         </div>
 

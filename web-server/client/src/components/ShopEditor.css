@@ -185,11 +185,29 @@
 
 /* ── Icon Upload ────────────────────────────────────────────────────────────── */
 
+.se-icon-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .se-icon-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.se-icon-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.se-icon-url-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
 }
 
 .se-icon-preview {
