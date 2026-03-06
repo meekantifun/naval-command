@@ -4,7 +4,11 @@ import CharacterCreationWizard from './CharacterCreationWizard';
 import './CharacterManager.css';
 
 function AdjustRow({ label, value, guildId, userId, characterName, field }) {
-  const [delta, setDelta] = useState(100);
+  const isLevel = field === 'level';
+  const defaultDelta = isLevel ? 1 : 100;
+  const maxDelta = isLevel ? 10 : 10000;
+
+  const [delta, setDelta] = useState(defaultDelta);
   const [current, setCurrent] = useState(value);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
@@ -37,7 +41,8 @@ function AdjustRow({ label, value, guildId, userId, characterName, field }) {
         className="adjust-input"
         value={delta}
         min="1"
-        onChange={e => setDelta(Math.max(1, parseInt(e.target.value) || 1))}
+        max={maxDelta}
+        onChange={e => setDelta(Math.min(maxDelta, Math.max(1, parseInt(e.target.value) || 1)))}
       />
       <button className="btn-adjust-add" onClick={() => adjust(1)} disabled={busy}>+</button>
       <button className="btn-adjust-remove" onClick={() => adjust(-1)} disabled={busy}>−</button>
