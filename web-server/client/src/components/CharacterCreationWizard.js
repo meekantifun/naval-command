@@ -2,6 +2,78 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './CharacterCreationWizard.css';
 
+// Shell weights (kg) per caliber for guns and torpedoes
+const GUN_SHELL_WEIGHTS = {
+  20: 0.1, 25: 0.25, 30: 0.35, 37: 0.7, 40: 0.9, 50: 1.5,
+  65: 2.5, 75: 3, 76: 6, 77: 6.1, 80: 7, 88: 9.5, 90: 10, 94: 11,
+  100: 14, 102: 15, 105: 15.5, 113: 20, 114: 25, 120: 22, 122: 23,
+  127: 25, 128: 28, 130: 35, 133: 37, 138.6: 40, 140: 38,
+  150: 45, 152: 55, 155: 60, 164.7: 80,
+  180: 90, 190: 105, 200: 110, 203: 125, 210: 150, 229: 175,
+  234: 200, 240: 220, 254: 250,
+  280: 330, 283: 340, 305: 450, 320: 520, 330: 575, 340: 600,
+  343: 620, 356: 680, 380: 800, 381: 800, 406: 870, 410: 1000,
+  457: 1250, 460: 1460, 480: 1600
+};
+const TORPEDO_WEIGHTS = {
+  324: 280, 356: 320, 450: 350, 483: 380, 533: 400,
+  550: 430, 610: 500, 650: 550, 750: 650, 850: 750
+};
+const GUN_RANGES = {
+  20: 2, 25: 2, 30: 2, 37: 3, 40: 3, 50: 4, 76: 5, 88: 6, 100: 6,
+  114: 7, 127: 8, 130: 8, 140: 9, 150: 9, 152: 9, 155: 10, 180: 10,
+  203: 12, 234: 13, 280: 16, 305: 18, 330: 19, 356: 20, 380: 21,
+  381: 21, 406: 22, 410: 22, 420: 23, 460: 24, 480: 25
+};
+const TORPEDO_RANGES = {
+  324: 8, 356: 9, 450: 10, 483: 11, 533: 12, 550: 13,
+  610: 14, 650: 15, 750: 16, 850: 17
+};
+
+function closestKey(table, val) {
+  const keys = Object.keys(table).map(Number).sort((a, b) => a - b);
+  return keys.reduce((best, k) => Math.abs(k - val) < Math.abs(best - val) ? k : best, keys[0]);
+}
+
+function computeWeaponStats(type, caliberStr, totalBarrels) {
+  const mm = parseFloat(caliberStr) || 127;
+  const isTorpedo = type === 'torpedo';
+
+  const weightTable = isTorpedo ? TORPEDO_WEIGHTS : GUN_SHELL_WEIGHTS;
+  const rangeTable  = isTorpedo ? TORPEDO_RANGES  : GUN_RANGES;
+
+  const shellWeight = weightTable[closestKey(weightTable, mm)];
+  const range       = rangeTable[closestKey(rangeTable, mm)];
+
+  // Damage — same formula as factionConfig.calculateWeaponDamage (Standard quality)
+  const base       = (shellWeight * 0.2) + (totalBarrels * 4);
+  const efficiency = Math.max(0.8, 1.0 - ((totalBarrels - 1) * 0.05));
+  const damage     = Math.round(base * efficiency);
+
+  let reload, penetration, ammo;
+  if (isTorpedo) {
+    reload      = mm >= 550 ? 6 : 5;
+    penetration = Math.max(280, Math.round(300 + (mm - 533) * 0.4));
+    ammo        = totalBarrels <= 4 ? 12 : totalBarrels <= 8 ? 16 : 20;
+  } else {
+    if (mm >= 457)      reload = 4;
+    else if (mm >= 200) reload = 3;
+    else if (mm >= 100) reload = 2;
+    else                reload = 1;
+
+    if (mm >= 460)      penetration = Math.round(mm * 1.55);
+    else if (mm >= 380) penetration = Math.round(mm * 1.35);
+    else if (mm >= 280) penetration = Math.round(mm * 1.2);
+    else if (mm >= 165) penetration = Math.round(mm * 1.0);
+    else if (mm >= 100) penetration = Math.round(mm * 0.95);
+    else                penetration = Math.round(mm * 0.85);
+
+    ammo = mm >= 280 ? 80 : mm >= 165 ? 100 : mm >= 100 ? 120 : 200;
+  }
+
+  return { damage, range, reload, penetration, ammo };
+}
+
 // Defined outside component so it can be used in lazy state initializer
 function calculateStats(tonnage, speedKnots, armorThickness) {
   const calculatedHP = Math.max(10, 50 + Math.floor(tonnage / 100));
@@ -179,11 +251,13 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
     if (!currentWeapon.mountGroups || currentWeapon.mountGroups.length === 0) return;
     const weaponId = `${currentWeapon.type}_${Date.now()}`;
     const name = currentWeapon.customName.trim() || autoWeaponName(currentWeapon);
+    const total = totalGuns(currentWeapon.mountGroups);
+    const stats = computeWeaponStats(currentWeapon.type, currentWeapon.caliber, total);
     setFormData({
       ...formData,
       weapons: {
         ...formData.weapons,
-        [weaponId]: { ...currentWeapon, name, barrels: totalGuns(currentWeapon.mountGroups) }
+        [weaponId]: { ...currentWeapon, name, barrels: total, ...stats }
       }
     });
     setCurrentWeapon({ type: currentWeapon.type, caliber: currentWeapon.caliber, mountGroups: [], customName: '' });
@@ -453,7 +527,20 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                   <small>Leave blank to use auto-generated name</small>
                 </div>
 
-                <button onClick={addWeapon} className="btn-add">+ Add Weapon</button>
+                {(currentWeapon.mountGroups || []).length > 0 && (() => {
+                  const total = totalGuns(currentWeapon.mountGroups);
+                  const s = computeWeaponStats(currentWeapon.type, currentWeapon.caliber, total);
+                  return (
+                    <div className="weapon-stats-preview">
+                      <span>DMG {s.damage}</span>
+                      <span>RNG {s.range}</span>
+                      <span>Reload {s.reload}s</span>
+                      <span>Pen {s.penetration}mm</span>
+                      <span>Ammo {s.ammo}</span>
+                    </div>
+                  );
+                })()}
+                <button onClick={addWeapon} className="btn-add" disabled={!currentWeapon.mountGroups?.length}>+ Add Weapon</button>
               </div>
 
               <div className="weapons-list-preview">
@@ -469,9 +556,12 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                           <span className="weapon-meta">
                             {weapon.type} • {weapon.caliber}
                             {weapon.mountGroups && weapon.mountGroups.length > 0
-                              ? ` • ${mountGroupSummary(weapon.mountGroups)} = ${weapon.barrels} guns`
+                              ? ` • ${mountGroupSummary(weapon.mountGroups)} = ${weapon.barrels} ${weapon.type === 'torpedo' ? 'tubes' : 'guns'}`
                               : weapon.configuration ? ` • ${weapon.configuration}` : ''
                             }
+                          </span>
+                          <span className="weapon-stats-line">
+                            DMG {weapon.damage ?? '?'} · RNG {weapon.range ?? '?'} · Reload {weapon.reload ?? '?'}s · Pen {weapon.penetration ?? '?'}mm · Ammo {weapon.ammo ?? '?'}
                           </span>
                         </div>
                         <button onClick={() => removeWeapon(id)} className="btn-remove">×</button>
