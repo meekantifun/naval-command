@@ -24,7 +24,6 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
     type: 'main',
     caliber: '127mm',
     configuration: 'single',
-    quality: 'standard',
     customName: ''
   });
 
@@ -69,12 +68,6 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
     { value: 'quad',   label: 'Quad Mount' },
     { value: 'quin',   label: 'Quintuple Mount' },
     { value: 'sext',   label: 'Sextuple Mount' }
-  ];
-
-  const qualityOptions = [
-    { value: 'standard', label: 'Standard' },
-    { value: 'enhanced', label: 'Enhanced' },
-    { value: 'elite',    label: 'Elite' }
   ];
 
   // All AA calibers grouped (matches bot's AA_CALIBERS)
@@ -136,8 +129,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
   const autoWeaponName = (w) => {
     if (w.type === 'torpedo') return `${w.caliber} Torpedo`;
     const configLabel = weaponConfigurations.find(c => c.value === w.configuration)?.label || w.configuration;
-    const qualityLabel = w.quality !== 'standard' ? ` (${w.quality.charAt(0).toUpperCase() + w.quality.slice(1)})` : '';
-    return `${w.caliber} ${configLabel}${qualityLabel}`;
+    return `${w.caliber} ${configLabel}`;
   };
 
   const addWeapon = () => {
@@ -154,7 +146,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
         }
       }
     });
-    setCurrentWeapon({ type: 'main', caliber: '127mm', configuration: 'single', quality: 'standard', customName: '' });
+    setCurrentWeapon({ type: 'main', caliber: '127mm', configuration: 'single', customName: '' });
   };
 
   const removeWeapon = (weaponId) => {
@@ -390,15 +382,6 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                     </div>
                   )}
 
-                  <div className="form-group">
-                    <label>Quality</label>
-                    <select value={currentWeapon.quality}
-                      onChange={(e) => setCurrentWeapon({ ...currentWeapon, quality: e.target.value })}>
-                      {qualityOptions.map(q => (
-                        <option key={q.value} value={q.value}>{q.label}</option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
 
                 <div className="form-group">
@@ -425,7 +408,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                       <div key={id} className="weapon-card-preview">
                         <div>
                           <strong>{weapon.name}</strong>
-                          <span className="weapon-meta">{weapon.type} • {weapon.caliber}{weapon.configuration ? ` • ${weapon.configuration}` : ''}{weapon.quality && weapon.quality !== 'standard' ? ` • ${weapon.quality}` : ''}</span>
+                          <span className="weapon-meta">{weapon.type} • {weapon.caliber}{weapon.configuration ? ` • ${weapon.configuration}` : ''}</span>
                         </div>
                         <button onClick={() => removeWeapon(id)} className="btn-remove">×</button>
                       </div>
