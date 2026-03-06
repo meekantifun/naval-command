@@ -9,9 +9,13 @@ function ServerSelector({ user, onSelectServer }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [inviteUrl, setInviteUrl] = useState(null);
 
   useEffect(() => {
     loadMutualGuilds();
+    axios.get(`${API_URL}/api/bot-invite`, { withCredentials: true })
+      .then(r => setInviteUrl(r.data.url))
+      .catch(() => {});
   }, [user]);
 
   const loadMutualGuilds = async () => {
@@ -97,6 +101,11 @@ function ServerSelector({ user, onSelectServer }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
+        {inviteUrl && (
+          <a href={inviteUrl} target="_blank" rel="noopener noreferrer" className="invite-btn">
+            + Invite to Server
+          </a>
+        )}
       </div>
       <div className="guild-grid">
         {filteredGuilds.length === 0 && (

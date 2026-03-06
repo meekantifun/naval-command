@@ -633,6 +633,14 @@ app.get('/api/admin/bot-guilds', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Public invite URL (no auth needed)
+app.get('/api/bot-invite', (req, res) => {
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  if (!clientId) return res.status(500).json({ error: 'Client ID not configured' });
+  const url = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
+  res.json({ url });
+});
+
 // Serve shop icons static files
 app.use('/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
 app.use('/currency-icons', express.static(path.join(__dirname, '../../public/currency-icons')));
