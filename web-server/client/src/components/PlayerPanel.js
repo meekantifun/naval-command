@@ -635,13 +635,81 @@ function AboutSection() {
 
 // ── Support Section ─────────────────────────────────────────────────────────
 
-function SupportSection() {
+function StarRating({ value, onChange }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="pp-stars-input">
+      {[1,2,3,4,5].map(n => (
+        <button key={n} type="button"
+          className={`pp-star-btn ${n <= (hovered || value) ? 'filled' : ''}`}
+          onMouseEnter={() => setHovered(n)}
+          onMouseLeave={() => setHovered(0)}
+          onClick={() => onChange(n)}>★</button>
+      ))}
+      {value > 0 && <span className="pp-star-label">{['','Terrible','Poor','Okay','Good','Excellent'][value]}</span>}
+    </div>
+  );
+}
+
+function ReviewCard({ review }) {
+  return (
+    <div className="pp-review-card">
+      <div className="pp-review-header">
+        <div className="pp-review-stars">{'★'.repeat(review.stars)}<span className="pp-review-stars-empty">{'★'.repeat(5 - review.stars)}</span></div>
+        <div className="pp-review-meta">
+          <span className="pp-review-name">{review.name}</span>
+          <span className="pp-review-server">{review.server}</span>
+        </div>
+      </div>
+      <p className="pp-review-text">{review.review}</p>
+    </div>
+  );
+}
+
+function SupportSection({ user, guild }) {
   const [showBugForm, setShowBugForm] = useState(false);
   const [bugForm, setBugForm] = useState({ contactName: '', contactInfo: '', description: '', steps: '' });
   const [attachments, setAttachments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null); // 'success' | 'error'
   const fileInputRef = useRef(null);
+
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ stars: 0, name: user?.username || '', review: '' });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewResult, setReviewResult] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/api/reviews`, { withCredentials: true })
+      .then(r => setReviews(r.data.reviews || []))
+      .catch(() => {})
+      .finally(() => setReviewsLoading(false));
+  }, []);
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!reviewForm.stars || !reviewForm.review.trim()) return;
+    setReviewSubmitting(true);
+    setReviewResult(null);
+    try {
+      await axios.post(`${API_URL}/api/reviews`, {
+        stars: reviewForm.stars,
+        name: reviewForm.name || user?.username,
+        review: reviewForm.review,
+        server: guild?.name || 'Unknown Server'
+      }, { withCredentials: true });
+      setReviewResult('success');
+      setReviewForm({ stars: 0, name: user?.username || '', review: '' });
+      const r = await axios.get(`${API_URL}/api/reviews`, { withCredentials: true });
+      setReviews(r.data.reviews || []);
+    } catch {
+      setReviewResult('error');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   const handleBugSubmit = async (e) => {
     e.preventDefault();
@@ -681,10 +749,10 @@ function SupportSection() {
       <p>Naval Command is a passion project built and maintained by one person. If you enjoy the game, consider showing your support!</p>
 
       <div className="pp-support-cards">
-        <div className="pp-support-card">
+        <div className="pp-support-card pp-support-card-clickable" onClick={() => { setShowReviewForm(f => !f); setReviewResult(null); }}>
           <div className="pp-support-icon">⭐</div>
           <h4>Leave a Review</h4>
-          <p>Share your experience with others in the Discord server.</p>
+          <p>Rate the bot and share your experience with the community.</p>
         </div>
         <div className="pp-support-card pp-support-card-clickable" onClick={() => { setShowBugForm(f => !f); setSubmitResult(null); }}>
           <div className="pp-support-icon">🐛</div>
@@ -773,8 +841,70 @@ function SupportSection() {
         </div>
       )}
 
+      {showReviewForm && (
+        <div className="pp-bug-form-wrap">
+          <h4>⭐ Leave a Review</h4>
+          {reviewResult === 'success' ? (
+            <div className="pp-bug-success">
+              <p>✅ Thanks for your review!</p>
+              <button className="pp-bug-btn-secondary" onClick={() => { setShowReviewForm(false); setReviewResult(null); }}>Close</button>
+            </div>
+          ) : (
+            <form className="pp-bug-form" onSubmit={handleReviewSubmit}>
+              <div className="pp-bug-field">
+                <label>Rating *</label>
+                <StarRating value={reviewForm.stars} onChange={s => setReviewForm(f => ({ ...f, stars: s }))} />
+              </div>
+
+              <div className="pp-bug-row">
+                <div className="pp-bug-field">
+                  <label>Your Name</label>
+                  <input type="text" value={reviewForm.name}
+                    onChange={e => setReviewForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder={user?.username || 'Display name'} />
+                </div>
+                <div className="pp-bug-field">
+                  <label>Server</label>
+                  <input type="text" value={guild?.name || ''} readOnly className="input-readonly" />
+                </div>
+              </div>
+
+              <div className="pp-bug-field">
+                <label>Your Review *</label>
+                <textarea rows={4} required value={reviewForm.review}
+                  onChange={e => setReviewForm(f => ({ ...f, review: e.target.value }))}
+                  placeholder="Share your experience with Naval Command..." />
+              </div>
+
+              {reviewResult === 'error' && <div className="pp-bug-error">Failed to submit. Please try again.</div>}
+
+              <div className="pp-bug-actions">
+                <button type="submit" className="pp-bug-btn-primary"
+                  disabled={reviewSubmitting || !reviewForm.stars || !reviewForm.review.trim()}>
+                  {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                </button>
+                <button type="button" className="pp-bug-btn-secondary" onClick={() => setShowReviewForm(false)}>Cancel</button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
       <div className="pp-support-note">
         <p>Thank you for playing Naval Command. Every battle, every suggestion, and every piece of feedback helps make the game better for everyone. — <strong>MeekANTIFUN (Developer)</strong></p>
+      </div>
+
+      <div className="pp-reviews-section">
+        <h4>Recent Reviews</h4>
+        {reviewsLoading ? (
+          <p className="pp-reviews-empty">Loading reviews...</p>
+        ) : reviews.length === 0 ? (
+          <p className="pp-reviews-empty">No reviews yet. Be the first!</p>
+        ) : (
+          <div className="pp-reviews-list">
+            {reviews.map(r => <ReviewCard key={r.id} review={r} />)}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -873,7 +1003,7 @@ function PlayerPanel({ user, guild, onClose }) {
           {activeSection === 'shop'       && <ShopSection       user={user} guild={guild} currencyConfig={currencyConfig} />}
           {activeSection === 'settings'   && <SettingsSection guild={guild} isGM={isGM} currencyConfig={currencyConfig} onConfigChange={setCurrencyConfig} />}
           {activeSection === 'about'      && <AboutSection />}
-          {activeSection === 'support'    && <SupportSection />}
+          {activeSection === 'support'    && <SupportSection user={user} guild={guild} />}
         </div>
       </div>
 

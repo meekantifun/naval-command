@@ -728,6 +728,44 @@ app.post('/api/admin/guild-config/:guildId/currency-icon', ensureAuthenticated, 
   }
 });
 
+// ── Reviews ───────────────────────────────────────────────────────────────────
+
+const REVIEWS_FILE = path.join(__dirname, '../data/reviews.json');
+
+function loadReviews() {
+  try { return JSON.parse(fs.readFileSync(REVIEWS_FILE, 'utf8')); } catch { return []; }
+}
+
+function saveReviews(reviews) {
+  fs.mkdirSync(path.dirname(REVIEWS_FILE), { recursive: true });
+  fs.writeFileSync(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
+}
+
+app.get('/api/reviews', (req, res) => {
+  const reviews = loadReviews();
+  res.json({ reviews: reviews.slice(-50).reverse() });
+});
+
+app.post('/api/reviews', ensureAuthenticated, (req, res) => {
+  const { stars, name, review, server } = req.body;
+  if (!stars || !review?.trim()) return res.status(400).json({ error: 'Stars and review are required.' });
+  const starsNum = parseInt(stars);
+  if (starsNum < 1 || starsNum > 5) return res.status(400).json({ error: 'Stars must be 1–5.' });
+
+  const reviews = loadReviews();
+  reviews.push({
+    id: Date.now().toString(),
+    stars: starsNum,
+    name: name?.trim() || req.user.username,
+    review: review.trim(),
+    server: server?.trim() || 'Unknown Server',
+    userId: req.user.id,
+    timestamp: new Date().toISOString()
+  });
+  saveReviews(reviews);
+  res.json({ success: true });
+});
+
 // ── Bug Report ────────────────────────────────────────────────────────────────
 
 const bugAttachmentUpload = multer({
