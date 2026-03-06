@@ -9,6 +9,21 @@ const DiscordStrategy = require('passport-discord').Strategy;
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+
+// Multer storage for shop item icons
+const shopIconStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../public/shop-icons');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${req.params.itemId}${ext}`);
+  }
+});
+const uploadIcon = multer({ storage: shopIconStorage, limits: { fileSize: 2 * 1024 * 1024 } });
 
 // Path to bot's guild data (same server, different directory)
 const BOT_DATA_ROOT = path.join(__dirname, '../../servers');
@@ -545,6 +560,28 @@ app.delete('/api/admin/maps/:id', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Shop — list items
+app.get('/api/shop/items', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.get('/api/shop/items');
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching shop items:', error.message);
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to fetch items' });
+  }
+});
+
+// Shop — buy item
+app.post('/api/shop/buy', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/shop/buy', { ...req.body, userId: req.user.id });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error buying item:', error.message);
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Purchase failed' });
+  }
+});
+
 // Start a game
 app.post('/api/admin/start-game', ensureAuthenticated, async (req, res) => {
   try {
@@ -580,6 +617,59 @@ app.get('/api/admin/bot-guilds', ensureAuthenticated, async (req, res) => {
     res.status(error.response?.status || 500).json({
       error: error.response?.data?.error || 'Failed to fetch bot guilds'
     });
+  }
+});
+
+// Serve shop icons static files
+app.use('/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
+
+// ── Admin Shop Item Proxy Routes ─────────────────────────────────────────────
+
+app.get('/api/admin/shop/items/:guildId', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.get(`/api/admin/shop/items/${req.params.guildId}`);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed' });
+  }
+});
+
+app.post('/api/admin/shop/items/:guildId', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/admin/shop/items/${req.params.guildId}`, req.body);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed' });
+  }
+});
+
+app.put('/api/admin/shop/items/:guildId/:itemId', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.put(`/api/admin/shop/items/${req.params.guildId}/${req.params.itemId}`, req.body);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed' });
+  }
+});
+
+app.delete('/api/admin/shop/items/:guildId/:itemId', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.delete(`/api/admin/shop/items/${req.params.guildId}/${req.params.itemId}`);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed' });
+  }
+});
+
+app.post('/api/admin/shop/icon/:itemId', ensureAuthenticated, uploadIcon.single('icon'), async (req, res) => {
+  try {
+    const ext = path.extname(req.file.originalname);
+    const iconUrl = `/shop-icons/${req.params.itemId}${ext}`;
+    await botAPI.post(`/api/admin/shop/icon/${req.params.itemId}`, { iconUrl, guildId: req.body.guildId });
+    res.json({ iconUrl });
+  } catch (error) {
+    console.error('Error uploading shop icon:', error.message);
+    res.status(500).json({ error: 'Icon upload failed' });
   }
 });
 

@@ -1,0 +1,356 @@
+.se-container {
+  max-width: 800px;
+  margin: 0 auto;
+  color: #dcddde;
+}
+
+.se-loading,
+.se-empty {
+  color: #72767d;
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* ── List View ─────────────────────────────────────────────────────────────── */
+
+.se-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.se-list-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.se-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.se-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #2f3136;
+  border: 1px solid #40444b;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.se-item-icon-col {
+  width: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.se-item-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.se-item-emoji-thumb {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.se-item-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.se-item-name {
+  font-weight: 600;
+  color: #fff;
+}
+
+.se-item-meta {
+  font-size: 0.8rem;
+  color: #72767d;
+  text-transform: capitalize;
+}
+
+.se-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Form View ─────────────────────────────────────────────────────────────── */
+
+.se-form-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.se-form-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.se-error {
+  background: rgba(237, 66, 69, 0.15);
+  border: 1px solid #ed4245;
+  border-radius: 4px;
+  color: #ed4245;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+}
+
+.se-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.se-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.se-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.se-label {
+  font-size: 0.8rem;
+  color: #b9bbbe;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.se-input {
+  background: #40444b;
+  border: 1px solid #202225;
+  border-radius: 4px;
+  color: #dcddde;
+  padding: 7px 10px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.se-input:focus {
+  border-color: #5865f2;
+}
+
+.se-textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.se-select {
+  background: #40444b;
+  border: 1px solid #202225;
+  border-radius: 4px;
+  color: #dcddde;
+  padding: 7px 10px;
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.se-select:focus {
+  border-color: #5865f2;
+}
+
+.se-emoji-input {
+  width: 70px;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.se-small-input {
+  width: 90px;
+}
+
+/* ── Icon Upload ────────────────────────────────────────────────────────────── */
+
+.se-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.se-icon-preview {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid #40444b;
+  background: #202225;
+}
+
+.se-hint {
+  font-size: 0.78rem;
+  color: #72767d;
+}
+
+/* ── Stats Builder ───────────────────────────────────────────────────────────── */
+
+.se-section-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #b9bbbe;
+  margin-bottom: 4px;
+  margin-top: 4px;
+}
+
+.se-stats-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.se-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.se-stat-select {
+  flex: 1;
+}
+
+.se-stat-val {
+  width: 90px;
+}
+
+/* ── Requirements ───────────────────────────────────────────────────────────── */
+
+.se-req-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.se-class-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.se-check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #dcddde;
+  cursor: pointer;
+  text-transform: capitalize;
+  user-select: none;
+}
+
+.se-req-flagship {
+  font-size: 0.9rem;
+}
+
+/* ── Toggles ────────────────────────────────────────────────────────────────── */
+
+.se-toggles {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────────── */
+
+.se-form-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
+
+.se-btn-primary {
+  background: #5865f2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.se-btn-primary:hover:not(:disabled) { background: #4752c4; }
+.se-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.se-btn-secondary {
+  background: #40444b;
+  color: #dcddde;
+  border: 1px solid #202225;
+  border-radius: 4px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.se-btn-secondary:hover { background: #4f545c; }
+
+.se-btn-back {
+  background: transparent;
+  color: #b9bbbe;
+  border: none;
+  padding: 4px 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.se-btn-back:hover { color: #fff; }
+
+.se-btn-edit {
+  background: #4f545c;
+  color: #dcddde;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.se-btn-edit:hover { background: #5865f2; color: #fff; }
+
+.se-btn-delete {
+  background: transparent;
+  color: #ed4245;
+  border: 1px solid #ed4245;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.se-btn-delete:hover { background: rgba(237, 66, 69, 0.15); }
+
+.se-btn-remove {
+  background: transparent;
+  color: #ed4245;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.se-btn-remove:hover { color: #fff; }

@@ -13,6 +13,7 @@ if (!process.env.DISCORD_TOKEN) {
 const {Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, PermissionFlagsBits,ModalBuilder,TextInputBuilder,TextInputStyle, MessageFlags, StringSelectMenuBuilder} = require('discord.js');
 const sharp = require('sharp');
 const fs = require('fs');
+const path = require('path');
 const MissionObjectives = require('./missions');
 const PlayerCreationModule = require('./handlers/playerCreation');
 const AIConfig = require('./systems/aiConfig');
@@ -125,6 +126,7 @@ class NavalWarfareBot {
         this.setupCommands();
         this.setupEventHandlers();
         this.eventHandler.setupEventListeners(); // Set up modular event handlers
+        fs.mkdirSync('./public/shop-icons', { recursive: true });
         this.loadPlayerData();
         this.initializeWeatherEvents();
         this.initializeFormations();
@@ -698,6 +700,7 @@ class NavalWarfareBot {
                             }
 
                             this.playerData.set(guildId, guildMap);
+                            this.shopSystem.loadCustomItems(guildId);
                             console.log(`📂 Loaded data for guild ${guildId} from folder: ${folderName}`);
                         } catch (fileError) {
                             console.error(`❌ Failed to load player data for server "${folderName}": ${fileError.message}`);
@@ -2713,10 +2716,11 @@ class NavalWarfareBot {
      * @param {'abyssal'|'siren'|'mixed'} faction
      * @param {string|null} shipType  optional type filter e.g. 'destroyer'
      */
-    spawnFactionEnemy(game, faction = 'mixed', shipType = null) {
-        const template = shipType
-            ? this.factionConfig.getRandomAIOfType(faction, shipType)
-            : this.factionConfig.getRandomAI(faction);
+    spawnFactionEnemy(game, faction = 'mixed', shipType = null, forcedTemplate = null) {
+        const template = forcedTemplate
+            || (shipType
+                ? this.factionConfig.getRandomAIOfType(faction, shipType)
+                : this.factionConfig.getRandomAI(faction));
 
         if (!template) {
             console.warn(`⚠️ factionConfig: no template found for faction=${faction} type=${shipType}`);
@@ -2763,9 +2767,40 @@ class NavalWarfareBot {
 
         ai.direction = GameUtils.getSpawnFacingDirection(game.oppositeSide || 'right');
 
+        // Boss enhancements: 60% extra HP, 30% extra armor, never retreat
+        if (template.isBoss) {
+            ai.isBoss = true;
+            ai.currentHealth = Math.round(ai.currentHealth * 1.6);
+            ai.maxHealth = ai.currentHealth;
+            ai.stats = {
+                ...ai.stats,
+                health: ai.currentHealth,
+                armor: Math.min(Math.round((ai.stats.armor || 0) * 1.3), 500)
+            };
+            console.log(`👑 Boss spawned: ${ai.customName} (HP: ${ai.currentHealth}, Armor: ${ai.stats.armor})`);
+        }
+
         game.enemies.set(ai.id, ai);
         console.log(`🤖 [${template.universe}] Spawned ${ai.customName} at ${position}`);
         return ai;
+    }
+
+    /**
+     * Spawn a random boss from factionConfig at a random position.
+     * @param {object} game
+     * @param {'abyssal'|'siren'|'mixed'} faction
+     * @param {string|null} bossKey  specific boss key, or null for random
+     * @returns {object|null} spawned AI
+     */
+    spawnBossFromFaction(game, faction = 'siren', bossKey = null) {
+        const template = bossKey
+            ? this.factionConfig.getAIByKey(bossKey)
+            : this.factionConfig.getRandomBoss(faction);
+        if (!template) {
+            console.warn(`⚠️ No boss template found (faction=${faction}, key=${bossKey})`);
+            return null;
+        }
+        return this.spawnFactionEnemy(game, template.universe || 'siren', null, template);
     }
 
     isAICarrierType(ai) {
@@ -5413,11 +5448,14 @@ class NavalWarfareBot {
             
             // AI Turn
             await this.aiTurn(game, channel);
-            
+
+            // Guard: game may have been ended during the AI turn (e.g. via API/GM)
+            if (game.phase !== 'battle') return;
+
             // Process aircraft recovery
             const recoveryMessages = this.processAircraftRecovery(game);
             for (const message of recoveryMessages) await channel.send(message);
-            
+
             game.turnNumber++;
 
             // Update display every few turns
@@ -5425,12 +5463,15 @@ class NavalWarfareBot {
                 await this.updateGameDisplay(game, channel);
             }
 
+            // Guard: phase may have changed during display update
+            if (game.phase !== 'battle') return;
+
             // Sync web dashboard every turn
             this.broadcastGameUpdate(game.channelId).catch(() => {});
-            
+
             // Check win conditions
             if (this.checkWinConditions(game)) {
-                await this.endBattle(game, channel);
+                await this.endBattleInternal(game, channel);
                 return;
             }
         }
@@ -6441,7 +6482,7 @@ class NavalWarfareBot {
             const aiMaxHP  = ai.stats?.health || ai.maxHealth || 100;
             const aiCurHP  = ai.currentHealth ?? ai.hp ?? aiMaxHP;
             const aiHPPct  = aiCurHP / aiMaxHP;
-            const isRetreat = aiHPPct < 0.28; // Retreat when below 28% HP
+            const isRetreat = aiHPPct < 0.28 && !ai.isBoss; // Bosses never retreat
             const aiName   = GameUtils.getAIDisplayName(ai);
 
             // Choose best attack target (focus fire + wound priority)
@@ -6611,6 +6652,21 @@ class NavalWarfareBot {
                     game.addAIAction({
                         type: 'other',
                         message: `${aiName} has appeared at **${newAI.position}**`
+                    });
+                }
+            }
+
+            // Ultra-rare boss spawn: 2% chance, only if no boss is currently alive
+            const bossAlive = Array.from(game.enemies.values()).some(e => e.alive && e.isBoss);
+            if (!bossAlive && Math.random() < 0.02) {
+                const gameFaction = game.faction || game.setupState?.enemyFaction || 'siren';
+                const bossFaction = (gameFaction === 'abyssal') ? 'abyssal' : 'siren';
+                const bossAI = this.spawnBossFromFaction(game, bossFaction);
+                if (bossAI) {
+                    if (this.isAICarrierType(bossAI)) this.setupAICarrierAircraft(bossAI, game);
+                    game.addAIAction({
+                        type: 'other',
+                        message: `⚠️ **BOSS DETECTED!** ${bossAI.name} has entered the battlefield at **${bossAI.position}**!`
                     });
                 }
             }
@@ -8267,10 +8323,10 @@ class NavalWarfareBot {
             caliberOptions = ['20mm', '25mm', '40mm'];
         } else if (shipType.includes('cruiser')) {
             aaChance = 0.8;
-            caliberOptions = ['25mm', '40mm', '76mm'];
+            caliberOptions = ['25mm', '40mm', '76.2mm'];
         } else if (shipType.includes('battleship')) {
             aaChance = 0.9;
-            caliberOptions = ['40mm', '76mm', '127mm'];
+            caliberOptions = ['40mm', '76.2mm', '127mm'];
         } else if (shipType.includes('carrier')) {
             aaChance = 0.95;
             caliberOptions = ['20mm', '25mm', '40mm'];
@@ -8282,6 +8338,7 @@ class NavalWarfareBot {
         if (Math.random() < aaChance) {
             const caliber = caliberOptions[Math.floor(Math.random() * caliberOptions.length)];
             const caliberData = AA_CALIBERS[caliber];
+            if (!caliberData) return null;
             const barrels = Math.ceil(Math.random() * 6);
             const efficiency = 60 + Math.random() * 25; // 60-85% efficiency for AI
             
@@ -11418,13 +11475,7 @@ class NavalWarfareBot {
         const totalWidth = leftMargin + gridWidth + rightPanelWidth;
         const totalHeight = Math.max(topMargin + gridHeight + bottomMargin, 700);
 
-        // Generate SVG content FIRST so it's available for Sharp fallback
-        console.log('🗺️ Generating clean SVG content...');
-        const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
-        console.log(`📏 SVG content length: ${svgContent.length} characters`);
-
-        // Capture terrain from game.map RIGHT NOW — same state used for the SVG above.
-        // This ensures the web map always mirrors this Discord image exactly.
+        // Capture terrain from game.map so the web map mirrors the Discord image exactly.
         const capturedTerrain = [];
         if (game.map) {
             for (const [coord, cell] of game.map.entries()) {
@@ -11438,34 +11489,47 @@ class NavalWarfareBot {
         }
         game.terrainData = capturedTerrain;
 
-        // Capture infrastructure positions using the same deterministic algorithm as the SVG.
-        // Stored as grid coords so the web map can draw matching icons.
+        // Capture infrastructure BEFORE SVG generation so generateCleanMapSVG() can embed it.
+        // Custom maps use their predefined infrastructure; procedural maps use island-group algorithm.
         const capturedInfra = [];
-        const islandGroupsForInfra = this.identifyIslandGroups(game, mapSize);
-        for (const islandGroup of islandGroupsForInfra) {
-            if (islandGroup.length < 3) continue;
-            const groupSeed = islandGroup.reduce((sum, cell) => sum + cell.x * 7 + cell.y * 13, 0);
-            if (groupSeed % 100 > 30) continue;
-            const infraType = this.chooseInfrastructureType(islandGroup.length, groupSeed);
-            const centerX = Math.round(islandGroup.reduce((sum, cell) => sum + cell.x, 0) / islandGroup.length);
-            const centerY = Math.round(islandGroup.reduce((sum, cell) => sum + cell.y, 0) / islandGroup.length);
-            const cluster = this.generateInfrastructureCluster(infraType, centerX, centerY, islandGroup, groupSeed);
-            for (let idx = 0; idx < cluster.length; idx++) {
-                const item = cluster[idx];
+        if (game.customInfrastructureData && game.customInfrastructureData.length > 0) {
+            // Custom map — use infrastructure exactly as placed in the Map Maker
+            for (const item of game.customInfrastructureData) {
                 if (item.x < 0 || item.x >= mapSize || item.y < 0 || item.y >= mapSize) continue;
                 const entry = { x: item.x, y: item.y, type: item.type };
-                if (idx === 0) {
-                    if (item.type === 'major_city') entry.name = this.nameGenerator.generateCityName();
-                    else if (item.type === 'port_facility') entry.name = this.nameGenerator.generateCityName();
-                    else if (item.type === 'town') entry.name = this.nameGenerator.generateTownName();
-                }
-                // Determine state (destroyed/abandoned) deterministically from position + group seed
-                if (item.type !== 'mine') {
-                    const destructSeed = (item.x * 17 + item.y * 31 + groupSeed) % 100;
-                    if (destructSeed < 8) entry.state = 'destroyed';
-                    else if (destructSeed < 19) entry.state = 'abandoned';
-                }
+                if (item.name) entry.name = item.name;
+                if (item.state && item.state !== 'intact') entry.state = item.state;
                 capturedInfra.push(entry);
+            }
+            console.log(`🏗️ Loaded ${capturedInfra.length} custom infrastructure items from map`);
+        } else {
+            // Procedural map — generate infrastructure from island groups
+            const islandGroupsForInfra = this.identifyIslandGroups(game, mapSize);
+            for (const islandGroup of islandGroupsForInfra) {
+                if (islandGroup.length < 3) continue;
+                const groupSeed = islandGroup.reduce((sum, cell) => sum + cell.x * 7 + cell.y * 13, 0);
+                if (groupSeed % 100 > 30) continue;
+                const infraType = this.chooseInfrastructureType(islandGroup.length, groupSeed);
+                const centerX = Math.round(islandGroup.reduce((sum, cell) => sum + cell.x, 0) / islandGroup.length);
+                const centerY = Math.round(islandGroup.reduce((sum, cell) => sum + cell.y, 0) / islandGroup.length);
+                const cluster = this.generateInfrastructureCluster(infraType, centerX, centerY, islandGroup, groupSeed);
+                for (let idx = 0; idx < cluster.length; idx++) {
+                    const item = cluster[idx];
+                    if (item.x < 0 || item.x >= mapSize || item.y < 0 || item.y >= mapSize) continue;
+                    const entry = { x: item.x, y: item.y, type: item.type };
+                    if (idx === 0) {
+                        if (item.type === 'major_city') entry.name = this.nameGenerator.generateCityName();
+                        else if (item.type === 'port_facility') entry.name = this.nameGenerator.generateCityName();
+                        else if (item.type === 'town') entry.name = this.nameGenerator.generateTownName();
+                    }
+                    // Determine state (destroyed/abandoned) deterministically from position + group seed
+                    if (item.type !== 'mine') {
+                        const destructSeed = (item.x * 17 + item.y * 31 + groupSeed) % 100;
+                        if (destructSeed < 8) entry.state = 'destroyed';
+                        else if (destructSeed < 19) entry.state = 'abandoned';
+                    }
+                    capturedInfra.push(entry);
+                }
             }
         }
         // Add mines
@@ -11478,6 +11542,11 @@ class NavalWarfareBot {
             }
         }
         game.infrastructureData = capturedInfra;
+
+        // Generate SVG with infrastructure already set on game object so it can be embedded
+        console.log('🗺️ Generating clean SVG content...');
+        const svgContent = this.generateCleanMapSVG(game, mapSize, cellSize, totalWidth, totalHeight);
+        console.log(`📏 SVG content length: ${svgContent.length} characters`);
 
         try {
             console.log('🚀 Launching Puppeteer for high-quality rendering...');
@@ -12706,8 +12775,26 @@ class NavalWarfareBot {
             }
         }
 
-        // Infrastructure is rendered via Canvas overlay in createMapImage (matches web exactly)
-        // (SVG infrastructure generation removed — Canvas path used instead)
+        // Draw infrastructure directly in SVG (game.infrastructureData set before this call)
+        if (game.infrastructureData && game.infrastructureData.length > 0) {
+            svg += `<g class="infrastructure">`;
+            for (const item of game.infrastructureData) {
+                if (item.type === 'mine') continue; // mines shown as hazard cells, not icons
+                const pixelX = gridStartX + (item.x * cellSize);
+                const pixelY = gridStartY + (item.y * cellSize);
+                const infraSvg = this.drawInfrastructureByType(item.type, pixelX, pixelY, cellSize);
+                if (infraSvg) {
+                    svg += infraSvg;
+                    if (item.name) {
+                        const labelX = pixelX + cellSize / 2;
+                        const labelY = pixelY + cellSize + 9;
+                        svg += `<rect x="${labelX - item.name.length * 3 - 2}" y="${labelY - 8}" width="${item.name.length * 6 + 4}" height="10" fill="rgba(0,0,0,0.7)" rx="1"/>`;
+                        svg += `<text x="${labelX}" y="${labelY}" font-size="7" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif">${item.name}</text>`;
+                    }
+                }
+            }
+            svg += `</g>`;
+        }
 
         // Draw clean grid lines
         svg += `<g class="grid-line">`;
@@ -18905,27 +18992,51 @@ Use \`/stats\` during a battle to view your current ship statistics!
         app.post('/api/game/:channelId/spawn-enemy', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
-                const { userId, shipType, x, y } = req.body;
+                const { userId, shipType, bossKey, x, y } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
                 if (game.enemies.size >= 20) return res.status(400).json({ error: 'Too many enemies (max 20)' });
-                const ai = this.spawnSpecificAI(game, shipType);
+
+                const gameFaction = game.faction || game.setupState?.enemyFaction || 'siren';
+                const bossFaction = (gameFaction === 'abyssal') ? 'abyssal' : 'siren';
+
+                let ai;
+                if (shipType === 'boss') {
+                    // Boss spawn: specific boss by key, or random boss
+                    ai = this.spawnBossFromFaction(game, bossFaction, bossKey || null);
+                } else {
+                    // Class spawn: random ship of the requested class from factionConfig
+                    const faction = gameFaction === 'mixed' ? 'mixed' : gameFaction;
+                    ai = this.spawnFactionEnemy(game, faction, shipType);
+                    // Fallback to legacy pool if factionConfig has no match
+                    if (!ai) ai = this.spawnSpecificAI(game, shipType);
+                }
+
                 if (!ai) return res.status(400).json({ error: `Could not spawn enemy of type: ${shipType}` });
-                // Use GM-chosen cell; fall back to 0,0 only if not provided
-                ai.x = (typeof x === 'number') ? x : 0;
-                ai.y = (typeof y === 'number') ? y : 0;
-                ai.position = game.generateExtendedCoordinate(ai.x, ai.y + 1);
+
+                // Place at GM-chosen cell if provided
+                if (typeof x === 'number' && typeof y === 'number') {
+                    const oldCell = game.getMapCell(ai.position);
+                    if (oldCell) oldCell.occupant = null;
+                    ai.x = x;
+                    ai.y = y;
+                    ai.position = game.generateExtendedCoordinate(x, y + 1);
+                    const newCell = game.getMapCell(ai.position);
+                    if (newCell) newCell.occupant = 'ai';
+                }
+
                 ai.sunk = false;
                 ai.alive = true;
-                // Ensure name is set for web serialization
                 if (!ai.name) ai.name = ai.customName;
                 game.enemies.set(ai.id, ai);
+
                 await this.broadcastGameUpdate(channelId);
-                res.json({ success: true, enemyId: ai.id });
-                // Announce to Discord (fire-and-forget)
+                res.json({ success: true, enemyId: ai.id, name: ai.name });
+
+                const label = ai.isBoss ? `**BOSS** ${ai.name}` : `a **${shipType}** (${ai.name})`;
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) ch.send({ content: `⚠️ GM deployed a **${shipType}** at **${ai.position}**!` }); })
+                    .then(ch => { if (ch) ch.send({ content: `⚠️ GM deployed ${label} at **${ai.position}**!` }); })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error spawning enemy:', error);
@@ -19031,9 +19142,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { channelId } = req.params;
                 const { userId } = req.body;
                 const game = this.games.get(channelId);
-                console.log(`[start-battle] channelId=${channelId} userId=${userId} game=${game ? 'found' : 'not found'} phase=${game?.phase} gmId=${game?.gmId} players=${game?.players?.size}`);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: `Not the GM (you: ${userId}, gm: ${game.gmId})` });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'You are not the GM of this game' });
                 if (game.phase !== 'joining') return res.status(400).json({ error: `Game is not in joining phase (phase: ${game.phase})` });
                 if (game.players.size < 1) return res.status(400).json({ error: 'Need at least 1 player to start' });
 
@@ -19046,13 +19156,18 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Some players have not selected their spawn position', waiting });
                 }
 
-                // Respond immediately, then kick off the battle asynchronously
+                // Fetch channel now so we can fail fast before committing
+                const channel = await this.client.channels.fetch(channelId).catch(() => null);
+                if (!channel) return res.status(400).json({ error: 'Bot cannot access that Discord channel' });
+
+                // Lock phase to prevent double-start race condition
+                game.phase = 'starting';
+
+                // Respond immediately, then run async battle init
                 res.json({ success: true, message: 'Battle starting...' });
 
                 (async () => {
                     try {
-                        const channel = await this.client.channels.fetch(channelId).catch(() => null);
-
                         await game.initializeBattle();
                         await this.spawnConfiguredEnemies(game);
 
@@ -19065,16 +19180,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
                             }
                         }
 
+                        await channel.send('🚢 **Battle started via web dashboard!** The GM has launched the mission.');
+                        try { await this.updateGameDisplay(game, channel); } catch (e) { /* best-effort */ }
+                        this.startPlayerMonitoring(game, channel);
+                        this.startTurnSystem(game, channel);
                         await this.broadcastGameUpdate(channelId);
-
-                        if (channel) {
-                            await channel.send('🚢 **Battle started via web dashboard!** The GM has launched the mission.');
-                            try { await this.updateGameDisplay(game, channel); } catch (e) { /* best-effort */ }
-                            this.startPlayerMonitoring(game, channel);
-                            this.startTurnSystem(game, channel);
-                        }
                     } catch (err) {
                         console.error('Error starting battle from web:', err);
+                        // Revert so GM can retry rather than being stuck
+                        if (game.phase === 'starting') game.phase = 'joining';
+                        await this.broadcastGameUpdate(channelId).catch(() => {});
                     }
                 })();
             } catch (error) {
@@ -19333,6 +19448,147 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // GET /api/shop/items — list all shop items
+        app.get('/api/shop/items', authenticateAPIKey, async (req, res) => {
+            try {
+                const items = [];
+                for (const [id, item] of this.shopSystem.shopItems.entries()) {
+                    items.push({ id, ...item });
+                }
+                res.json({ items });
+            } catch (error) {
+                console.error('Error fetching shop items:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // POST /api/shop/buy — purchase an item (deducts from character currency)
+        app.post('/api/shop/buy', authenticateAPIKey, async (req, res) => {
+            try {
+                const { userId, itemId, guildId } = req.body;
+                if (!userId || !itemId || !guildId) {
+                    return res.status(400).json({ error: 'userId, itemId, and guildId are required' });
+                }
+
+                const item = this.shopSystem.shopItems.get(itemId);
+                if (!item) {
+                    return res.status(404).json({ error: 'Item not found' });
+                }
+
+                const guildData = this.characterManager.loadPlayerData(guildId);
+                const userData = guildData[userId];
+                if (!userData) {
+                    return res.status(404).json({ error: 'Player not found in this guild' });
+                }
+
+                // Find active character
+                const activeName = userData.activeCharacter;
+                if (!activeName || !userData.characters || !userData.characters[activeName]) {
+                    return res.status(400).json({ error: 'No active character found' });
+                }
+
+                const character = userData.characters[activeName];
+                const currency = character.currency || 0;
+
+                if (currency < item.price) {
+                    return res.status(400).json({
+                        error: `Insufficient funds. Need ${item.price} credits, have ${currency}.`
+                    });
+                }
+
+                // Deduct cost
+                character.currency = currency - item.price;
+
+                // Add to inventory
+                if (!character.inventory) character.inventory = {};
+                character.inventory[itemId] = (character.inventory[itemId] || 0) + 1;
+
+                // Save
+                this.characterManager.savePlayerData(guildId, guildData);
+
+                res.json({ success: true, remainingCurrency: character.currency });
+            } catch (error) {
+                console.error('Error processing shop purchase:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // ── Admin Shop Item Endpoints ─────────────────────────────────────────
+
+        // GET /api/admin/shop/items/:guildId — list custom items
+        app.get('/api/admin/shop/items/:guildId', authenticateAPIKey, (req, res) => {
+            const items = Array.from(this.shopSystem.shopItems.values())
+                .filter(i => i.isCustom && i.guildId === req.params.guildId);
+            res.json(items);
+        });
+
+        // POST /api/admin/shop/items/:guildId — create custom item
+        app.post('/api/admin/shop/items/:guildId', authenticateAPIKey, async (req, res) => {
+            try {
+                const item = {
+                    ...req.body,
+                    id: `custom_${Date.now()}`,
+                    guildId: req.params.guildId,
+                    isCustom: true
+                };
+                this.shopSystem.shopItems.set(item.id, item);
+                await this.shopSystem.saveCustomItems(req.params.guildId);
+                res.json(item);
+            } catch (error) {
+                console.error('Error creating custom shop item:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // PUT /api/admin/shop/items/:guildId/:itemId — update custom item
+        app.put('/api/admin/shop/items/:guildId/:itemId', authenticateAPIKey, async (req, res) => {
+            try {
+                const existing = this.shopSystem.shopItems.get(req.params.itemId);
+                if (!existing || !existing.isCustom) return res.status(404).json({ error: 'Not found' });
+                const updated = { ...existing, ...req.body };
+                this.shopSystem.shopItems.set(updated.id, updated);
+                await this.shopSystem.saveCustomItems(req.params.guildId);
+                res.json(updated);
+            } catch (error) {
+                console.error('Error updating custom shop item:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // DELETE /api/admin/shop/items/:guildId/:itemId — delete custom item
+        app.delete('/api/admin/shop/items/:guildId/:itemId', authenticateAPIKey, async (req, res) => {
+            try {
+                const item = this.shopSystem.shopItems.get(req.params.itemId);
+                if (!item || !item.isCustom) return res.status(404).json({ error: 'Not found' });
+                if (item.iconUrl) {
+                    const iconPath = path.join(__dirname, 'public', item.iconUrl);
+                    fs.promises.unlink(iconPath).catch(() => {});
+                }
+                this.shopSystem.removeCustomItem(req.params.itemId);
+                await this.shopSystem.saveCustomItems(req.params.guildId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error deleting custom shop item:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // POST /api/admin/shop/icon/:itemId — update item's iconUrl (called by web server after multer)
+        app.post('/api/admin/shop/icon/:itemId', authenticateAPIKey, async (req, res) => {
+            try {
+                const { iconUrl, guildId } = req.body;
+                const item = this.shopSystem.shopItems.get(req.params.itemId);
+                if (item) {
+                    item.iconUrl = iconUrl;
+                    await this.shopSystem.saveCustomItems(guildId);
+                }
+                res.json({ iconUrl });
+            } catch (error) {
+                console.error('Error updating shop icon:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Setup a complete game with map generation (Admin Panel)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
@@ -19399,7 +19655,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 // If using custom map, load it
                 if (mapType === 'custom' && customMapId) {
-                    const customMap = this.customMaps.get(customMapId);
+                    const customMap = this.customMapSystem.customMaps.get(customMapId);
                     if (customMap) {
                         game.setupState.mapConfig.customMap = customMap;
                     }
@@ -19794,8 +20050,15 @@ class NavalBattle {
     generateMap(game = null) {
         // Check if we should use a custom map from setup
         if (this.setupState?.mapConfig?.type === 'custom' && this.setupState.mapConfig.customMap) {
-            console.log(`🗺️ Applying custom map: ${this.setupState.mapConfig.customMap.name}`);
-            return this.generateCustomMap(this.setupState.mapConfig.customMap);
+            const customMap = this.setupState.mapConfig.customMap;
+            console.log(`🗺️ Applying custom map: ${customMap.name}`);
+            // Preserve custom infrastructure so createMapImage() uses it instead of procedural generation
+            if (customMap.infrastructure && customMap.infrastructure.length > 0) {
+                this.customInfrastructureData = customMap.infrastructure;
+            } else {
+                this.customInfrastructureData = null;
+            }
+            return this.generateCustomMap(customMap);
         }
 
         // Default: Generate procedural map
@@ -19852,27 +20115,39 @@ class NavalBattle {
     generateCustomMap(customMapData) {
         const map = new Map();
 
-        // Initialize with ocean cells based on custom map size
-        for (let x = 0; x < customMapData.size.width; x++) {
-            for (let y = 1; y <= customMapData.size.height; y++) {
+        const mapWidth  = customMapData.size?.width  ?? 75;
+        const mapHeight = customMapData.size?.height ?? 75;
+
+        // Initialize with ocean cells
+        for (let x = 0; x < mapWidth; x++) {
+            for (let y = 1; y <= mapHeight; y++) {
                 const coord = GameUtils.generateExtendedCoordinate(x, y);
                 map.set(coord, { type: 'ocean', occupant: null });
             }
         }
 
-        // Apply custom terrain from the map data
-        for (const [coord, terrainData] of customMapData.terrain) {
+        // terrain is saved as an array [{x, y, type, name}] by the MapMaker
+        const terrainArray = Array.isArray(customMapData.terrain)
+            ? customMapData.terrain
+            : customMapData.terrain instanceof Map
+                ? Array.from(customMapData.terrain.entries()).map(([coord, data]) => {
+                    const parts = coord.split(',');
+                    return { x: parseInt(parts[0]), y: parseInt(parts[1]) - 1, ...data };
+                  })
+                : [];
+
+        for (const cell of terrainArray) {
+            const coord = GameUtils.generateExtendedCoordinate(cell.x, cell.y + 1);
             if (map.has(coord)) {
                 map.set(coord, {
-                    type: terrainData.type,
-                    size: terrainData.size,
-                    name: terrainData.name, // Include name for cities/towns
+                    type: cell.type,
+                    name: cell.name || null,
                     occupant: null
                 });
             }
         }
 
-        console.log(`✅ Custom map "${customMapData.name}" loaded with ${customMapData.terrain.size} terrain features`);
+        console.log(`✅ Custom map "${customMapData.name}" loaded with ${terrainArray.length} terrain features`);
         return map;
     }
 

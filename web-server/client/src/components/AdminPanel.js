@@ -3,12 +3,13 @@ import axios from 'axios';
 import CharacterManager from './CharacterManager';
 import MapMaker from './MapMaker';
 import GameStarter from './GameStarter';
+import ShopEditor from './ShopEditor';
 import './AdminPanel.css';
 
-function AdminPanel({ user, selectedGuild, onBack }) {
+function AdminPanel({ user, selectedGuild, onBack, initialTab = 'characters' }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [activeTab, setActiveTab] = useState('characters');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
     // Check staff permission when component mounts
@@ -104,6 +105,12 @@ function AdminPanel({ user, selectedGuild, onBack }) {
         >
           Start Game
         </button>
+        <button
+          className={activeTab === 'shop' ? 'active' : ''}
+          onClick={() => setActiveTab('shop')}
+        >
+          🛒 Shop Items
+        </button>
       </div>
 
       <div className="admin-content">
@@ -115,6 +122,9 @@ function AdminPanel({ user, selectedGuild, onBack }) {
         )}
         {activeTab === 'game' && (
           <GameStarter guildId={selectedGuild?.id} user={user} />
+        )}
+        {activeTab === 'shop' && (
+          <ShopEditor guild={selectedGuild} />
         )}
       </div>
     </div>
