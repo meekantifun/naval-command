@@ -9,6 +9,17 @@ const SHIP_CLASSES = ['destroyer', 'light_cruiser', 'heavy_cruiser', 'battleship
 const RARITIES = ['common', 'uncommon', 'rare', 'legendary'];
 const CATEGORIES = ['equipment', 'weapons', 'aircraft', 'consumables', 'flagship'];
 
+// Normalize ship class strings from hardcoded items (Title Case/spaces) to snake_case
+const SHIP_CLASS_MAP = {
+  'destroyer': 'destroyer', 'Destroyer': 'destroyer',
+  'light_cruiser': 'light_cruiser', 'Light Cruiser': 'light_cruiser', 'light cruiser': 'light_cruiser',
+  'heavy_cruiser': 'heavy_cruiser', 'Heavy Cruiser': 'heavy_cruiser', 'heavy cruiser': 'heavy_cruiser',
+  'battleship': 'battleship', 'Battleship': 'battleship',
+  'carrier': 'carrier', 'aircraft_carrier': 'carrier', 'Aircraft Carrier': 'carrier',
+  'submarine': 'submarine', 'Submarine': 'submarine',
+};
+const normalizeShipClasses = (arr) => (arr || []).map(c => SHIP_CLASS_MAP[c] || c);
+
 const RARITY_COLORS = { common: '#9e9e9e', uncommon: '#4caf50', rare: '#2196f3', legendary: '#ff9800' };
 
 const EMPTY_FORM = {
@@ -54,7 +65,7 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
         flagship: initialEditing.flagship || false,
         stats,
         requirements: {
-          shipClass: initialEditing.requirements?.shipClass || [],
+          shipClass: normalizeShipClasses(initialEditing.requirements?.shipClass),
           level: initialEditing.requirements?.level || 0,
           flagship: initialEditing.requirements?.flagship || false
         }
@@ -96,7 +107,7 @@ function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null 
       flagship: item.flagship || false,
       stats,
       requirements: {
-        shipClass: item.requirements?.shipClass || [],
+        shipClass: normalizeShipClasses(item.requirements?.shipClass),
         level: item.requirements?.level || 0,
         flagship: item.requirements?.flagship || false
       }
