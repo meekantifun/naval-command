@@ -637,7 +637,7 @@ app.get('/api/admin/bot-guilds', ensureAuthenticated, async (req, res) => {
 app.get('/api/bot-invite', (req, res) => {
   const clientId = process.env.DISCORD_CLIENT_ID;
   if (!clientId) return res.status(500).json({ error: 'Client ID not configured' });
-  const url = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=388096&scope=bot%20applications.commands`;
+  const url = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=2270365078781008&scope=bot%20applications.commands`;
   res.json({ url });
 });
 
