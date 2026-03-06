@@ -651,7 +651,7 @@ function StarRating({ value, onChange }) {
   );
 }
 
-function ReviewCard({ review }) {
+function ReviewCard({ review, onDelete }) {
   return (
     <div className="pp-review-card">
       <div className="pp-review-header">
@@ -660,6 +660,9 @@ function ReviewCard({ review }) {
           <span className="pp-review-name">{review.name}</span>
           <span className="pp-review-server">{review.server}</span>
         </div>
+        {onDelete && (
+          <button className="pp-review-delete-btn" onClick={() => onDelete(review.id)} title="Remove review">✕</button>
+        )}
       </div>
       <p className="pp-review-text">{review.review}</p>
     </div>
@@ -680,13 +683,26 @@ function SupportSection({ user, guild }) {
   const [reviewResult, setReviewResult] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
+  const loadReviews = () => {
     axios.get(`${API_URL}/api/reviews`, { withCredentials: true })
-      .then(r => setReviews(r.data.reviews || []))
+      .then(r => { setReviews(r.data.reviews || []); setIsAdmin(!!r.data.isAdmin); })
       .catch(() => {})
       .finally(() => setReviewsLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadReviews(); }, []);
+
+  const handleDeleteReview = async (id) => {
+    if (!window.confirm('Remove this review?')) return;
+    try {
+      await axios.delete(`${API_URL}/api/reviews/${id}`, { withCredentials: true });
+      loadReviews();
+    } catch {
+      alert('Failed to remove review.');
+    }
+  };
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -702,8 +718,7 @@ function SupportSection({ user, guild }) {
       }, { withCredentials: true });
       setReviewResult('success');
       setReviewForm({ stars: 0, name: user?.username || '', review: '' });
-      const r = await axios.get(`${API_URL}/api/reviews`, { withCredentials: true });
-      setReviews(r.data.reviews || []);
+      loadReviews();
     } catch {
       setReviewResult('error');
     } finally {
@@ -902,7 +917,7 @@ function SupportSection({ user, guild }) {
           <p className="pp-reviews-empty">No reviews yet. Be the first!</p>
         ) : (
           <div className="pp-reviews-list">
-            {reviews.map(r => <ReviewCard key={r.id} review={r} />)}
+            {reviews.map(r => <ReviewCard key={r.id} review={r} onDelete={isAdmin ? handleDeleteReview : null} />)}
           </div>
         )}
       </div>
