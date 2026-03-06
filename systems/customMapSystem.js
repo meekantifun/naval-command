@@ -39,103 +39,195 @@ class CustomMapSystem {
     }
 
     initializeMapTemplates() {
-        // Default map templates that GMs can use as starting points
+        // ── Terrain generation helpers (all use 0-indexed x,y, grid 0–74) ──
+
+        // Seeded LCG — deterministic random shapes that stay consistent across restarts
+        const makePrng = (seed) => {
+            let s = seed >>> 0;
+            return () => {
+                s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+                return s / 4294967296;
+            };
+        };
+
+        // Organic blob island grown via random walk + smoothing (fixed seed = fixed shape)
+        const makeBlob = (cx, cy, targetSize, seed) => {
+            const rng  = makePrng(seed);
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+            const cells = new Set([`${cx},${cy}`]);
+            let iters = 0;
+            while (cells.size < targetSize && iters < targetSize * 150) {
+                iters++;
+                const arr = [...cells];
+                const key = arr[Math.floor(rng() * arr.length)];
+                const [x, y] = key.split(',').map(Number);
+                const [dx, dy] = dirs[Math.floor(rng() * 4)];
+                const nx = x + dx, ny = y + dy;
+                if (nx >= 1 && nx < 74 && ny >= 1 && ny < 74)
+                    cells.add(`${nx},${ny}`);
+            }
+            // 3 smoothing passes — drop isolated cells with < 2 cardinal neighbours
+            for (let pass = 0; pass < 3; pass++) {
+                const rm = [];
+                for (const key of cells) {
+                    const [x, y] = key.split(',').map(Number);
+                    let n = 0;
+                    for (const [dx, dy] of dirs) if (cells.has(`${x+dx},${y+dy}`)) n++;
+                    if (n < 2) rm.push(key);
+                }
+                rm.forEach(k => cells.delete(k));
+            }
+            return Array.from(cells).map(k => {
+                const [x, y] = k.split(',').map(Number);
+                return { x, y, type: 'island' };
+            });
+        };
+
+        // BFS halo: returns cells at distance [minD, maxD] from a set of seed cells
+        const halo = (cells, minD, maxD, type) => {
+            const visited = new Map();
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+            const queue = [];
+            for (const c of cells) {
+                const k = `${c.x},${c.y}`;
+                if (!visited.has(k)) { visited.set(k, 0); queue.push([c.x, c.y, 0]); }
+            }
+            let qi = 0;
+            while (qi < queue.length) {
+                const [x, y, d] = queue[qi++];
+                if (d >= maxD) continue;
+                for (const [dx, dy] of dirs) {
+                    const nx = x + dx, ny = y + dy, nk = `${nx},${ny}`;
+                    if (!visited.has(nk) && nx >= 0 && nx < 75 && ny >= 0 && ny < 75) {
+                        visited.set(nk, d + 1);
+                        queue.push([nx, ny, d + 1]);
+                    }
+                }
+            }
+            return Array.from(visited.entries())
+                .filter(([, d]) => d >= minD && d <= maxD)
+                .map(([k]) => { const [x, y] = k.split(',').map(Number); return { x, y, type }; });
+        };
+
+        // Merge — higher-priority terrain type always wins (island > reef > shoal)
+        const PRIO = { island: 3, reef: 2, shoal: 1 };
+        const merge = (...arrays) => {
+            const m = new Map();
+            for (const arr of arrays)
+                for (const c of arr) {
+                    const k = `${c.x},${c.y}`;
+                    const ex = m.get(k);
+                    if (!ex || (PRIO[c.type] || 0) > (PRIO[ex.type] || 0)) m.set(k, c);
+                }
+            return Array.from(m.values());
+        };
+
+        // Full island: blob core + reef fringe (dist 1-2) + shoal fringe (dist 3-4)
+        const island = (cx, cy, size, seed) => {
+            const core  = makeBlob(cx, cy, size, seed);
+            const reef  = halo(core, 1, 2, 'reef');
+            const shoal = halo(core, 3, 4, 'shoal');
+            return merge(shoal, reef, core);
+        };
+
+        // Small hazard blob (reef or shoal patch, no island core)
+        const hazard = (cx, cy, size, seed, type) => {
+            const rng  = makePrng(seed);
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+            const cells = new Set([`${cx},${cy}`]);
+            let iters = 0;
+            while (cells.size < size && iters < size * 100) {
+                iters++;
+                const arr = [...cells];
+                const key = arr[Math.floor(rng() * arr.length)];
+                const [x, y] = key.split(',').map(Number);
+                const [dx, dy] = dirs[Math.floor(rng() * 4)];
+                const nx = x + dx, ny = y + dy;
+                if (nx >= 0 && nx < 75 && ny >= 0 && ny < 75)
+                    cells.add(`${nx},${ny}`);
+            }
+            return Array.from(cells).map(k => {
+                const [x, y] = k.split(',').map(Number);
+                return { x, y, type };
+            });
+        };
+
+        // ── Open Ocean ───────────────────────────────────────────────────────
         this.mapTemplates.set('ocean', {
             name: 'Open Ocean',
-            description: 'Large open ocean battle',
-            size: { width: 100, height: 100 },
-            terrain: new Map(),
-            background: 'ocean'
+            description: 'Large open ocean battle with no terrain obstacles',
+            size: { width: 75, height: 75 },
+            terrain: []
         });
 
+        // ── Island Chain ─────────────────────────────────────────────────────
+        // Five organic islands in a diagonal arc from NW to SE
         this.mapTemplates.set('archipelago', {
             name: 'Island Chain',
-            description: 'Multiple islands and shallow waters',
-            size: { width: 80, height: 80 },
-            terrain: new Map([
-                ['C15', { type: 'island', size: 'large' }],
-                ['F8', { type: 'island', size: 'medium' }],
-                ['M20', { type: 'island', size: 'small' }],
-                ['H25', { type: 'reef' }],
-                ['K12', { type: 'shallows' }]
-            ]),
-            background: 'ocean'
+            description: 'Five islands in a diagonal arc with reefs and shallows',
+            size: { width: 75, height: 75 },
+            terrain: merge(
+                island(12, 12, 40, 0xABCD1234),   // large  — NW
+                island(30, 24, 22, 0x1F2E3D4C),   // medium — upper-center
+                island(42, 38, 12, 0x9A8B7C6D),   // small atoll — center
+                island(54, 52, 22, 0x55AA3377),   // medium — lower-center
+                island(63, 63, 40, 0xDEAD1234),   // large  — SE
+                // Scattered shoals and reefs between islands
+                hazard(21, 18, 5,  0x11AA22BB, 'shoal'),
+                hazard(36, 31, 3,  0xCC44DD55, 'reef'),
+                hazard(48, 45, 5,  0x77EE88FF, 'shoal'),
+                hazard(59, 58, 3,  0x3322AACC, 'reef')
+            )
         });
 
+        // ── Coastal Waters ───────────────────────────────────────────────────
+        // Sinusoidal mainland on the left, open ocean to the right
+        const mainlandCells = [];
+        const reefFringe    = [];
+        for (let y = 0; y < 75; y++) {
+            const coast = Math.round(9 + 3 * Math.sin(y * Math.PI / 25));
+            for (let x = 0; x < coast; x++)
+                mainlandCells.push({ x, y, type: 'island' });
+            reefFringe.push({ x: coast,     y, type: 'reef'  });
+            reefFringe.push({ x: coast + 1, y, type: 'shoal' });
+        }
         this.mapTemplates.set('coastal', {
             name: 'Coastal Waters',
-            description: 'Near-shore battle with mainland',
-            size: { width: 100, height: 60 },
-            terrain: new Map([
-                ['A1', { type: 'mainland', size: 'large' }],
-                ['D5', { type: 'island', size: 'medium' }],
-                ['G8', { type: 'shallows' }]
-            ]),
-            background: 'coastal'
+            description: 'Mainland coastline with open ocean and offshore islands',
+            size: { width: 75, height: 75 },
+            terrain: merge(
+                mainlandCells,
+                reefFringe,
+                island(55, 37, 18, 0xC0FFEE99),  // offshore island
+                island(62, 18, 10, 0xBEEF4321)   // smaller northern island
+            )
         });
 
+        // ── Complex Archipelago ──────────────────────────────────────────────
+        // Dense island network with narrow straits and shoal banks
         this.mapTemplates.set('archipelago_complex', {
             name: 'Complex Archipelago',
-            description: 'Multi-island chain with extensive shallow waters and mainland coast',
-            size: { width: 80, height: 75 },
-            terrain: new Map([
-                // Upper Left Large Island
-                ['D21', { type: 'island', size: 'large' }],
-                ['C20', { type: 'shallows' }], ['D20', { type: 'shallows' }], ['E20', { type: 'shallows' }],
-                ['B21', { type: 'shallows' }], ['C21', { type: 'shallows' }], ['E21', { type: 'shallows' }], ['F21', { type: 'shallows' }],
-                ['B22', { type: 'shallows' }], ['C22', { type: 'island', size: 'medium' }], ['D22', { type: 'island', size: 'large' }], ['E22', { type: 'island', size: 'large' }], ['F22', { type: 'shallows' }],
-                ['C23', { type: 'island', size: 'medium' }], ['D23', { type: 'island', size: 'large' }], ['E23', { type: 'island', size: 'large' }], ['F23', { type: 'shallows' }],
-                ['C24', { type: 'shallows' }], ['D24', { type: 'shallows' }], ['E24', { type: 'shallows' }], ['F24', { type: 'shallows' }],
-
-                // Upper Right Large Island
-                ['L18', { type: 'island', size: 'large' }],
-                ['K17', { type: 'shallows' }], ['L17', { type: 'shallows' }], ['M17', { type: 'shallows' }],
-                ['J18', { type: 'shallows' }], ['K18', { type: 'island', size: 'medium' }], ['L18', { type: 'island', size: 'large' }], ['M18', { type: 'island', size: 'large' }], ['N18', { type: 'shallows' }],
-                ['K19', { type: 'island', size: 'medium' }], ['L19', { type: 'island', size: 'large' }], ['M19', { type: 'island', size: 'large' }], ['N19', { type: 'shallows' }],
-                ['K20', { type: 'shallows' }], ['L20', { type: 'shallows' }], ['M20', { type: 'shallows' }], ['N20', { type: 'shallows' }],
-
-                // Right Medium Island
-                ['Q34', { type: 'island', size: 'medium' }],
-                ['P33', { type: 'shallows' }], ['Q33', { type: 'shallows' }], ['R33', { type: 'shallows' }],
-                ['P34', { type: 'shallows' }], ['Q34', { type: 'island', size: 'medium' }], ['R34', { type: 'island', size: 'medium' }],
-                ['P35', { type: 'shallows' }], ['Q35', { type: 'island', size: 'medium' }], ['R35', { type: 'shallows' }],
-                ['Q36', { type: 'shallows' }],
-
-                // Lower Left Medium Island
-                ['F50', { type: 'island', size: 'medium' }],
-                ['E49', { type: 'shallows' }], ['F49', { type: 'shallows' }], ['G49', { type: 'shallows' }],
-                ['D50', { type: 'shallows' }], ['E50', { type: 'island', size: 'medium' }], ['F50', { type: 'island', size: 'medium' }], ['G50', { type: 'island', size: 'medium' }], ['H50', { type: 'shallows' }],
-                ['E51', { type: 'island', size: 'medium' }], ['F51', { type: 'island', size: 'medium' }], ['G51', { type: 'shallows' }],
-                ['F52', { type: 'shallows' }],
-
-                // Lower Center Medium Island
-                ['L61', { type: 'island', size: 'medium' }],
-                ['K60', { type: 'shallows' }], ['L60', { type: 'shallows' }], ['M60', { type: 'shallows' }],
-                ['J61', { type: 'shallows' }], ['K61', { type: 'island', size: 'medium' }], ['L61', { type: 'island', size: 'medium' }], ['M61', { type: 'island', size: 'medium' }], ['N61', { type: 'shallows' }],
-                ['K62', { type: 'island', size: 'medium' }], ['L62', { type: 'island', size: 'medium' }], ['M62', { type: 'shallows' }],
-                ['L63', { type: 'shallows' }],
-
-                // Mainland Coast (Left side)
-                ['A32', { type: 'mainland', size: 'large' }],
-                ['A33', { type: 'mainland', size: 'large' }],
-                ['A34', { type: 'mainland', size: 'large' }],
-                ['A35', { type: 'mainland', size: 'large' }],
-                ['A36', { type: 'mainland', size: 'large' }],
-                ['A37', { type: 'mainland', size: 'large' }],
-                ['A38', { type: 'mainland', size: 'large' }],
-                ['A39', { type: 'mainland', size: 'large' }],
-                ['A40', { type: 'mainland', size: 'large' }],
-
-                // Scattered small reefs and shallows
-                ['H15', { type: 'shallows' }],
-                ['P25', { type: 'shallows' }],
-                ['G42', { type: 'shallows' }],
-                ['T45', { type: 'reef' }],
-                ['N30', { type: 'reef' }],
-                ['I55', { type: 'shallows' }],
-                ['O48', { type: 'reef' }]
-            ]),
-            background: 'ocean'
+            description: 'Dense island network with narrow straits and extensive shallows',
+            size: { width: 75, height: 75 },
+            terrain: merge(
+                island(14, 14, 45, 0x11223344),  // NW large
+                island(24,  9, 12, 0xAABBCCDD),  // NW satellite
+                island(40, 11, 18, 0x12349876),  // N center
+                island(60, 16, 18, 0x87654321),  // NE
+                island(18, 42, 45, 0xFACE0FF0),  // center-left large
+                island(40, 38, 22, 0x0DEAD01E),  // center
+                island(58, 42, 30, 0xCAFEBABE),  // center-right
+                island(22, 62, 18, 0x1337BEEF),  // SW
+                island(58, 62, 45, 0xDECAFBAD),  // SE large
+                // Connecting shoal banks between islands
+                hazard(31, 25, 8,  0xAA11BB22, 'shoal'),
+                hazard(49, 28, 6,  0x33CC44DD, 'shoal'),
+                hazard(35, 52, 5,  0x55EE66FF, 'reef'),
+                hazard(48, 54, 7,  0x7700AA11, 'shoal'),
+                hazard(10, 28, 4,  0x88BB99CC, 'reef'),
+                hazard(27, 50, 3,  0xDDEE00FF, 'reef'),
+                hazard(67, 38, 3,  0x11223388, 'reef')
+            )
         });
     }
 
@@ -1729,6 +1821,15 @@ class CustomMapSystem {
         }
 
         const mapId = `template_${templateKey}_${Date.now()}_${interaction.user.id}`;
+        // Convert terrain array [{x,y,type}] → Discord coord Map
+        const terrainMap = new Map();
+        if (Array.isArray(template.terrain)) {
+            for (const cell of template.terrain) {
+                const coord = GameUtils.generateExtendedCoordinate(cell.x, cell.y + 1);
+                terrainMap.set(coord, { type: cell.type, name: cell.name || null });
+            }
+        }
+
         const mapData = {
             id: mapId,
             name: `${template.name} (Custom)`,
@@ -1739,8 +1840,7 @@ class CustomMapSystem {
             },
             created: new Date().toISOString(),
             size: { ...template.size },
-            background: template.background,
-            terrain: new Map(template.terrain),
+            terrain: terrainMap,
             version: '1.0'
         };
 

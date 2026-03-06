@@ -18,7 +18,7 @@ function GameStarter({ guildId, user }) {
     maxPlayers: 8,
     enemyCount: 3,
     enemySetupType: 'random',
-    enemyFaction: null,
+    enemyFaction: '',
     customEnemies: {
       submarine: 0,
       destroyer: 0,
@@ -54,6 +54,11 @@ function GameStarter({ guildId, user }) {
 
     if (!formData.channelId) {
       alert('Channel ID is required');
+      return;
+    }
+
+    if (formData.enemySetupType !== 'none' && !formData.enemyFaction) {
+      alert('Please select an Enemy Universe');
       return;
     }
 
@@ -102,7 +107,7 @@ function GameStarter({ guildId, user }) {
         maxPlayers: 8,
         enemyCount: 3,
         enemySetupType: 'random',
-        enemyFaction: null,
+        enemyFaction: '',
         customEnemies: {
           submarine: 0,
           destroyer: 0,
@@ -175,13 +180,13 @@ function GameStarter({ guildId, user }) {
           <div className="form-group">
             <label>Enemy Universe</label>
             <select
-              value={formData.enemyFaction || ''}
-              onChange={(e) => setFormData({...formData, enemyFaction: e.target.value || null})}
+              value={formData.enemyFaction}
+              onChange={(e) => setFormData({...formData, enemyFaction: e.target.value})}
             >
-              <option value="">Default (original AI pool)</option>
+              <option value="" disabled>&lt;Select a Faction&gt;</option>
               <option value="abyssal">Abyssals (KanColle)</option>
               <option value="siren">Sirens (Azur Lane)</option>
-              <option value="mixed">Mixed — both universes</option>
+              <option value="mixed">Mixed — Both Universes</option>
             </select>
             <small>Which enemy faction to draw ships from</small>
           </div>

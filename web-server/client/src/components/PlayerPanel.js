@@ -223,6 +223,7 @@ function ShopSection({ user, guild, currencyConfig }) {
   const [message, setMessage] = useState(null);
   const [isGM, setIsGM] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -284,13 +285,25 @@ function ShopSection({ user, guild, currencyConfig }) {
 
   if (loading) return <div className="pp-loading">Loading shop...</div>;
 
-  // GM editor overlay
+  // GM editor overlay (new item)
   if (showEditor) {
     return (
       <ShopEditor
         guild={guild}
         initialEditing={{}}
         onDone={() => { setShowEditor(false); load(); }}
+      />
+    );
+  }
+
+  // GM editor overlay (edit existing item)
+  if (editingItem) {
+    return (
+      <ShopEditor
+        guild={guild}
+        initialEditing={editingItem}
+        onSaved={() => { setEditingItem(null); load(); }}
+        onFormBack={() => setEditingItem(null)}
       />
     );
   }
@@ -378,13 +391,18 @@ function ShopSection({ user, guild, currencyConfig }) {
 
             <div className="pp-item-footer">
               <span className="pp-item-price"><CurrencyIcon config={currencyConfig} /> {item.price.toLocaleString()}</span>
-              <button
-                className="pp-buy-btn"
-                disabled={buying === item.id || (currency !== null && currency < item.price)}
-                onClick={() => handleBuy(item)}
-              >
-                {buying === item.id ? 'Buying...' : 'Buy'}
-              </button>
+              <div className="pp-item-footer-btns">
+                {isGM && (
+                  <button className="pp-edit-btn" onClick={() => setEditingItem(item)}>Edit</button>
+                )}
+                <button
+                  className="pp-buy-btn"
+                  disabled={buying === item.id || (currency !== null && currency < item.price)}
+                  onClick={() => handleBuy(item)}
+                >
+                  {buying === item.id ? 'Buying...' : 'Buy'}
+                </button>
+              </div>
             </div>
           </div>
         ))}

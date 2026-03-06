@@ -76,9 +76,21 @@
   background: #4752C4;
 }
 
-.user-display {
-  color: #b9bbbe;
+.btn-player {
+  padding: 8px 16px;
+  background: #40444b;
+  color: #dcddde;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-player:hover {
+  background: #4f545c;
+  color: #ffffff;
 }
 
 /* Dashboard Content */

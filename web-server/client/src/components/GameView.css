@@ -769,6 +769,8 @@
 .btn-gm-danger:hover { background: #c0392b; }
 .gm-row button.gm-spawn-active { background: #ed8936; color: #fff; }
 .gm-row button.gm-spawn-active:hover { background: #dd6b20; }
+.gm-row button.gm-boss-spawn { background: #8b5cf6; color: #fff; font-weight: 600; }
+.gm-row button.gm-boss-spawn:hover { background: #7c3aed; }
 .gm-spawn-hint {
   font-size: 11px;
   color: #ed8936;

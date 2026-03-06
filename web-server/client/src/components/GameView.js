@@ -174,8 +174,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [attackState, setAttackState] = useState(null);
   // null | { targetId, targetName, step: 'weapon'|'shell'|'confirm', weaponType?, weaponName?, shellType? }
   const [confirmEndBattle, setConfirmEndBattle] = useState(false);
+  const [startingBattle, setStartingBattle] = useState(false);
   const [gmWeather, setGmWeather] = useState('clear');
   const [gmEnemyType, setGmEnemyType] = useState('destroyer');
+  const [gmBossKey, setGmBossKey] = useState('siren_boss_observer_alpha');
   const [gmSpawnMode, setGmSpawnMode] = useState(false);
   const [gmStatusTarget, setGmStatusTarget] = useState('');
   const [gmStatusAction, setGmStatusAction] = useState('fire');
@@ -219,7 +221,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
   // Initialize turn alert audio
   useEffect(() => {
     audioRef.current = new Audio('/turn-alert.mp3');
-    audioRef.current.volume = 0.8;
+    const savedVolume = localStorage.getItem('navalCommandVolume');
+    audioRef.current.volume = savedVolume !== null ? parseFloat(savedVolume) : 0.8;
   }, []);
 
   // Play alert when it becomes this user's turn
@@ -436,7 +439,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   const handleMapClick = (x, y, clientX, clientY) => {
     if (gmSpawnMode) {
-      handleSpawnEnemy(gmEnemyType, x, y);
+      handleSpawnEnemy(gmEnemyType, x, y, gmEnemyType === 'boss' ? gmBossKey : undefined);
       setGmSpawnMode(false);
       return;
     }
@@ -521,25 +524,31 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
-  const handleSpawnEnemy = async (shipType, x, y) => {
+  const handleSpawnEnemy = async (shipType, x, y, bossKey) => {
     try {
-      await axios.post(`${API_URL}/api/game/${channelId}/spawn-enemy`,
-        { shipType, x, y },
-        { withCredentials: true }
-      );
+      const payload = { shipType };
+      if (typeof x === 'number') payload.x = x;
+      if (typeof y === 'number') payload.y = y;
+      if (bossKey) payload.bossKey = bossKey;
+      await axios.post(`${API_URL}/api/game/${channelId}/spawn-enemy`, payload, { withCredentials: true });
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to spawn enemy');
     }
   };
 
   const handleStartBattle = async () => {
+    if (startingBattle) return;
+    setStartingBattle(true);
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/start-battle`, {}, { withCredentials: true });
     } catch (err) {
       const status = err.response?.status;
       const msg = err.response?.data?.error || err.response?.data || err.message || 'Failed to start battle';
       alert(`Error ${status || '(no response)'}: ${JSON.stringify(msg)}`);
+      setStartingBattle(false);
     }
+    // Leave button disabled after success — gameState will update to 'battle' phase
+    // and the button disappears, so no need to reset
   };
 
   const handleEndBattle = async () => {
@@ -883,10 +892,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
                         )}
                         <button
                           className="btn btn-start-battle"
-                          disabled={!canStart}
+                          disabled={!canStart || startingBattle}
                           onClick={handleStartBattle}
                         >
-                          🚀 Start Battle
+                          {startingBattle ? '⏳ Starting...' : '🚀 Start Battle'}
                         </button>
                       </>
                     );
@@ -1043,9 +1052,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
               {/* Weather */}
               <div className="gm-row">
                 <select value={gmWeather} onChange={e => setGmWeather(e.target.value)}>
-                  {['clear', 'rainy', 'foggy', 'thunderstorm', 'hurricane'].map(w =>
-                    <option key={w} value={w}>{w}</option>
-                  )}
+                  <option value="clear">Clear</option>
+                  <option value="rainy">Rainy</option>
+                  <option value="foggy">Foggy</option>
+                  <option value="thunderstorm">Thunderstorm</option>
+                  <option value="hurricane">Hurricane</option>
                 </select>
                 <button onClick={() => handleWeather(gmWeather)}>Set Weather</button>
               </div>
@@ -1053,20 +1064,55 @@ function GameView({ channelId, user, onBack, onLogout }) {
               {/* Spawn Enemy */}
               <div className="gm-row">
                 <select value={gmEnemyType} onChange={e => { setGmEnemyType(e.target.value); setGmSpawnMode(false); }}>
-                  {['destroyer', 'light_cruiser', 'heavy_cruiser', 'battleship', 'carrier'].map(t =>
-                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
-                  )}
+                  <optgroup label="Classes (Random Ship)">
+                    <option value="destroyer">Destroyer</option>
+                    <option value="light_cruiser">Light Cruiser</option>
+                    <option value="heavy_cruiser">Heavy Cruiser</option>
+                    <option value="battleship">Battleship</option>
+                    <option value="carrier">Carrier</option>
+                    <option value="submarine">Submarine</option>
+                  </optgroup>
+                  <optgroup label="Boss">
+                    <option value="boss">👑 Boss</option>
+                  </optgroup>
                 </select>
                 <button
-                  className={gmSpawnMode ? 'gm-spawn-active' : ''}
+                  className={gmSpawnMode ? 'gm-spawn-active' : gmEnemyType === 'boss' ? 'gm-boss-spawn' : ''}
                   onClick={() => setGmSpawnMode(m => !m)}
                 >
                   {gmSpawnMode ? '✕ Cancel' : 'Place'}
                 </button>
               </div>
+              {gmEnemyType === 'boss' && (
+                <div className="gm-row">
+                  <select value={gmBossKey} onChange={e => setGmBossKey(e.target.value)} style={{flex: 1}}>
+                    <optgroup label="Commanders">
+                      <option value="siren_boss_observer_alpha">Observer α</option>
+                      <option value="siren_boss_tester_beta">Tester β</option>
+                      <option value="siren_boss_purifier">Purifier</option>
+                      <option value="siren_boss_dreamweaver">Dreamweaver</option>
+                      <option value="siren_boss_omitter">Omitter</option>
+                      <option value="siren_boss_complier">Complier</option>
+                    </optgroup>
+                    <optgroup label="Arbiters">
+                      <option value="siren_boss_arbiter_empress_iii">Arbiter: The Empress III</option>
+                      <option value="siren_boss_arbiter_hierophant_v">Arbiter: The Hierophant V</option>
+                      <option value="siren_boss_arbiter_lovers_vi">Arbiter: The Lovers VI</option>
+                      <option value="siren_boss_arbiter_strength_viii">Arbiter: Strength VIII</option>
+                      <option value="siren_boss_arbiter_hermit_ix">Arbiter: The Hermit IX</option>
+                      <option value="siren_boss_arbiter_temperance_xiv">Arbiter: Temperance XIV</option>
+                      <option value="siren_boss_arbiter_devil_xv">Arbiter: The Devil XV</option>
+                      <option value="siren_boss_arbiter_tower_xvi">Arbiter: The Tower XVI</option>
+                    </optgroup>
+                  </select>
+                </div>
+              )}
               {gmSpawnMode && (
                 <div className="gm-spawn-hint">
-                  Click a cell on the map to place the {gmEnemyType.replace(/_/g, ' ')}
+                  {gmEnemyType === 'boss'
+                    ? `Click a cell on the map to place ${gmBossKey.replace('siren_boss_', '').replace(/_/g, ' ')}`
+                    : `Click a cell on the map to place the ${gmEnemyType.replace(/_/g, ' ')}`
+                  }
                 </div>
               )}
 

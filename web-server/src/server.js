@@ -576,7 +576,7 @@ app.delete('/api/admin/maps/:id', ensureAuthenticated, async (req, res) => {
 // Shop — list items
 app.get('/api/shop/items', ensureAuthenticated, async (req, res) => {
   try {
-    const response = await botAPI.get('/api/shop/items');
+    const response = await botAPI.get('/api/shop/items', { params: { guildId: req.query.guildId } });
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching shop items:', error.message);

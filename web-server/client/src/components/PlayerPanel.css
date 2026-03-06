@@ -787,6 +787,29 @@
   font-weight: 600;
 }
 
+.pp-item-footer-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.pp-edit-btn {
+  background: #40444b;
+  color: #dcddde;
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pp-edit-btn:hover {
+  background: #5865f2;
+  color: #fff;
+}
+
 .pp-buy-btn {
   background: #5865f2;
   color: #ffffff;

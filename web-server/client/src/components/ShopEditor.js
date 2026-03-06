@@ -24,7 +24,7 @@ const EMPTY_FORM = {
   requirements: { shipClass: [], level: 0, flagship: false }
 };
 
-function ShopEditor({ guild, onDone, initialEditing = null }) {
+function ShopEditor({ guild, onDone, onSaved, onFormBack, initialEditing = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(initialEditing); // null = list, {} = new, item = edit
@@ -38,6 +38,30 @@ function ShopEditor({ guild, onDone, initialEditing = null }) {
   useEffect(() => {
     loadItems();
   }, [guild?.id]);
+
+  // When opened directly on an existing item (from shop Edit button), populate form
+  useEffect(() => {
+    if (initialEditing?.id) {
+      const stats = Object.entries(initialEditing.stats || {}).map(([stat, value]) => ({ stat, value }));
+      setForm({
+        name: initialEditing.name || '',
+        description: initialEditing.description || '',
+        category: initialEditing.category || 'equipment',
+        rarity: initialEditing.rarity || 'common',
+        price: initialEditing.price ?? 100,
+        emoji: initialEditing.emoji || '⚙️',
+        stackable: initialEditing.stackable || false,
+        flagship: initialEditing.flagship || false,
+        stats,
+        requirements: {
+          shipClass: initialEditing.requirements?.shipClass || [],
+          level: initialEditing.requirements?.level || 0,
+          flagship: initialEditing.requirements?.flagship || false
+        }
+      });
+      setIconPreview(initialEditing.iconUrl ? `${API_URL}${initialEditing.iconUrl}` : null);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadItems = async () => {
     setLoading(true);
@@ -154,10 +178,32 @@ function ShopEditor({ guild, onDone, initialEditing = null }) {
         savedItem.iconUrl = iconRes.data.iconUrl;
       }
 
-      await loadItems();
-      setEditing(null);
+      if (onSaved) {
+        onSaved();
+      } else {
+        await loadItems();
+        setEditing(null);
+      }
     } catch (e) {
       setError(e.response?.data?.error || 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFormDelete = async () => {
+    if (!window.confirm(`Remove "${form.name || editing?.name}"? This cannot be undone.`)) return;
+    setSaving(true);
+    try {
+      await axios.delete(`${API_URL}/api/admin/shop/items/${guild.id}/${editing.id}`, { withCredentials: true });
+      if (onSaved) {
+        onSaved();
+      } else {
+        await loadItems();
+        setEditing(null);
+      }
+    } catch (e) {
+      setError('Failed to remove item.');
     } finally {
       setSaving(false);
     }
@@ -236,8 +282,8 @@ function ShopEditor({ guild, onDone, initialEditing = null }) {
   return (
     <div className="se-container">
       <div className="se-form-header">
-        <button className="se-btn-back" onClick={() => setEditing(null)}>← Back</button>
-        <h3>{editing?.id ? `Edit: ${editing.name}` : 'New Custom Item'}</h3>
+        <button className="se-btn-back" onClick={() => onFormBack ? onFormBack() : setEditing(null)}>← Back</button>
+        <h3>{editing?.id ? `Edit: ${editing.name || form.name}` : 'New Custom Item'}</h3>
       </div>
 
       {error && <div className="se-error">{error}</div>}
@@ -353,7 +399,10 @@ function ShopEditor({ guild, onDone, initialEditing = null }) {
           <button className="se-btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : (editing?.id ? 'Save Changes' : 'Create Item')}
           </button>
-          <button className="se-btn-secondary" onClick={() => setEditing(null)} disabled={saving}>Cancel</button>
+          {editing?.id && (
+            <button className="se-btn-delete" onClick={handleFormDelete} disabled={saving}>Remove Item</button>
+          )}
+          <button className="se-btn-secondary" onClick={() => onFormBack ? onFormBack() : setEditing(null)} disabled={saving}>Cancel</button>
         </div>
       </div>
     </div>

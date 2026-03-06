@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import AdminPanel from './AdminPanel';
+import PlayerPanel from './PlayerPanel';
 import './ServerDashboard.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -11,9 +12,11 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [adminInitialTab, setAdminInitialTab] = useState('characters');
   const [joiningGame, setJoiningGame] = useState(null); // channelId of game being joined
   const [joinCharacter, setJoinCharacter] = useState('');
   const [joinError, setJoinError] = useState(null);
+  const [showPlayerPanel, setShowPlayerPanel] = useState(false);
 
   useEffect(() => {
     if (guild) {
@@ -65,6 +68,7 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
   const getPhaseDisplay = (phase) => {
     const phases = {
       'joining': '🟢 Joining Open',
+      'starting': '⏳ Starting...',
       'setup': '⚙️ Setup',
       'player_turn': '👤 Player Turn',
       'enemy_turn': '💀 Enemy Turn',
@@ -104,11 +108,15 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
   };
 
   if (showAdmin) {
-    return <AdminPanel user={user} selectedGuild={guild} onBack={() => setShowAdmin(false)} />;
+    return <AdminPanel user={user} selectedGuild={guild} onBack={() => { setShowAdmin(false); loadDashboardData(); }} initialTab={adminInitialTab} />;
   }
 
   return (
     <div className="server-dashboard">
+      {showPlayerPanel && (
+        <PlayerPanel user={user} guild={guild} onClose={() => setShowPlayerPanel(false)} />
+      )}
+
       {/* Header */}
       <header className="dashboard-header">
         <div className="server-info">
@@ -128,13 +136,13 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
         </div>
         <div className="header-actions">
           {hasPermission && (
-            <button onClick={() => setShowAdmin(true)} className="btn-admin">
+            <button onClick={() => { setAdminInitialTab('characters'); setShowAdmin(true); }} className="btn-admin">
               ⚙️ Admin Panel
             </button>
           )}
-          <div className="user-display">
-            <span>{user.username}</span>
-          </div>
+          <button onClick={() => setShowPlayerPanel(true)} className="btn-player">
+            ☰ Menu
+          </button>
         </div>
       </header>
 
@@ -148,7 +156,7 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
             <div className="no-characters">
               <p>No characters yet</p>
               {hasPermission && (
-                <button onClick={() => setShowAdmin(true)} className="btn-create-char">
+                <button onClick={() => { setAdminInitialTab('characters'); setShowAdmin(true); }} className="btn-create-char">
                   + Create Character
                 </button>
               )}
@@ -213,7 +221,7 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
                   : 'Ask a server admin to start a game using the bot commands.'}
               </p>
               {hasPermission && (
-                <button onClick={() => setShowAdmin(true)} className="btn-start-game">
+                <button onClick={() => { setAdminInitialTab('game'); setShowAdmin(true); }} className="btn-start-game">
                   Start a Game
                 </button>
               )}

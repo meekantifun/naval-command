@@ -19465,11 +19465,17 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // GET /api/shop/items — list all shop items
+        // GET /api/shop/items — list shop items (filtered per guild when guildId provided)
         app.get('/api/shop/items', authenticateAPIKey, async (req, res) => {
             try {
+                const { guildId } = req.query;
+                const config = guildId ? (this.guildConfigs.get(guildId) || {}) : {};
+                const hiddenItems = config.hiddenItems || [];
+
                 const items = [];
                 for (const [id, item] of this.shopSystem.shopItems.entries()) {
+                    if (hiddenItems.includes(id)) continue;
+                    if (item.isCustom && guildId && item.guildId !== guildId) continue;
                     items.push({ id, ...item });
                 }
                 res.json({ items });
@@ -19557,35 +19563,46 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // PUT /api/admin/shop/items/:guildId/:itemId — update custom item
+        // PUT /api/admin/shop/items/:guildId/:itemId — update any item (converts hardcoded to guild override)
         app.put('/api/admin/shop/items/:guildId/:itemId', authenticateAPIKey, async (req, res) => {
             try {
                 const existing = this.shopSystem.shopItems.get(req.params.itemId);
-                if (!existing || !existing.isCustom) return res.status(404).json({ error: 'Not found' });
-                const updated = { ...existing, ...req.body };
+                if (!existing) return res.status(404).json({ error: 'Not found' });
+                const updated = { ...existing, ...req.body, id: req.params.itemId, isCustom: true, guildId: req.params.guildId };
                 this.shopSystem.shopItems.set(updated.id, updated);
                 await this.shopSystem.saveCustomItems(req.params.guildId);
                 res.json(updated);
             } catch (error) {
-                console.error('Error updating custom shop item:', error);
+                console.error('Error updating shop item:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
 
-        // DELETE /api/admin/shop/items/:guildId/:itemId — delete custom item
+        // DELETE /api/admin/shop/items/:guildId/:itemId — remove any item (hides hardcoded, deletes custom)
         app.delete('/api/admin/shop/items/:guildId/:itemId', authenticateAPIKey, async (req, res) => {
             try {
-                const item = this.shopSystem.shopItems.get(req.params.itemId);
-                if (!item || !item.isCustom) return res.status(404).json({ error: 'Not found' });
-                if (item.iconUrl) {
-                    const iconPath = path.join(__dirname, 'public', item.iconUrl);
-                    fs.promises.unlink(iconPath).catch(() => {});
+                const { guildId, itemId } = req.params;
+                const item = this.shopSystem.shopItems.get(itemId);
+                if (!item) return res.status(404).json({ error: 'Not found' });
+
+                // Always add to hiddenItems so it won't appear for this guild
+                const config = this.guildConfigs.get(guildId) || {};
+                const hiddenItems = [...new Set([...(config.hiddenItems || []), itemId])];
+                this.saveGuildConfig(guildId, { ...config, hiddenItems });
+
+                // If it's a guild-owned custom item, also delete the data + icon
+                if (item.isCustom && item.guildId === guildId) {
+                    if (item.iconUrl) {
+                        const iconPath = path.join(__dirname, 'public', item.iconUrl);
+                        fs.promises.unlink(iconPath).catch(() => {});
+                    }
+                    this.shopSystem.removeCustomItem(itemId);
+                    await this.shopSystem.saveCustomItems(guildId);
                 }
-                this.shopSystem.removeCustomItem(req.params.itemId);
-                await this.shopSystem.saveCustomItems(req.params.guildId);
+
                 res.json({ success: true });
             } catch (error) {
-                console.error('Error deleting custom shop item:', error);
+                console.error('Error removing shop item:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
