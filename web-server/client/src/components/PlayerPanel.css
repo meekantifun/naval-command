@@ -1028,6 +1028,169 @@
   line-height: 1.6;
 }
 
+/* ── Bug Report Form ──────────────────────────────────────────────────────────── */
+
+.pp-support-card-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.pp-support-card-clickable:hover {
+  border-color: #5865f2;
+  background: #36393f;
+}
+
+.pp-bug-form-wrap {
+  background: #202225;
+  border: 1px solid #40444b;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.pp-bug-form-wrap h4 {
+  color: #fff;
+  font-size: 15px;
+  margin: 0 0 16px 0;
+}
+
+.pp-bug-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pp-bug-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pp-bug-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pp-bug-field label {
+  color: #b9bbbe;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.pp-bug-hint {
+  color: #72767d;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.pp-bug-field input,
+.pp-bug-field textarea {
+  background: #2f3136;
+  border: 1px solid #40444b;
+  border-radius: 5px;
+  color: #dcddde;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.pp-bug-field input:focus,
+.pp-bug-field textarea:focus {
+  border-color: #5865f2;
+}
+
+.pp-bug-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.pp-bug-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pp-bug-file-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #2f3136;
+  border: 1px solid #40444b;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #dcddde;
+}
+
+.pp-bug-file-tag button {
+  background: none;
+  border: none;
+  color: #72767d;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+.pp-bug-file-tag button:hover { color: #ed4245; }
+
+.pp-bug-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.pp-bug-btn-primary {
+  background: #5865f2;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pp-bug-btn-primary:hover:not(:disabled) { background: #4752c4; }
+.pp-bug-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.pp-bug-btn-secondary {
+  background: #40444b;
+  color: #dcddde;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pp-bug-btn-secondary:hover { background: #4f545c; }
+
+.pp-bug-success {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.pp-bug-success p { color: #3ba55c; font-size: 14px; margin: 0; }
+
+.pp-bug-error {
+  color: #ed4245;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .pp-bug-row { grid-template-columns: 1fr; }
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {

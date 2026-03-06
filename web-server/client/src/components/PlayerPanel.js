@@ -636,10 +636,49 @@ function AboutSection() {
 // ── Support Section ─────────────────────────────────────────────────────────
 
 function SupportSection() {
+  const [showBugForm, setShowBugForm] = useState(false);
+  const [bugForm, setBugForm] = useState({ contactName: '', contactInfo: '', description: '', steps: '' });
+  const [attachments, setAttachments] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState(null); // 'success' | 'error'
+  const fileInputRef = useRef(null);
+
+  const handleBugSubmit = async (e) => {
+    e.preventDefault();
+    if (!bugForm.description.trim()) return;
+    setSubmitting(true);
+    setSubmitResult(null);
+    try {
+      const data = new FormData();
+      data.append('contactName', bugForm.contactName);
+      data.append('contactInfo', bugForm.contactInfo);
+      data.append('description', bugForm.description);
+      data.append('steps', bugForm.steps);
+      attachments.forEach(f => data.append('attachments', f));
+      await axios.post(`${API_URL}/api/support/bug-report`, data, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSubmitResult('success');
+      setBugForm({ contactName: '', contactInfo: '', description: '', steps: '' });
+      setAttachments([]);
+    } catch {
+      setSubmitResult('error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFiles = (e) => {
+    const files = Array.from(e.target.files);
+    setAttachments(prev => [...prev, ...files].slice(0, 5));
+    e.target.value = '';
+  };
+
   return (
     <div className="pp-support">
       <h3>❤️ Support the Developer</h3>
-      <p>Naval Command is a passion project built and maintained by one developer. If you enjoy the game, consider showing your support!</p>
+      <p>Naval Command is a passion project built and maintained by one person. If you enjoy the game, consider showing your support!</p>
 
       <div className="pp-support-cards">
         <div className="pp-support-card">
@@ -647,10 +686,10 @@ function SupportSection() {
           <h4>Leave a Review</h4>
           <p>Share your experience with others in the Discord server.</p>
         </div>
-        <div className="pp-support-card">
+        <div className="pp-support-card pp-support-card-clickable" onClick={() => { setShowBugForm(f => !f); setSubmitResult(null); }}>
           <div className="pp-support-icon">🐛</div>
-          <h4>Report Bugs</h4>
-          <p>Found an issue? Report it in the Discord server so it can be fixed quickly.</p>
+          <h4>Report a Bug</h4>
+          <p>Found an issue? Submit a bug report directly to the developer.</p>
         </div>
         <div className="pp-support-card">
           <div className="pp-support-icon">💡</div>
@@ -664,8 +703,78 @@ function SupportSection() {
         </div>
       </div>
 
+      {showBugForm && (
+        <div className="pp-bug-form-wrap">
+          <h4>🐛 Report a Bug</h4>
+          {submitResult === 'success' ? (
+            <div className="pp-bug-success">
+              <p>✅ Bug report sent! Thank you — I'll look into it.</p>
+              <button className="pp-bug-btn-secondary" onClick={() => { setShowBugForm(false); setSubmitResult(null); }}>Close</button>
+            </div>
+          ) : (
+            <form className="pp-bug-form" onSubmit={handleBugSubmit}>
+              <div className="pp-bug-row">
+                <div className="pp-bug-field">
+                  <label>Your Name</label>
+                  <input type="text" placeholder="How should I address you?" value={bugForm.contactName}
+                    onChange={e => setBugForm(f => ({ ...f, contactName: e.target.value }))} />
+                </div>
+                <div className="pp-bug-field">
+                  <label>Contact (email or Discord username)</label>
+                  <input type="text" placeholder="Optional — for follow-up questions" value={bugForm.contactInfo}
+                    onChange={e => setBugForm(f => ({ ...f, contactInfo: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="pp-bug-field">
+                <label>Bug Description *</label>
+                <textarea rows={4} placeholder="Describe what went wrong..." required value={bugForm.description}
+                  onChange={e => setBugForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+
+              <div className="pp-bug-field">
+                <label>Steps to Replicate</label>
+                <textarea rows={4} placeholder="1. Go to...\n2. Click...\n3. The bug occurs when..." value={bugForm.steps}
+                  onChange={e => setBugForm(f => ({ ...f, steps: e.target.value }))} />
+              </div>
+
+              <div className="pp-bug-field">
+                <label>Attachments <span className="pp-bug-hint">(screenshots, logs — up to 5 files, 10MB each)</span></label>
+                <div className="pp-bug-attach-row">
+                  <button type="button" className="pp-bug-btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                    + Add Files
+                  </button>
+                  <input ref={fileInputRef} type="file" multiple accept="image/*,.log,.txt" style={{ display: 'none' }} onChange={handleFiles} />
+                  {attachments.length > 0 && (
+                    <div className="pp-bug-file-list">
+                      {attachments.map((f, i) => (
+                        <span key={i} className="pp-bug-file-tag">
+                          {f.name}
+                          <button type="button" onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {submitResult === 'error' && (
+                <div className="pp-bug-error">Failed to send report. Please try again.</div>
+              )}
+
+              <div className="pp-bug-actions">
+                <button type="submit" className="pp-bug-btn-primary" disabled={submitting || !bugForm.description.trim()}>
+                  {submitting ? 'Sending...' : 'Send Bug Report'}
+                </button>
+                <button type="button" className="pp-bug-btn-secondary" onClick={() => setShowBugForm(false)}>Cancel</button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
       <div className="pp-support-note">
-        <p>Thank you for playing Naval Command. Every battle, every suggestion, and every piece of feedback helps make the game better for everyone. — <strong>The Developer</strong></p>
+        <p>Thank you for playing Naval Command. Every battle, every suggestion, and every piece of feedback helps make the game better for everyone. — <strong>MeekANTIFUN (Developer)</strong></p>
       </div>
     </div>
   );

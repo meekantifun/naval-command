@@ -10,6 +10,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const nodemailer = require('nodemailer');
 
 // Multer storage for shop item icons
 const shopIconStorage = multer.diskStorage({
@@ -724,6 +725,61 @@ app.post('/api/admin/guild-config/:guildId/currency-icon', ensureAuthenticated, 
   } catch (error) {
     console.error('Error uploading currency icon:', error.message);
     res.status(500).json({ error: 'Icon upload failed' });
+  }
+});
+
+// ── Bug Report ────────────────────────────────────────────────────────────────
+
+const bugAttachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 }
+});
+
+app.post('/api/support/bug-report', ensureAuthenticated, bugAttachmentUpload.array('attachments', 5), async (req, res) => {
+  try {
+    const { contactName, contactInfo, description, steps } = req.body;
+    if (!description || !description.trim()) {
+      return res.status(400).json({ error: 'Bug description is required.' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
+
+    const discordUser = req.user ? `${req.user.username} (${req.user.id})` : 'Unknown';
+    const attachments = (req.files || []).map(f => ({
+      filename: f.originalname,
+      content: f.buffer
+    }));
+
+    await transporter.sendMail({
+      from: `"Naval Command Bug Reports" <${process.env.GMAIL_USER}>`,
+      to: 'meekantifun@gmail.com',
+      subject: `[Bug Report] ${contactName || discordUser}`,
+      html: `
+        <h2 style="color:#5865f2">Naval Command — Bug Report</h2>
+        <table style="border-collapse:collapse;width:100%;max-width:600px">
+          <tr><td style="padding:8px;font-weight:bold;width:160px">Discord Account</td><td style="padding:8px">${discordUser}</td></tr>
+          <tr style="background:#f5f5f5"><td style="padding:8px;font-weight:bold">Contact Name</td><td style="padding:8px">${contactName || '—'}</td></tr>
+          <tr><td style="padding:8px;font-weight:bold">Contact Info</td><td style="padding:8px">${contactInfo || '—'}</td></tr>
+        </table>
+        <h3 style="margin-top:24px">Bug Description</h3>
+        <p style="white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:4px">${description.trim()}</p>
+        <h3>Steps to Replicate</h3>
+        <p style="white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:4px">${steps ? steps.trim() : '—'}</p>
+        ${req.files?.length ? `<p><strong>Attachments:</strong> ${req.files.length} file(s) attached</p>` : ''}
+      `,
+      attachments
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Bug report email error:', error.message);
+    res.status(500).json({ error: 'Failed to send bug report. Please try again.' });
   }
 });
 
