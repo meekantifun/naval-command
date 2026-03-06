@@ -522,6 +522,18 @@ app.delete('/api/admin/characters', ensureAuthenticated, async (req, res) => {
   }
 });
 
+app.patch('/api/admin/player-stats', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.patch('/api/admin/player-stats', req.body);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error updating player stats:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to update player stats'
+    });
+  }
+});
+
 // Get maps
 app.get('/api/admin/maps', ensureAuthenticated, async (req, res) => {
   try {
@@ -743,7 +755,17 @@ function saveReviews(reviews) {
 
 app.get('/api/reviews', (req, res) => {
   const reviews = loadReviews();
-  res.json({ reviews: reviews.slice(-50).reverse() });
+  const isAdmin = req.user?.id === process.env.ADMIN_DISCORD_ID;
+  res.json({ reviews: reviews.slice(-50).reverse(), isAdmin });
+});
+
+app.delete('/api/reviews/:id', ensureAuthenticated, (req, res) => {
+  if (req.user.id !== process.env.ADMIN_DISCORD_ID) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const reviews = loadReviews().filter(r => r.id !== req.params.id);
+  saveReviews(reviews);
+  res.json({ success: true });
 });
 
 app.post('/api/reviews', ensureAuthenticated, (req, res) => {

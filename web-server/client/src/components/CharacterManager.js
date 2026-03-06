@@ -3,6 +3,50 @@ import axios from 'axios';
 import CharacterCreationWizard from './CharacterCreationWizard';
 import './CharacterManager.css';
 
+function AdjustRow({ label, value, guildId, userId, characterName, field }) {
+  const [delta, setDelta] = useState(100);
+  const [current, setCurrent] = useState(value);
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(null);
+
+  const adjust = async (sign) => {
+    setBusy(true);
+    setFlash(null);
+    try {
+      const payload = { guildId, userId, characterName };
+      if (field === 'currency') payload.currencyDelta = delta * sign;
+      else payload.levelDelta = delta * sign;
+      const res = await axios.patch('/api/admin/player-stats', payload, { withCredentials: true });
+      const newVal = field === 'currency' ? res.data.currency : res.data.level;
+      setCurrent(newVal);
+      setFlash('ok');
+    } catch {
+      setFlash('err');
+    } finally {
+      setBusy(false);
+      setTimeout(() => setFlash(null), 2000);
+    }
+  };
+
+  return (
+    <div className="adjust-row">
+      <span className="adjust-label">{label}</span>
+      <span className="adjust-current">{typeof current === 'number' ? current.toLocaleString() : current}</span>
+      <input
+        type="number"
+        className="adjust-input"
+        value={delta}
+        min="1"
+        onChange={e => setDelta(Math.max(1, parseInt(e.target.value) || 1))}
+      />
+      <button className="btn-adjust-add" onClick={() => adjust(1)} disabled={busy}>+</button>
+      <button className="btn-adjust-remove" onClick={() => adjust(-1)} disabled={busy}>−</button>
+      {flash === 'ok' && <span className="adjust-flash ok">✓ {current.toLocaleString()}</span>}
+      {flash === 'err' && <span className="adjust-flash err">✗</span>}
+    </div>
+  );
+}
+
 function CharacterManager({ guildId, user }) {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -314,6 +358,27 @@ function CharacterManager({ guildId, user }) {
                     </div>
                   </div>
                 )}
+
+                {/* GM Adjust */}
+                <div className="char-section gm-adjust-section">
+                  <h5>⚙️ GM Controls</h5>
+                  <AdjustRow
+                    label="Credits"
+                    value={char.currency ?? 0}
+                    guildId={guildId}
+                    userId={char.userId}
+                    characterName={char.name}
+                    field="currency"
+                  />
+                  <AdjustRow
+                    label="Level"
+                    value={char.level ?? 1}
+                    guildId={guildId}
+                    userId={char.userId}
+                    characterName={char.name}
+                    field="level"
+                  />
+                </div>
               </div>
             ))}
           </div>

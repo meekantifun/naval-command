@@ -19404,6 +19404,38 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // Adjust player currency / level
+        app.patch('/api/admin/player-stats', authenticateAPIKey, async (req, res) => {
+            try {
+                const { guildId, userId, characterName, currencyDelta, levelDelta } = req.body;
+                if (!guildId || !userId || !characterName) {
+                    return res.status(400).json({ error: 'guildId, userId, and characterName are required' });
+                }
+                const playerData = this.characterManager.loadPlayerData(guildId);
+                const userData = playerData[userId];
+                if (!userData || !userData.characters || !userData.characters[characterName]) {
+                    return res.status(404).json({ error: 'Character not found' });
+                }
+                const char = userData.characters[characterName];
+                if (currencyDelta !== undefined) {
+                    char.currency = Math.max(0, (char.currency || 0) + Number(currencyDelta));
+                }
+                if (levelDelta !== undefined) {
+                    char.level = Math.max(1, (char.level || 1) + Number(levelDelta));
+                }
+                const saved = this.characterManager.savePlayerData(guildId, playerData);
+                if (saved) {
+                    this.characterManager.syncInMemoryData(guildId, userId, userData);
+                    res.json({ success: true, currency: char.currency, level: char.level });
+                } else {
+                    res.status(500).json({ error: 'Failed to save' });
+                }
+            } catch (error) {
+                console.error('Error updating player stats:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Get all custom maps
         app.get('/api/admin/maps', authenticateAPIKey, async (req, res) => {
             try {
