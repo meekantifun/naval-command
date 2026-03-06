@@ -296,7 +296,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                   <label>Tonnage *</label>
                   <input type="number" min="500" max="100000" value={formData.tonnage}
                     onChange={(e) => handleBasicInfoChange('tonnage', parseInt(e.target.value) || 500)} />
-                  <small>500 – 100,000 tons</small>
+                  <small>500 – 100,000 tons. Use full load displacement. Do not use long tons.</small>
                 </div>
                 <div className="form-group">
                   <label>Speed (knots) *</label>
@@ -307,7 +307,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
               </div>
 
               <div className="armor-section">
-                <h4>Armor Thickness (mm)</h4>
+                <h4>Armor Thickness (mm) <span className="optional">— use the thickest value for each zone</span></h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Belt Armor</label>
@@ -384,6 +384,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                           <option key={c.value} value={c.value}>{c.label}</option>
                         ))}
                       </select>
+                      <small>Use the mount with the most guns per turret.</small>
                     </div>
                   )}
                 </div>
@@ -459,6 +460,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                       onChange={(e) => setCurrentAA({ ...currentAA, mountType: e.target.value })}>
                       {aaMountTypes.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
+                    <small>Use the mount with the most guns per mount.</small>
                   </div>
 
                   <div className="form-group">
