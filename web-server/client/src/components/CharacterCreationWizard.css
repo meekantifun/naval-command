@@ -4,6 +4,12 @@
   font-weight: normal;
 }
 
+.input-readonly {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #1a1c1f !important;
+}
+
 .wizard-overlay {
   position: fixed;
   top: 0;

@@ -2,23 +2,59 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './CharacterCreationWizard.css';
 
-function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
+// Defined outside component so it can be used in lazy state initializer
+function calculateStats(tonnage, speedKnots, armorThickness) {
+  const calculatedHP = Math.max(10, 50 + Math.floor(tonnage / 100));
+  const calculatedArmor = Math.max(0, 10 + Math.floor(armorThickness.belt / 5));
+  const calculatedSpeed = Math.max(1, Math.min(10, Math.floor(speedKnots / 5)));
+  const speedFactor = parseFloat((speedKnots / 25).toFixed(2));
+  const sizeFactor = parseFloat((8000 / tonnage).toFixed(2));
+  const rawEvasion = 0.1 * speedFactor * sizeFactor;
+  const calculatedEvasion = {
+    evasionPercentage: parseFloat((rawEvasion * 100).toFixed(1)),
+    speedFactor,
+    sizeFactor,
+    calculation: { baseEvasion: 0.1, referenceSpeed: 25, referenceSize: 8000, rawEvasion }
+  };
+  return { calculatedHP, calculatedArmor, calculatedSpeed, calculatedEvasion };
+}
+
+function buildInitialFormData(initialData) {
+  if (!initialData) {
+    return {
+      targetUserId: '',
+      characterName: '',
+      shipClass: 'Destroyer',
+      tonnage: 2500,
+      speedKnots: 35,
+      armorThickness: { belt: 25, deck: 15, turret: 10 },
+      ...calculateStats(2500, 35, { belt: 25, deck: 15, turret: 10 }),
+      weapons: {},
+      availableAircraft: {},
+      aaSystems: []
+    };
+  }
+  const tonnage = initialData.tonnage || 2500;
+  const speedKnots = initialData.speedKnots || 35;
+  const armor = initialData.armorThickness || { belt: 25, deck: 15, turret: 10 };
+  return {
+    targetUserId: initialData.userId || '',
+    characterName: initialData.name || '',
+    shipClass: initialData.shipClass || 'Destroyer',
+    tonnage,
+    speedKnots,
+    armorThickness: armor,
+    ...calculateStats(tonnage, speedKnots, armor),
+    weapons: initialData.weapons || {},
+    availableAircraft: initialData.availableAircraft || {},
+    aaSystems: initialData.aaSystems || []
+  };
+}
+
+function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initialData }) {
+  const editMode = !!initialData;
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    targetUserId: '',
-    characterName: '',
-    shipClass: 'Destroyer',
-    tonnage: 2500,
-    speedKnots: 35,
-    armorThickness: { belt: 25, deck: 15, turret: 10 },
-    calculatedHP: 0,
-    calculatedArmor: 0,
-    calculatedSpeed: 0,
-    calculatedEvasion: {},
-    weapons: {},
-    availableAircraft: {},
-    aaSystems: []
-  });
+  const [formData, setFormData] = useState(() => buildInitialFormData(initialData));
 
   const [currentWeapon, setCurrentWeapon] = useState({
     type: 'main',
@@ -35,7 +71,6 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
 
   const shipClasses = ['Destroyer', 'Light Cruiser', 'Heavy Cruiser', 'Battleship', 'Carrier', 'Submarine'];
 
-  // All gun calibers grouped by class (matches bot's WEAPON_TEMPLATES)
   const gunCaliberGroups = [
     {
       label: 'Secondary / Dual-Purpose (65–94mm)',
@@ -70,7 +105,6 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
     { value: 'sext',   label: 'Sextuple Mount' }
   ];
 
-  // All AA calibers grouped (matches bot's AA_CALIBERS)
   const aaCaliberGroups = [
     {
       label: 'Short Range (≤25mm)',
@@ -95,22 +129,6 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
     { value: 'sextuple', label: 'Sextuple' },
     { value: 'octuple',  label: 'Octuple' }
   ];
-
-  const calculateStats = (tonnage, speedKnots, armorThickness) => {
-    const calculatedHP = Math.max(10, 50 + Math.floor(tonnage / 100));
-    const calculatedArmor = Math.max(0, 10 + Math.floor(armorThickness.belt / 5));
-    const calculatedSpeed = Math.max(1, Math.min(10, Math.floor(speedKnots / 5)));
-    const speedFactor = parseFloat((speedKnots / 25).toFixed(2));
-    const sizeFactor = parseFloat((8000 / tonnage).toFixed(2));
-    const rawEvasion = 0.1 * speedFactor * sizeFactor;
-    const calculatedEvasion = {
-      evasionPercentage: parseFloat((rawEvasion * 100).toFixed(1)),
-      speedFactor,
-      sizeFactor,
-      calculation: { baseEvasion: 0.1, referenceSpeed: 25, referenceSize: 8000, rawEvasion }
-    };
-    return { calculatedHP, calculatedArmor, calculatedSpeed, calculatedEvasion };
-  };
 
   const handleBasicInfoChange = (field, value) => {
     const newFormData = { ...formData, [field]: value };
@@ -139,11 +157,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
       ...formData,
       weapons: {
         ...formData.weapons,
-        [weaponId]: {
-          ...currentWeapon,
-          name,
-          barrels: barrelCount(currentWeapon.configuration)
-        }
+        [weaponId]: { ...currentWeapon, name, barrels: barrelCount(currentWeapon.configuration) }
       }
     });
     setCurrentWeapon({ type: 'main', caliber: '127mm', configuration: 'single', customName: '' });
@@ -180,22 +194,22 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
         hangar: formData.shipClass === 'Carrier' ? Math.floor(formData.tonnage / 500) : 0,
         weapons: formData.weapons,
         availableAircraft: formData.availableAircraft,
-        activeSquadrons: {},
+        activeSquadrons: initialData?.activeSquadrons || {},
         aaSystems: formData.aaSystems,
         stats: {
           health: formData.calculatedHP,
           armor: formData.calculatedArmor,
           speed: formData.calculatedSpeed,
           evasion: formData.calculatedEvasion.evasionPercentage,
-          range: 8,
-          baseAccuracy: 85,
-          accuracy: 85
+          range: initialData?.stats?.range ?? 8,
+          baseAccuracy: initialData?.stats?.baseAccuracy ?? 85,
+          accuracy: initialData?.stats?.accuracy ?? 85
         },
-        battles: 0,
-        victories: 0,
-        level: 1,
-        experience: 0,
-        currency: 0
+        battles: initialData?.battles ?? 0,
+        victories: initialData?.victories ?? 0,
+        level: initialData?.level ?? 1,
+        experience: initialData?.experience ?? 0,
+        currency: initialData?.currency ?? 0
       };
 
       await axios.post('/api/admin/characters', {
@@ -205,11 +219,11 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
         characterData
       }, { withCredentials: true });
 
-      alert('Character created successfully!');
+      alert(editMode ? 'Character updated successfully!' : 'Character created successfully!');
       onComplete();
     } catch (error) {
-      console.error('Error creating character:', error);
-      alert('Failed to create character: ' + (error.response?.data?.error || error.message));
+      console.error('Error saving character:', error);
+      alert('Failed to save character: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -224,13 +238,11 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
     setStep(step - 1);
   };
 
-  const maxStep = 4;
-
   return (
     <div className="wizard-overlay">
       <div className="wizard-container">
         <div className="wizard-header">
-          <h2>Create New Character</h2>
+          <h2>{editMode ? `Edit: ${initialData.name}` : 'Create New Character'}</h2>
           <div className="wizard-steps">
             <div className={`step ${step >= 1 ? 'active' : ''}`}>1. Ship Info</div>
             <div className={`step ${step >= 2 ? 'active' : ''}`}>2. Weapons</div>
@@ -255,7 +267,10 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                   value={formData.characterName}
                   onChange={(e) => setFormData({ ...formData, characterName: e.target.value })}
                   placeholder="USS Iowa"
+                  readOnly={editMode}
+                  className={editMode ? 'input-readonly' : ''}
                 />
+                {editMode && <small>Character name cannot be changed during edit.</small>}
               </div>
 
               <div className="form-group">
@@ -271,10 +286,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
 
               <div className="form-group">
                 <label>Ship Class *</label>
-                <select
-                  value={formData.shipClass}
-                  onChange={(e) => handleBasicInfoChange('shipClass', e.target.value)}
-                >
+                <select value={formData.shipClass} onChange={(e) => handleBasicInfoChange('shipClass', e.target.value)}>
                   {shipClasses.map(sc => <option key={sc} value={sc}>{sc}</option>)}
                 </select>
               </div>
@@ -282,20 +294,14 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
               <div className="form-row">
                 <div className="form-group">
                   <label>Tonnage *</label>
-                  <input
-                    type="number" min="500" max="100000"
-                    value={formData.tonnage}
-                    onChange={(e) => handleBasicInfoChange('tonnage', parseInt(e.target.value) || 500)}
-                  />
+                  <input type="number" min="500" max="100000" value={formData.tonnage}
+                    onChange={(e) => handleBasicInfoChange('tonnage', parseInt(e.target.value) || 500)} />
                   <small>500 – 100,000 tons</small>
                 </div>
                 <div className="form-group">
                   <label>Speed (knots) *</label>
-                  <input
-                    type="number" min="10" max="50"
-                    value={formData.speedKnots}
-                    onChange={(e) => handleBasicInfoChange('speedKnots', parseInt(e.target.value) || 10)}
-                  />
+                  <input type="number" min="10" max="50" value={formData.speedKnots}
+                    onChange={(e) => handleBasicInfoChange('speedKnots', parseInt(e.target.value) || 10)} />
                   <small>10 – 50 knots</small>
                 </div>
               </div>
@@ -345,8 +351,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                     <select value={currentWeapon.type}
                       onChange={(e) => {
                         const type = e.target.value;
-                        const defaultCaliber = type === 'torpedo' ? '533mm' : '127mm';
-                        setCurrentWeapon({ ...currentWeapon, type, caliber: defaultCaliber });
+                        setCurrentWeapon({ ...currentWeapon, type, caliber: type === 'torpedo' ? '533mm' : '127mm' });
                       }}>
                       <option value="main">Main Gun</option>
                       <option value="secondary">Secondary Gun</option>
@@ -381,17 +386,13 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                       </select>
                     </div>
                   )}
-
                 </div>
 
                 <div className="form-group">
                   <label>Custom Name <span className="optional">(optional)</span></label>
-                  <input
-                    type="text"
-                    value={currentWeapon.customName}
+                  <input type="text" value={currentWeapon.customName}
                     onChange={(e) => setCurrentWeapon({ ...currentWeapon, customName: e.target.value })}
-                    placeholder={autoWeaponName(currentWeapon)}
-                  />
+                    placeholder={autoWeaponName(currentWeapon)} />
                   <small>Leave blank to use auto-generated name</small>
                 </div>
 
@@ -401,14 +402,16 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
               <div className="weapons-list-preview">
                 <h4>Configured Weapons ({Object.keys(formData.weapons).length})</h4>
                 {Object.keys(formData.weapons).length === 0 ? (
-                  <p className="empty-message">No weapons added yet. Add at least one weapon.</p>
+                  <p className="empty-message">No weapons added yet.</p>
                 ) : (
                   <div className="weapon-cards">
                     {Object.entries(formData.weapons).map(([id, weapon]) => (
                       <div key={id} className="weapon-card-preview">
                         <div>
                           <strong>{weapon.name}</strong>
-                          <span className="weapon-meta">{weapon.type} • {weapon.caliber}{weapon.configuration ? ` • ${weapon.configuration}` : ''}</span>
+                          <span className="weapon-meta">
+                            {weapon.type} • {weapon.caliber}{weapon.configuration ? ` • ${weapon.configuration}` : ''}
+                          </span>
                         </div>
                         <button onClick={() => removeWeapon(id)} className="btn-remove">×</button>
                       </div>
@@ -454,9 +457,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                     <label>Mount Type</label>
                     <select value={currentAA.mountType}
                       onChange={(e) => setCurrentAA({ ...currentAA, mountType: e.target.value })}>
-                      {aaMountTypes.map(m => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
+                      {aaMountTypes.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                   </div>
 
@@ -480,7 +481,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
                       <div key={idx} className="aa-card-preview">
                         <div>
                           <strong>{aa.caliber}</strong>
-                          <span className="aa-meta">{aa.mounts}× {aa.mountType} mount</span>
+                          <span className="aa-meta">{aa.mounts}× {aa.mountType || 'mount'}</span>
                         </div>
                         <button onClick={() => removeAASystem(idx)} className="btn-remove">×</button>
                       </div>
@@ -496,10 +497,12 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel }) {
           <button onClick={onCancel} className="btn-cancel">Cancel</button>
           <div className="wizard-nav">
             {step > 1 && <button onClick={prevStep} className="btn-prev">← Previous</button>}
-            {step < maxStep ? (
+            {step < 4 ? (
               <button onClick={nextStep} className="btn-next">Next →</button>
             ) : (
-              <button onClick={handleSubmit} className="btn-submit">Create Character</button>
+              <button onClick={handleSubmit} className="btn-submit">
+                {editMode ? 'Save Changes' : 'Create Character'}
+              </button>
             )}
           </div>
         </div>

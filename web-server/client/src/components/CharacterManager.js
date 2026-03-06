@@ -7,17 +7,7 @@ function CharacterManager({ guildId, user }) {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [formData, setFormData] = useState({
-    userId: '',
-    characterName: '',
-    shipClass: 'Destroyer',
-    rank: 'Ensign',
-    nationality: 'United States'
-  });
-
-  const shipClasses = ['Destroyer', 'Cruiser', 'Battleship', 'Carrier', 'Submarine', 'Auxiliary'];
-  const ranks = ['Ensign', 'Lieutenant', 'Commander', 'Captain', 'Admiral'];
+  const [editingCharacter, setEditingCharacter] = useState(null);
 
   useEffect(() => {
     loadCharacters();
@@ -39,53 +29,9 @@ function CharacterManager({ guildId, user }) {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!formData.userId || !formData.characterName) {
-      alert('User ID and Character Name are required');
-      return;
-    }
-
-    try {
-      await axios.post('/api/admin/characters', {
-        guildId,
-        userId: formData.userId,
-        characterName: formData.characterName,
-        characterData: {
-          shipClass: formData.shipClass,
-          rank: formData.rank,
-          nationality: formData.nationality
-        }
-      }, {
-        withCredentials: true
-      });
-
-      alert('Character saved successfully!');
-      setFormData({
-        userId: '',
-        characterName: '',
-        shipClass: 'Destroyer',
-        rank: 'Ensign',
-        nationality: 'United States'
-      });
-      setEditing(null);
-      loadCharacters();
-    } catch (error) {
-      console.error('Error saving character:', error);
-      alert('Failed to save character');
-    }
-  };
-
   const handleEdit = (character) => {
-    setFormData({
-      userId: character.userId,
-      characterName: character.name,
-      shipClass: character.shipClass || 'Destroyer',
-      rank: character.rank || 'Ensign',
-      nationality: character.nationality || 'United States'
-    });
-    setEditing(character.name);
+    setEditingCharacter(character);
+    setShowWizard(true);
   };
 
   const handleDelete = async (character) => {
@@ -121,11 +67,16 @@ function CharacterManager({ guildId, user }) {
         <CharacterCreationWizard
           guildId={guildId}
           userId={user?.id}
+          initialData={editingCharacter}
           onComplete={() => {
             setShowWizard(false);
+            setEditingCharacter(null);
             loadCharacters();
           }}
-          onCancel={() => setShowWizard(false)}
+          onCancel={() => {
+            setShowWizard(false);
+            setEditingCharacter(null);
+          }}
         />
       )}
 
@@ -139,95 +90,6 @@ function CharacterManager({ guildId, user }) {
             + Create New Character
           </button>
         </div>
-      </div>
-
-      <div className="manager-section">
-        <h3>{editing ? 'Edit Character (Quick)' : 'Quick Edit Character'}</h3>
-        <p className="section-desc">Use the form below for quick edits, or create new characters with the wizard above</p>
-        <form onSubmit={handleSubmit} className="character-form">
-          <div className="form-group">
-            <label>User ID (Discord ID)</label>
-            <input
-              type="text"
-              value={formData.userId}
-              onChange={(e) => setFormData({...formData, userId: e.target.value})}
-              placeholder="123456789012345678"
-              required
-            />
-            <small>Right-click user in Discord → Copy ID</small>
-          </div>
-
-          <div className="form-group">
-            <label>Character Name</label>
-            <input
-              type="text"
-              value={formData.characterName}
-              onChange={(e) => setFormData({...formData, characterName: e.target.value})}
-              placeholder="Captain Smith"
-              required
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Ship Class</label>
-              <select
-                value={formData.shipClass}
-                onChange={(e) => setFormData({...formData, shipClass: e.target.value})}
-              >
-                {shipClasses.map(sc => (
-                  <option key={sc} value={sc}>{sc}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Rank</label>
-              <select
-                value={formData.rank}
-                onChange={(e) => setFormData({...formData, rank: e.target.value})}
-              >
-                {ranks.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Nationality</label>
-            <input
-              type="text"
-              value={formData.nationality}
-              onChange={(e) => setFormData({...formData, nationality: e.target.value})}
-              placeholder="United States"
-            />
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="btn-primary">
-              {editing ? 'Update Character' : 'Create Character'}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(null);
-                  setFormData({
-                    userId: '',
-                    characterName: '',
-                    shipClass: 'Destroyer',
-                    rank: 'Ensign',
-                    nationality: 'United States'
-                  });
-                }}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
       </div>
 
       <div className="manager-section">
