@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import ShopEditor from './ShopEditor';
 import './PlayerPanel.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+const DEFAULT_CURRENCY = { name: 'Credits', icon: '💰', iconUrl: null };
+
+function CurrencyIcon({ config, className }) {
+  const c = config || DEFAULT_CURRENCY;
+  if (c.iconUrl) return <img src={c.iconUrl} alt="" className={className || 'pp-currency-icon-img-inline'} />;
+  return <span>{c.icon || '💰'}</span>;
+}
 
 const RARITY_COLORS = {
   common: '#9e9e9e',
@@ -23,7 +31,7 @@ const CATEGORIES = [
 
 // ── Characters Section ──────────────────────────────────────────────────────
 
-function CharactersSection({ user, guild }) {
+function CharactersSection({ user, guild, currencyConfig }) {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,12 +62,12 @@ function CharactersSection({ user, guild }) {
 
   return (
     <div className="pp-characters">
-      {characters.map((char, i) => <CharacterCard key={i} char={char} />)}
+      {characters.map((char, i) => <CharacterCard key={i} char={char} currencyConfig={currencyConfig} />)}
     </div>
   );
 }
 
-function CharacterCard({ char }) {
+function CharacterCard({ char, currencyConfig }) {
   const [expanded, setExpanded] = useState(true);
 
   const weapons = char.weapons ? Object.values(char.weapons) : [];
@@ -176,7 +184,9 @@ function CharacterCard({ char }) {
           {/* Currency */}
           <div className="pp-section-label">Economy</div>
           <div className="pp-currency">
-            💰 <strong>{(char.currency ?? 0).toLocaleString()}</strong> Credits
+            <CurrencyIcon config={currencyConfig} />{' '}
+            <strong>{(char.currency ?? 0).toLocaleString()}</strong>{' '}
+            {(currencyConfig || DEFAULT_CURRENCY).name}
           </div>
 
           {/* Inventory */}
@@ -203,7 +213,7 @@ function CharacterCard({ char }) {
 
 // ── Shop Section ────────────────────────────────────────────────────────────
 
-function ShopSection({ user, guild }) {
+function ShopSection({ user, guild, currencyConfig }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState(null);
@@ -263,7 +273,8 @@ function ShopSection({ user, guild }) {
         { withCredentials: true }
       );
       setCurrency(res.data.remainingCurrency);
-      setMessage({ type: 'success', text: `✅ Purchased ${item.name}! Remaining: ${res.data.remainingCurrency} credits` });
+      const cName = (currencyConfig || DEFAULT_CURRENCY).name.toLowerCase();
+      setMessage({ type: 'success', text: `✅ Purchased ${item.name}! Remaining: ${res.data.remainingCurrency} ${cName}` });
     } catch (e) {
       setMessage({ type: 'error', text: `❌ ${e.response?.data?.error || 'Purchase failed'}` });
     } finally {
@@ -288,7 +299,9 @@ function ShopSection({ user, guild }) {
     <div className="pp-shop">
       <div className="pp-shop-topbar">
         <div className="pp-shop-currency">
-          💰 <strong>{currency !== null ? currency.toLocaleString() : '—'}</strong> Credits
+          <CurrencyIcon config={currencyConfig} />{' '}
+          <strong>{currency !== null ? currency.toLocaleString() : '—'}</strong>{' '}
+          {(currencyConfig || DEFAULT_CURRENCY).name}
         </div>
         <div className="pp-shop-controls">
           <select value={sort} onChange={e => setSort(e.target.value)} className="pp-select">
@@ -364,7 +377,7 @@ function ShopSection({ user, guild }) {
             )}
 
             <div className="pp-item-footer">
-              <span className="pp-item-price">💰 {item.price.toLocaleString()}</span>
+              <span className="pp-item-price"><CurrencyIcon config={currencyConfig} /> {item.price.toLocaleString()}</span>
               <button
                 className="pp-buy-btn"
                 disabled={buying === item.id || (currency !== null && currency < item.price)}
@@ -386,16 +399,80 @@ function ShopSection({ user, guild }) {
 
 // ── Settings Section ────────────────────────────────────────────────────────
 
-function SettingsSection() {
+function SettingsSection({ guild, isGM, currencyConfig, onConfigChange }) {
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem('navalCommandVolume');
     return saved !== null ? parseFloat(saved) : 0.8;
   });
 
+  // Currency editor state (GM only)
+  const [currencyName, setCurrencyName] = useState((currencyConfig || DEFAULT_CURRENCY).name);
+  const [currencyIcon, setCurrencyIcon] = useState((currencyConfig || DEFAULT_CURRENCY).icon);
+  const [iconFile, setIconFile] = useState(null);
+  const [iconPreview, setIconPreview] = useState((currencyConfig || DEFAULT_CURRENCY).iconUrl);
+  const [clearIcon, setClearIcon] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(null);
+  const iconRef = useRef(null);
+
+  // Sync local state when currencyConfig prop changes
+  useEffect(() => {
+    if (currencyConfig) {
+      setCurrencyName(currencyConfig.name || 'Credits');
+      setCurrencyIcon(currencyConfig.icon || '💰');
+      setIconPreview(currencyConfig.iconUrl || null);
+    }
+  }, [currencyConfig]);
+
   const handleVolume = (val) => {
     const v = parseFloat(val);
     setVolume(v);
     localStorage.setItem('navalCommandVolume', v);
+  };
+
+  const handleIconChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIconFile(file);
+    setIconPreview(URL.createObjectURL(file));
+    setClearIcon(false);
+  };
+
+  const handleRemoveIcon = () => {
+    setIconFile(null);
+    setIconPreview(null);
+    setClearIcon(true);
+    if (iconRef.current) iconRef.current.value = '';
+  };
+
+  const handleSaveCurrency = async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      let updatedIconUrl = clearIcon ? null : (currencyConfig?.iconUrl || null);
+
+      // Upload new icon if selected
+      if (iconFile) {
+        const formData = new FormData();
+        formData.append('icon', iconFile);
+        const iconRes = await axios.post(
+          `${API_URL}/api/admin/guild-config/${guild.id}/currency-icon`,
+          formData,
+          { withCredentials: true, headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+        updatedIconUrl = iconRes.data.iconUrl;
+      }
+
+      // Save name + emoji + iconUrl
+      const payload = { currencyName, currencyIcon, currencyIconUrl: updatedIconUrl };
+      const res = await axios.post(`${API_URL}/api/admin/guild-config/${guild.id}`, payload, { withCredentials: true });
+      onConfigChange({ name: res.data.currencyName || 'Credits', icon: res.data.currencyIcon || '💰', iconUrl: res.data.currencyIconUrl || null });
+      setSaveMsg({ type: 'success', text: 'Currency settings saved!' });
+    } catch (e) {
+      setSaveMsg({ type: 'error', text: 'Failed to save.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -426,6 +503,65 @@ function SettingsSection() {
         )}
       </div>
       <p className="pp-setting-hint">Controls the volume of turn alert sounds during battles.</p>
+
+      {isGM && (
+        <>
+          <h3 style={{ marginTop: '24px' }}>Currency</h3>
+
+          <div className="pp-setting-row">
+            <label className="pp-setting-label">Currency Name</label>
+            <input
+              className="pp-currency-name-input"
+              value={currencyName}
+              onChange={e => setCurrencyName(e.target.value)}
+              placeholder="Credits"
+              maxLength={32}
+            />
+          </div>
+
+          <div className="pp-setting-row">
+            <label className="pp-setting-label">Emoji (used when no icon)</label>
+            <input
+              className="pp-currency-emoji-input"
+              value={currencyIcon}
+              onChange={e => setCurrencyIcon(e.target.value)}
+              placeholder="💰"
+              maxLength={4}
+            />
+          </div>
+
+          <div className="pp-setting-row">
+            <label className="pp-setting-label">Custom Icon</label>
+            <div className="pp-currency-icon-row">
+              {iconPreview
+                ? <img src={iconPreview} alt="preview" className="pp-currency-icon-preview" />
+                : <span className="pp-currency-icon-placeholder">{currencyIcon || '💰'}</span>
+              }
+              <button className="pp-mute-btn" onClick={() => iconRef.current?.click()}>
+                {iconPreview ? 'Change' : 'Upload'}
+              </button>
+              {iconPreview && (
+                <button className="pp-mute-btn" onClick={handleRemoveIcon}>Remove</button>
+              )}
+              <input ref={iconRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleIconChange} />
+            </div>
+            <p className="pp-setting-hint">PNG/JPG up to 1MB. Overrides emoji when set.</p>
+          </div>
+
+          <div className="pp-currency-preview">
+            Preview: <CurrencyIcon config={{ name: currencyName, icon: currencyIcon, iconUrl: iconPreview }} />{' '}
+            <strong>1,000</strong> {currencyName || 'Credits'}
+          </div>
+
+          {saveMsg && (
+            <div className={`pp-shop-msg ${saveMsg.type}`} style={{ marginTop: '8px' }}>{saveMsg.text}</div>
+          )}
+
+          <button className="pp-save-currency-btn" onClick={handleSaveCurrency} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Currency Settings'}
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -532,6 +668,25 @@ const API_URL_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 function PlayerPanel({ user, guild, onClose }) {
   const [activeSection, setActiveSection] = useState('characters');
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [currencyConfig, setCurrencyConfig] = useState(DEFAULT_CURRENCY);
+  const [isGM, setIsGM] = useState(false);
+
+  useEffect(() => {
+    if (!guild?.id) return;
+    axios.get(`${API_URL}/api/admin/guild-config/${guild.id}`, { withCredentials: true })
+      .then(r => {
+        if (r.data.currencyName || r.data.currencyIcon || r.data.currencyIconUrl) {
+          setCurrencyConfig({
+            name: r.data.currencyName || 'Credits',
+            icon: r.data.currencyIcon || '💰',
+            iconUrl: r.data.currencyIconUrl || null
+          });
+        }
+      }).catch(() => {});
+    axios.get(`${API_URL}/api/admin/check-permission`, {
+      params: { guildId: guild.id }, withCredentials: true
+    }).then(r => setIsGM(r.data.hasPermission)).catch(() => {});
+  }, [guild?.id]);
 
   const handleLogout = () => {
     window.location.href = `${API_URL_BASE}/auth/logout`;
@@ -587,9 +742,9 @@ function PlayerPanel({ user, guild, onClose }) {
           </h2>
         </div>
         <div className="pp-content">
-          {activeSection === 'characters' && <CharactersSection user={user} guild={guild} />}
-          {activeSection === 'shop'       && <ShopSection       user={user} guild={guild} />}
-          {activeSection === 'settings'   && <SettingsSection />}
+          {activeSection === 'characters' && <CharactersSection user={user} guild={guild} currencyConfig={currencyConfig} />}
+          {activeSection === 'shop'       && <ShopSection       user={user} guild={guild} currencyConfig={currencyConfig} />}
+          {activeSection === 'settings'   && <SettingsSection guild={guild} isGM={isGM} currencyConfig={currencyConfig} onConfigChange={setCurrencyConfig} />}
           {activeSection === 'about'      && <AboutSection />}
           {activeSection === 'support'    && <SupportSection />}
         </div>

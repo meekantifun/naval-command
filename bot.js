@@ -63,6 +63,7 @@ class NavalWarfareBot {
         this.games = new Map();
         this.endedGames = new Map(); // cache for web dashboard MVP screen (auto-expires 30min)
         this.playerData = new Map();
+        this.guildConfigs = new Map();
         this.shopSystem = new ShopSystem(this);
         this.levelingSystem = new LevelingSystem(this);
         this.weatherEvents = new Map();
@@ -127,6 +128,7 @@ class NavalWarfareBot {
         this.setupEventHandlers();
         this.eventHandler.setupEventListeners(); // Set up modular event handlers
         fs.mkdirSync('./public/shop-icons', { recursive: true });
+        fs.mkdirSync('./public/currency-icons', { recursive: true });
         this.loadPlayerData();
         this.initializeWeatherEvents();
         this.initializeFormations();
@@ -701,6 +703,7 @@ class NavalWarfareBot {
 
                             this.playerData.set(guildId, guildMap);
                             this.shopSystem.loadCustomItems(guildId);
+                            this.loadGuildConfig(guildId);
                             console.log(`📂 Loaded data for guild ${guildId} from folder: ${folderName}`);
                         } catch (fileError) {
                             console.error(`❌ Failed to load player data for server "${folderName}": ${fileError.message}`);
@@ -826,6 +829,20 @@ class NavalWarfareBot {
         }
 
         return guildId; // Fallback to guild ID if name not available
+    }
+
+    loadGuildConfig(guildId) {
+        const filePath = `./servers/${this.getGuildFolderName(guildId)}/guildConfig.json`;
+        try {
+            this.guildConfigs.set(guildId, JSON.parse(fs.readFileSync(filePath, 'utf8')));
+        } catch { this.guildConfigs.set(guildId, {}); }
+    }
+
+    saveGuildConfig(guildId, config) {
+        const dir = `./servers/${this.getGuildFolderName(guildId)}`;
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(`${dir}/guildConfig.json`, JSON.stringify(config, null, 2));
+        this.guildConfigs.set(guildId, config);
     }
 
     // Helper methods for guild-scoped player data
@@ -19587,6 +19604,30 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 console.error('Error updating shop icon:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
+        });
+
+        // ── Guild Config Endpoints ────────────────────────────────────────────
+
+        // GET /api/admin/guild-config/:guildId — returns full config
+        app.get('/api/admin/guild-config/:guildId', authenticateAPIKey, (req, res) => {
+            res.json(this.guildConfigs.get(req.params.guildId) || {});
+        });
+
+        // POST /api/admin/guild-config/:guildId — merge-update config fields
+        app.post('/api/admin/guild-config/:guildId', authenticateAPIKey, (req, res) => {
+            const existing = this.guildConfigs.get(req.params.guildId) || {};
+            const updated = { ...existing, ...req.body };
+            this.saveGuildConfig(req.params.guildId, updated);
+            res.json(updated);
+        });
+
+        // POST /api/admin/guild-config/:guildId/currency-icon — update icon URL
+        app.post('/api/admin/guild-config/:guildId/currency-icon', authenticateAPIKey, (req, res) => {
+            const { iconUrl } = req.body;
+            const existing = this.guildConfigs.get(req.params.guildId) || {};
+            const updated = { ...existing, currencyIconUrl: iconUrl };
+            this.saveGuildConfig(req.params.guildId, updated);
+            res.json(updated);
         });
 
         // Setup a complete game with map generation (Admin Panel)

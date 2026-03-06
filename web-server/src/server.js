@@ -25,6 +25,19 @@ const shopIconStorage = multer.diskStorage({
 });
 const uploadIcon = multer({ storage: shopIconStorage, limits: { fileSize: 2 * 1024 * 1024 } });
 
+const currencyIconStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../public/currency-icons');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${req.params.guildId}${ext}`);
+  }
+});
+const uploadCurrencyIcon = multer({ storage: currencyIconStorage, limits: { fileSize: 1 * 1024 * 1024 } });
+
 // Path to bot's guild data (same server, different directory)
 const BOT_DATA_ROOT = path.join(__dirname, '../../servers');
 
@@ -622,6 +635,7 @@ app.get('/api/admin/bot-guilds', ensureAuthenticated, async (req, res) => {
 
 // Serve shop icons static files
 app.use('/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
+app.use('/currency-icons', express.static(path.join(__dirname, '../../public/currency-icons')));
 
 // ── Admin Shop Item Proxy Routes ─────────────────────────────────────────────
 
@@ -669,6 +683,38 @@ app.post('/api/admin/shop/icon/:itemId', ensureAuthenticated, uploadIcon.single(
     res.json({ iconUrl });
   } catch (error) {
     console.error('Error uploading shop icon:', error.message);
+    res.status(500).json({ error: 'Icon upload failed' });
+  }
+});
+
+// ── Guild Config Proxy Routes ─────────────────────────────────────────────────
+
+app.get('/api/admin/guild-config/:guildId', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.get(`/api/admin/guild-config/${req.params.guildId}`);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed' });
+  }
+});
+
+app.post('/api/admin/guild-config/:guildId', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/admin/guild-config/${req.params.guildId}`, req.body);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed' });
+  }
+});
+
+app.post('/api/admin/guild-config/:guildId/currency-icon', ensureAuthenticated, uploadCurrencyIcon.single('icon'), async (req, res) => {
+  try {
+    const ext = path.extname(req.file.originalname);
+    const iconUrl = `/currency-icons/${req.params.guildId}${ext}`;
+    await botAPI.post(`/api/admin/guild-config/${req.params.guildId}/currency-icon`, { iconUrl });
+    res.json({ iconUrl });
+  } catch (error) {
+    console.error('Error uploading currency icon:', error.message);
     res.status(500).json({ error: 'Icon upload failed' });
   }
 });
