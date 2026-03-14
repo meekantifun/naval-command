@@ -928,6 +928,20 @@ class ShopSystem {
 	        emoji: '🚢'
 	    });
 
+	    this.addItem('air_support_marker', {
+	        name: 'Air Support Marker',
+	        category: 'consumables',
+	        price: 1200,
+	        description: 'Calls in a flight of B-17 Flying Fortresses. After a random delay (1-5 turns), the bombers arrive and drop 2 x 4,000 lb HE bombs on a target of your choice. Enemy AA can intercept the formation.',
+	        type: 'consumable',
+	        rarity: 'rare',
+	        effect: 'air_support',
+	        stackable: true,
+	        maxStack: 2,
+	        emoji: '✈️',
+	        requirements: {}
+	    });
+
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║                            FLAGSHIP ITEMS                                    ║
 // ║  Active only when the purchasing ship is designated as the fleet flagship.   ║

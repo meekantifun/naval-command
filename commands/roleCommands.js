@@ -12,69 +12,25 @@ class RoleCommands {
 
     getCommands() {
         return [
-            // Button Roles Commands
+            // Role Selector Commands
             new SlashCommandBuilder()
-                .setName('buttonroles')
-                .setDescription('Create a button role selection embed')
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-                .setDMPermission(false),
-
-            new SlashCommandBuilder()
-                .setName('listbuttonroles')
-                .setDescription('List all button role configurations in this server')
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-                .setDMPermission(false),
-
-            new SlashCommandBuilder()
-                .setName('deletebuttonrole')
-                .setDescription('Delete a button role configuration')
+                .setName('roles')
+                .setDescription('Create a role selection embed')
                 .addStringOption(option =>
-                    option.setName('messageid')
-                        .setDescription('The message ID of the button role embed to delete')
-                        .setRequired(true))
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-                .setDMPermission(false),
-
-            // Dropdown Roles Commands
-            new SlashCommandBuilder()
-                .setName('dropdownroles')
-                .setDescription('Create a dropdown role selection embed')
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-                .setDMPermission(false),
-
-            new SlashCommandBuilder()
-                .setName('listdropdownroles')
-                .setDescription('List all dropdown role configurations in this server')
+                    option.setName('type')
+                        .setDescription('Type of role selector')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Button', value: 'button' },
+                            { name: 'Dropdown', value: 'dropdown' }
+                        ))
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
                 .setDMPermission(false),
 
             new SlashCommandBuilder()
-                .setName('deletedropdownrole')
-                .setDescription('Delete a dropdown role configuration')
-                .addStringOption(option =>
-                    option.setName('messageid')
-                        .setDescription('The message ID of the dropdown role embed to delete')
-                        .setRequired(true))
+                .setName('listroles')
+                .setDescription('List all role configurations in this server')
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-                .setDMPermission(false),
-
-            // General Role Management
-            new SlashCommandBuilder()
-                .setName('roleinfo')
-                .setDescription('Get information about a role')
-                .addRoleOption(option =>
-                    option.setName('role')
-                        .setDescription('The role to get information about')
-                        .setRequired(true))
-                .setDMPermission(false),
-
-            new SlashCommandBuilder()
-                .setName('rolecount')
-                .setDescription('Show member count for roles')
-                .addRoleOption(option =>
-                    option.setName('role')
-                        .setDescription('Specific role to check (optional)')
-                        .setRequired(false))
                 .setDMPermission(false),
 
             // Custom Embed Commands
@@ -108,38 +64,18 @@ class RoleCommands {
             }
 
             switch (commandName) {
-                case 'buttonroles':
-                    await this.bot.moderationSystem.buttonRoles.createButtonRoleEmbed(interaction);
+                case 'roles': {
+                    const type = interaction.options.getString('type');
+                    if (type === 'button') {
+                        await this.bot.moderationSystem.buttonRoles.createButtonRoleEmbed(interaction);
+                    } else {
+                        await this.bot.moderationSystem.dropdownRoles.createDropdownRoleEmbed(interaction);
+                    }
                     break;
+                }
 
-                case 'listbuttonroles':
-                    await this.bot.moderationSystem.buttonRoles.listButtonRoles(interaction);
-                    break;
-
-                case 'deletebuttonrole':
-                    const buttonMessageId = interaction.options.getString('messageid');
-                    await this.bot.moderationSystem.buttonRoles.deleteButtonRole(interaction, buttonMessageId);
-                    break;
-
-                case 'dropdownroles':
-                    await this.bot.moderationSystem.dropdownRoles.createDropdownRoleEmbed(interaction);
-                    break;
-
-                case 'listdropdownroles':
-                    await this.bot.moderationSystem.dropdownRoles.listDropdownRoles(interaction);
-                    break;
-
-                case 'deletedropdownrole':
-                    const dropdownMessageId = interaction.options.getString('messageid');
-                    await this.bot.moderationSystem.dropdownRoles.deleteDropdownRole(interaction, dropdownMessageId);
-                    break;
-
-                case 'roleinfo':
-                    await this.handleRoleInfo(interaction);
-                    break;
-
-                case 'rolecount':
-                    await this.handleRoleCount(interaction);
+                case 'listroles':
+                    await this.handleListRoles(interaction);
                     break;
 
                 case 'embed':
@@ -166,6 +102,48 @@ class RoleCommands {
                 await interaction.reply(reply);
             }
         }
+    }
+
+    async handleListRoles(interaction) {
+        const { EmbedBuilder } = require('discord.js');
+
+        const buttonConfigs = Array.from(this.bot.moderationSystem.buttonRoles.buttonRoleData.values())
+            .filter(c => c.guildId === interaction.guildId);
+        const dropdownConfigs = Array.from(this.bot.moderationSystem.dropdownRoles.dropdownRoleData.values())
+            .filter(c => c.guildId === interaction.guildId);
+
+        if (buttonConfigs.length === 0 && dropdownConfigs.length === 0) {
+            return interaction.reply({
+                content: '📝 No role configurations found for this server.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle('📋 Role Configurations')
+            .setColor(0x5865F2)
+            .setTimestamp();
+
+        let description = '';
+
+        for (const config of buttonConfigs) {
+            const channel = interaction.guild.channels.cache.get(config.channelId);
+            const channelName = channel ? `#${channel.name}` : 'Unknown Channel';
+            description += `**${config.title}** — 🔘 Button\n`;
+            description += `📍 ${channelName} · ${config.roles.length} roles\n`;
+            description += `🕐 <t:${Math.floor(config.createdAt / 1000)}:R>\n\n`;
+        }
+
+        for (const config of dropdownConfigs) {
+            const channel = interaction.guild.channels.cache.get(config.channelId);
+            const channelName = channel ? `#${channel.name}` : 'Unknown Channel';
+            description += `**${config.title}** — 📋 Dropdown\n`;
+            description += `📍 ${channelName} · ${config.roles.length} roles\n`;
+            description += `🕐 <t:${Math.floor(config.createdAt / 1000)}:R>\n\n`;
+        }
+
+        embed.setDescription(description.trim());
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 
     async handleRoleInfo(interaction) {

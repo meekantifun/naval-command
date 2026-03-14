@@ -175,12 +175,16 @@ function GameView({ channelId, user, onBack, onLogout }) {
   // null | { targetId, targetName, step: 'weapon'|'shell'|'confirm', weaponType?, weaponName?, shellType? }
   const [confirmEndBattle, setConfirmEndBattle] = useState(false);
   const [startingBattle, setStartingBattle] = useState(false);
+  const [endingTurn, setEndingTurn] = useState(false);
   const [gmWeather, setGmWeather] = useState('clear');
   const [gmEnemyType, setGmEnemyType] = useState('destroyer');
   const [gmBossKey, setGmBossKey] = useState('siren_boss_observer_alpha');
   const [gmSpawnMode, setGmSpawnMode] = useState(false);
   const [gmStatusTarget, setGmStatusTarget] = useState('');
   const [gmStatusAction, setGmStatusAction] = useState('fire');
+  const [gmControlledAI, setGmControlledAI] = useState(null); // enemy object being controlled
+  const [gmAIMoveCoord, setGmAIMoveCoord] = useState('');
+  const [gmAIAttackTarget, setGmAIAttackTarget] = useState('');
 
   const audioRef = useRef(null);
   const prevGameStateRef = useRef(null);
@@ -382,6 +386,43 @@ function GameView({ channelId, user, onBack, onLogout }) {
     return s;
   }, [gameState]);
 
+  // Movement range highlights (yellow) — circular Euclidean radius within player's speed
+  const moveHighlights = useMemo(() => {
+    if (gameState?.phase !== 'battle') return [];
+    if (!selectedPlayer || selectedPlayer.sunk || selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions) return [];
+    if (selectedPlayer.x == null || selectedPlayer.y == null) return [];
+    const speed = selectedPlayer.stats?.speed || 3;
+    const result = [];
+    for (let dx = -speed; dx <= speed; dx++) {
+      for (let dy = -speed; dy <= speed; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        if (Math.sqrt(dx * dx + dy * dy) > speed) continue;
+        const nx = selectedPlayer.x + dx;
+        const ny = selectedPlayer.y + dy;
+        if (nx < 0 || ny < 0) continue;
+        if (landSet.has(`${nx},${ny}`)) continue;
+        result.push({ x: nx, y: ny });
+      }
+    }
+    return result;
+  }, [gameState, selectedPlayer, landSet]);
+
+  // Attack range highlights (red) — enemy cells within max weapon range
+  const attackHighlights = useMemo(() => {
+    if (!selectedPlayer || selectedPlayer.sunk || selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions) return [];
+    if (selectedPlayer.x == null || selectedPlayer.y == null) return [];
+    const weapons = Array.isArray(selectedPlayer.weapons)
+      ? selectedPlayer.weapons
+      : Object.values(selectedPlayer.weapons || {});
+    if (weapons.length === 0) return [];
+    const maxRange = Math.max(...weapons.map(w => w.range || 0));
+    return (gameState?.enemies || []).filter(e => {
+      if (e.sunk || e.x == null || e.y == null) return false;
+      const dist = Math.sqrt((e.x - selectedPlayer.x) ** 2 + (e.y - selectedPlayer.y) ** 2);
+      return dist <= maxRange;
+    }).map(e => ({ x: e.x, y: e.y }));
+  }, [selectedPlayer, gameState]);
+
   // Map every cell covered by an infrastructure footprint → the infrastructure item
   // Mirrors INFRA_SPAN from GameMap.js (centered on item.x, item.y)
   const infraCellMap = useMemo(() => {
@@ -421,6 +462,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const newSocket = io(API_URL, { withCredentials: true });
     newSocket.on('connect', () => newSocket.emit('joinGame', channelId));
     newSocket.on('gameUpdate', () => fetchGameState());
+    newSocket.on('battleLogEntry', (data) => {
+      addLogEntry(data.message, data.logType || 'ai');
+    });
     setSocket(newSocket);
   };
 
@@ -484,7 +528,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
   };
 
   const handleEndTurn = async () => {
-    if (!selectedPlayer) return;
+    if (!selectedPlayer || endingTurn) return;
+    setEndingTurn(true);
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/end-turn`,
         {},
@@ -492,6 +537,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
       );
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to end turn');
+    } finally {
+      setEndingTurn(false);
     }
   };
 
@@ -572,6 +619,60 @@ function GameView({ channelId, user, onBack, onLogout }) {
       );
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to apply status');
+    }
+  };
+
+  const handleTakeControl = async (enemy) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/gm/take-control`,
+        { aiId: enemy.id }, { withCredentials: true });
+      setGmControlledAI(enemy);
+      setGmAIMoveCoord('');
+      setGmAIAttackTarget('');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to take control');
+    }
+  };
+
+  const handleReleaseControl = async () => {
+    if (!gmControlledAI) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/gm/release-control`,
+        { aiId: gmControlledAI.id }, { withCredentials: true });
+      setGmControlledAI(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to release control');
+    }
+  };
+
+  const handleGMAIMove = async () => {
+    if (!gmControlledAI || !gmAIMoveCoord.trim()) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/gm/ai-move`,
+        { aiId: gmControlledAI.id, coordinate: gmAIMoveCoord.trim() }, { withCredentials: true });
+      setGmAIMoveCoord('');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to move AI');
+    }
+  };
+
+  const handleGMAIAttack = async () => {
+    if (!gmControlledAI || !gmAIAttackTarget) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/gm/ai-attack`,
+        { aiId: gmControlledAI.id, targetId: gmAIAttackTarget }, { withCredentials: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to execute attack');
+    }
+  };
+
+  const handleGMAIEndTurn = async () => {
+    if (!gmControlledAI) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/gm/ai-end-turn`,
+        { aiId: gmControlledAI.id }, { withCredentials: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to end AI turn');
     }
   };
 
@@ -685,8 +786,12 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const enemies = (gameState.enemies || []).filter(e => !e.sunk && e.x === x && e.y === y);
     const isLand = landSet.has(`${x},${y}`);
     const isSpawnCell = spawnSet.has(`${x},${y}`);
-    const canMove = selectedPlayer && !selectedPlayer.sunk &&
-      selectedPlayer.actionsThisTurn < selectedPlayer.maxActions && !isLand;
+    const moveSpeed = selectedPlayer?.stats?.speed || 3;
+    const inMoveRange = selectedPlayer && selectedPlayer.x != null && selectedPlayer.y != null
+      ? Math.sqrt((x - selectedPlayer.x) ** 2 + (y - selectedPlayer.y) ** 2) <= moveSpeed
+      : true;
+    const canMove = gameState?.phase === 'battle' && selectedPlayer && !selectedPlayer.sunk &&
+      selectedPlayer.actionsThisTurn < selectedPlayer.maxActions && !isLand && inMoveRange;
     const canAttackAny = selectedPlayer && !selectedPlayer.sunk &&
       selectedPlayer.actionsThisTurn < selectedPlayer.maxActions;
 
@@ -994,8 +1099,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       🔧 Damage Control
                       {(selectedPlayer.damageControlCooldown ?? 0) > 0 && ` (${selectedPlayer.damageControlCooldown}t)`}
                     </button>
-                    <button className="btn btn-secondary" onClick={handleEndTurn}>
-                      ✋ End Turn
+                    <button className="btn btn-secondary" onClick={handleEndTurn} disabled={endingTurn}>
+                      {endingTurn ? 'Ending...' : '✋ End Turn'}
                     </button>
                   </>
                 )}
@@ -1016,8 +1121,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   const hpPct = enemy.maxHealth > 0
                     ? Math.max(0, Math.min(100, Math.round((enemy.health / enemy.maxHealth) * 100)))
                     : 0;
+                  const isControlled = gmControlledAI?.id === enemy.id;
                   return (
-                    <div key={enemy.id} className="ship-card-simple enemy">
+                    <div key={enemy.id} className={`ship-card-simple enemy${isControlled ? ' gm-controlled' : ''}`}>
                       <div className="scs-header">
                         <img
                           className="scs-icon"
@@ -1025,7 +1131,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                           alt=""
                           onError={e => { e.target.style.display = 'none'; }}
                         />
-                        <span className="scs-name">{enemy.name}{enemy.isBoss ? ' ⚠️' : ''}</span>
+                        <span className="scs-name">{enemy.name}{enemy.isBoss ? ' ⚠️' : ''}{enemy.gmControlled ? ' 🕹️' : ''}</span>
                         <span className="scs-status">
                           {enemy.onFire   && '🔥'}
                           {enemy.flooding && '💧'}
@@ -1037,6 +1143,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
                           {enemy.health ?? 0}/{enemy.maxHealth ?? 0}
                         </span>
                       </div>
+                      {isGM && (
+                        isControlled
+                          ? <button className="gm-control-btn release" onClick={handleReleaseControl}>Release Control</button>
+                          : <button className="gm-control-btn take" onClick={() => handleTakeControl(enemy)}>Take Control</button>
+                      )}
                     </div>
                   );
                 })
@@ -1129,6 +1240,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     );
                   })}
                 </select>
+              </div>
+              <div className="gm-row">
                 <select value={gmStatusAction} onChange={e => setGmStatusAction(e.target.value)}>
                   <option value="fire">🔥 Fire</option>
                   <option value="flood">💧 Flood</option>
@@ -1142,6 +1255,39 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   }}
                 >Apply</button>
               </div>
+
+              {/* GM AI Control */}
+              {gmControlledAI && (
+                <div className="gm-ai-control">
+                  <h4>🕹️ Controlling: {gmControlledAI.name}</h4>
+
+                  <div className="gm-row">
+                    <input
+                      type="text"
+                      placeholder="Coordinate (e.g. B12)"
+                      value={gmAIMoveCoord}
+                      onChange={e => setGmAIMoveCoord(e.target.value.toUpperCase())}
+                      className="gm-coord-input"
+                    />
+                    <button onClick={handleGMAIMove} disabled={!gmAIMoveCoord.trim()}>Move</button>
+                  </div>
+
+                  <div className="gm-row">
+                    <select value={gmAIAttackTarget} onChange={e => setGmAIAttackTarget(e.target.value)}>
+                      <option value="">— Select Target —</option>
+                      {(gameState.players || []).filter(p => !p.sunk).map(p => (
+                        <option key={p.userId} value={p.userId}>{p.characterAlias || p.username}</option>
+                      ))}
+                    </select>
+                    <button onClick={handleGMAIAttack} disabled={!gmAIAttackTarget}>Attack</button>
+                  </div>
+
+                  <div className="gm-row">
+                    <button className="btn-gm-danger" onClick={handleGMAIEndTurn}>End AI Turn</button>
+                    <button onClick={handleReleaseControl}>Release Control</button>
+                  </div>
+                </div>
+              )}
 
               {/* End Battle */}
               {!confirmEndBattle
@@ -1172,6 +1318,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
               selectedCell={selectedCell}
               spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
               myUserId={user.id}
+              isGM={isGM}
+              moveHighlights={needsSpawn ? [] : moveHighlights}
+              attackHighlights={needsSpawn ? [] : attackHighlights}
             />
             <div className="battle-log-panel">
               <div className="battle-log-header">

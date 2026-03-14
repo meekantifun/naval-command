@@ -12,12 +12,6 @@ class CustomMapCommands {
 
     getCommands() {
         return [
-            // Create a new custom map
-            new SlashCommandBuilder()
-                .setName('createmap')
-                .setDescription('Create a custom map for battles')
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-
             // List available custom maps
             new SlashCommandBuilder()
                 .setName('listmaps')
@@ -54,27 +48,6 @@ class CustomMapCommands {
                         .setDescription('ID of the map to delete')
                         .setRequired(true)
                 )
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-
-            // Upload map from file
-            new SlashCommandBuilder()
-                .setName('uploadmap')
-                .setDescription('Upload a custom map from file')
-                .addAttachmentOption(option =>
-                    option.setName('file')
-                        .setDescription('Map file (PNG, JPG, or JSON)')
-                        .setRequired(true)
-                )
-                .addStringOption(option =>
-                    option.setName('name')
-                        .setDescription('Name for the map')
-                        .setRequired(true)
-                )
-                .addStringOption(option =>
-                    option.setName('description')
-                        .setDescription('Description of the map')
-                        .setRequired(false)
-                )
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         ];
     }
@@ -91,7 +64,7 @@ class CustomMapCommands {
         }
 
         // Check staff permissions for map management commands (except previewmap)
-        const staffOnlyCommands = ['createmap', 'listmaps', 'usemap', 'deletemap', 'uploadmap'];
+        const staffOnlyCommands = ['listmaps', 'usemap', 'deletemap'];
         if (staffOnlyCommands.includes(interaction.commandName) && !this.bot.hasStaffPermission(interaction.member)) {
             return interaction.reply({
                 content: '❌ You need staff permissions to use map management commands.\n\n' +
@@ -103,9 +76,6 @@ class CustomMapCommands {
         }
 
         switch (interaction.commandName) {
-            case 'createmap':
-                await this.handleCreateMap(interaction, customMapSystem);
-                break;
             case 'listmaps':
                 await this.handleListMaps(interaction, customMapSystem);
                 break;
@@ -117,9 +87,6 @@ class CustomMapCommands {
                 break;
             case 'deletemap':
                 await this.handleDeleteMap(interaction, customMapSystem);
-                break;
-            case 'uploadmap':
-                await this.handleUploadMap(interaction, customMapSystem);
                 break;
         }
     }
@@ -133,7 +100,7 @@ class CustomMapCommands {
 
         if (maps.length === 0) {
             await interaction.reply({
-                content: '📍 No custom maps available. Use `/createmap` to create one!',
+                content: '📍 No custom maps available. Create one in the web panel!',
                 flags: MessageFlags.Ephemeral
             });
             return;

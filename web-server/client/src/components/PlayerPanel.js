@@ -422,6 +422,11 @@ function SettingsSection({ guild, isGM, currencyConfig, onConfigChange }) {
     const saved = localStorage.getItem('navalCommandVolume');
     return saved !== null ? parseFloat(saved) : 0.8;
   });
+  const [bgVolume, setBgVolume] = useState(() => {
+    const saved = parseFloat(localStorage.getItem('bgMusicVolume'));
+    return (saved > 0) ? saved : 0.3;
+  });
+  const [bgMuted, setBgMuted] = useState(() => localStorage.getItem('bgMusicMuted') === 'true');
 
   // Currency editor state (GM only)
   const [currencyName, setCurrencyName] = useState((currencyConfig || DEFAULT_CURRENCY).name);
@@ -446,6 +451,20 @@ function SettingsSection({ guild, isGM, currencyConfig, onConfigChange }) {
     const v = parseFloat(val);
     setVolume(v);
     localStorage.setItem('navalCommandVolume', v);
+  };
+
+  const handleBgVolume = (val) => {
+    const v = parseFloat(val);
+    setBgVolume(v);
+    localStorage.setItem('bgMusicVolume', v);
+    if (!bgMuted) window.dispatchEvent(new CustomEvent('bgMusicVolumeChange', { detail: v }));
+  };
+
+  const handleBgMute = () => {
+    const nowMuted = !bgMuted;
+    setBgMuted(nowMuted);
+    localStorage.setItem('bgMusicMuted', String(nowMuted));
+    window.dispatchEvent(new CustomEvent('bgMusicMuteChange', { detail: nowMuted }));
   };
 
   const handleIconChange = (e) => {
@@ -496,6 +515,27 @@ function SettingsSection({ guild, isGM, currencyConfig, onConfigChange }) {
   return (
     <div className="pp-settings">
       <h3>Audio</h3>
+
+      <div className="pp-setting-row">
+        <label className="pp-setting-label">
+          {bgMuted ? '🔇' : '🎵'} Background Music
+        </label>
+        <div className="pp-setting-control">
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={bgVolume}
+            onChange={e => handleBgVolume(e.target.value)}
+            className="pp-volume-slider"
+          />
+          <span className="pp-volume-label">{bgMuted ? 'Muted' : `${Math.round(bgVolume * 100)}%`}</span>
+        </div>
+        <button className="pp-mute-btn" onClick={handleBgMute}>
+          {bgMuted ? 'Unmute' : 'Mute'}
+        </button>
+      </div>
 
       <div className="pp-setting-row">
         <label className="pp-setting-label">

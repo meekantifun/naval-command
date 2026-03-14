@@ -4,6 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 const GameUtils = require('../utils/gameUtils');
+const AIPersonality = require('../systems/aiPersonality');
 const { MessageFlags } = require('discord.js');
 
 class EventHandler {
@@ -14,6 +15,34 @@ class EventHandler {
     setupEventListeners() {
         this.bot.client.on('ready', () => this.onReady());
         this.bot.client.on('interactionCreate', (interaction) => this.onInteractionCreate(interaction));
+        this.bot.client.on('messageCreate', (message) => this.onMessageCreate(message));
+    }
+
+    onMessageCreate(message) {
+        // Ignore bots and empty messages
+        if (message.author.bot || !message.content?.trim()) return;
+
+        // Find a game active in this channel
+        const game = this.bot.games?.get(message.channelId);
+        if (!game || !game.enemies || game.enemies.size === 0) return;
+
+        // Only respond if the battle is in progress
+        if (!game.turnOrder || game.isGameOver) return;
+
+        // Only respond to players who are in the game (avoid reacting to GM/bystander chatter)
+        if (!game.players.has(message.author.id)) return;
+
+        // Check aiSpeakChance: 0 = disabled, 0–1 = probability, default 1.0
+        const chance = game.aiSpeakChance ?? 1.0;
+        if (chance === 0 || Math.random() > chance) return;
+
+        // Delay first so it feels like the AI is reading and thinking, then generate + send
+        const delay = 1000 + Math.random() * 1500;
+        setTimeout(() => {
+            AIPersonality.respondToPlayer(message.content, game.enemies)
+                .then(response => { if (response) message.channel.send(response).catch(() => {}); })
+                .catch(() => {});
+        }, delay);
     }
 
     onReady() {
@@ -24,7 +53,9 @@ class EventHandler {
     }
 
     async onInteractionCreate(interaction) {
-        if (interaction.isCommand()) {
+        if (interaction.isAutocomplete()) {
+            await this.handleAutocomplete(interaction);
+        } else if (interaction.isCommand()) {
             await this.handleSlashCommand(interaction);
         } else if (interaction.isButton()) {
             await this.handleButtonInteraction(interaction);
@@ -35,16 +66,34 @@ class EventHandler {
         }
     }
 
+    async handleAutocomplete(interaction) {
+        if (interaction.commandName !== 'speak') return interaction.respond([]);
+
+        const focused = interaction.options.getFocused().toLowerCase();
+        const game    = this.bot.games?.get(interaction.channelId);
+        if (!game) return interaction.respond([]);
+
+        const choices = Array.from(game.enemies.entries())
+            .filter(([, e]) => e.alive)
+            .map(([id, e]) => {
+                const raw  = e.customName || e.name || 'Unknown';
+                // Strip existing [XX] prefix for display, keep id as value
+                const display = raw.replace(/^\[.*?\]\s*/, '').trim();
+                const full    = raw; // full name including prefix if any
+                return { name: full, value: String(id) };
+            })
+            .filter(c => c.name.toLowerCase().includes(focused))
+            .slice(0, 25);
+
+        await interaction.respond(choices);
+    }
+
     async handleSlashCommand(interaction) {
         const { commandName } = interaction;
 
         try {
             // Check if it's a moderation command first
-            const roleCommandNames = [
-                'buttonroles', 'listbuttonroles', 'deletebuttonrole',
-                'dropdownroles', 'listdropdownroles', 'deletedropdownrole',
-                'roleinfo', 'rolecount', 'embed', 'listembeds'
-            ];
+            const roleCommandNames = ['roles', 'listroles', 'embed', 'listembeds'];
 
             const messageLogCommandNames = [
                 'setmsglogchannel', 'removemsglogchannel', 'msglogchannelinfo',
@@ -85,7 +134,7 @@ class EventHandler {
             }
 
             // Check if it's a custom map command
-            const customMapCommandNames = ['createmap', 'listmaps', 'usemap', 'previewmap', 'deletemap', 'uploadmap'];
+            const customMapCommandNames = ['listmaps', 'usemap', 'previewmap', 'deletemap'];
             if (customMapCommandNames.includes(commandName)) {
                 await this.bot.customMapCommands.handleCustomMapCommand(interaction);
                 return;
@@ -120,14 +169,16 @@ class EventHandler {
                 case 'leaderboard':
                     await this.bot.levelingSystem.showLeaderboard(interaction);
                     break;
-                case 'move':
+                case 'move': {
+                    const moveType = interaction.options.getString('type');
                     const coordinate = interaction.options.getString('coordinate');
-                    await this.bot.executeSlashMove(interaction, coordinate);
+                    if (moveType === 'aircraft') {
+                        await this.bot.moveAircraft(interaction);
+                    } else {
+                        await this.bot.executeSlashMove(interaction, coordinate);
+                    }
                     break;
-                case 'moveair':
-                    const airCoordinate = interaction.options.getString('coordinate');
-                    await this.bot.executeSlashMoveAir(interaction, airCoordinate);
-                    break;
+                }
                 case 'weather':
                     await this.bot.setWeather(interaction);
                     break;
@@ -154,6 +205,12 @@ class EventHandler {
                     break;
                 case 'equipment':
                     await this.bot.showEquipmentStats(interaction);
+                    break;
+                case 'speak':
+                    await this.bot.handleGMSpeak(interaction);
+                    break;
+                case 'aicanspeak':
+                    await this.bot.handleAICanSpeak(interaction);
                     break;
                 case 'roleplay':
                     await this.bot.setRoleplayMode(interaction);
@@ -202,7 +259,7 @@ class EventHandler {
             }
 
             // Check if it's a custom map button
-            if (customId.startsWith('map_')) {
+            if (customId.startsWith('map_') || customId.startsWith('template_')) {
                 await this.bot.customMapSystem.handleMapCreationButton(interaction);
                 return;
             }
@@ -246,7 +303,7 @@ class EventHandler {
                     await interaction.reply({ content: '❌ No active game in this channel!', flags: MessageFlags.Ephemeral });
                 }
             } else if (customId.startsWith('shop_')) {
-                await this.bot.shopSystem.handleShopButton(interaction);
+                await this.bot.shopSystem.handleShopInteraction(interaction);
             } else if (customId.startsWith('aircraft_')) {
                 await this.bot.handleAircraftButton(interaction);
             } else if (customId.startsWith('select_battle_squadron_')) {
@@ -273,6 +330,8 @@ class EventHandler {
                 await this.bot.playerCreation.handleSkipAASetup(interaction);
             } else if (customId.startsWith('configure_short_aa_') || customId.startsWith('configure_medium_aa_') || customId.startsWith('configure_long_aa_') || customId.startsWith('skip_all_aa_') || customId.startsWith('finish_aa_config_') || customId.startsWith('continue_next_aa_') || customId.startsWith('finish_aa_') || customId.startsWith('confirm_all_aa_') || customId.startsWith('reset_aa_')) {
                 await this.bot.playerCreation.handleAAConfigButtons(interaction);
+            } else if (customId.startsWith('gmai_')) {
+                await this.bot.handleGMAIButton(interaction);
             } else if (customId.startsWith('finalize_')) {
                 await this.bot.playerCreation.finalizeCharacterWithAA(interaction);
             } else {
@@ -349,6 +408,8 @@ class EventHandler {
                 } else {
                     await interaction.reply({ content: '❌ No active game setup in this channel!', flags: MessageFlags.Ephemeral });
                 }
+            } else if (customId.startsWith('gmai_attack_select_')) {
+                await this.bot.handleGMAITargetSelect(interaction);
             } else {
                 await interaction.reply({ content: 'Unknown select menu interaction!', flags: MessageFlags.Ephemeral });
             }
@@ -392,6 +453,12 @@ class EventHandler {
             // Check if it's a terrain addition modal
             if (customId.startsWith('terrain_add_')) {
                 await this.bot.customMapSystem.handleTerrainModal(interaction);
+                return;
+            }
+
+            // GM AI move modal
+            if (customId.startsWith('gmai_move_submit_')) {
+                await this.bot.handleGMAIModalSubmit(interaction);
                 return;
             }
 

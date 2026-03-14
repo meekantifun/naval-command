@@ -55,10 +55,10 @@ function MapManager({ guildId }) {
       <div className="manager-section">
         <h3>Custom Maps ({maps.length})</h3>
         <p className="section-desc">
-          Custom maps are created using the <code>/createmap</code> command in Discord
+          Custom maps are created and managed from the web panel
         </p>
         {maps.length === 0 ? (
-          <p className="no-data">No custom maps yet. Use /createmap in Discord to create one!</p>
+          <p className="no-data">No custom maps yet. Create one in the web panel!</p>
         ) : (
           <div className="map-list">
             {maps.map((map) => (
@@ -79,9 +79,8 @@ function MapManager({ guildId }) {
 
       <div className="map-info-box">
         <h4>💡 Managing Maps</h4>
-        <p>Maps can be created and edited using Discord slash commands:</p>
+        <p>Use these Discord commands to apply maps to games:</p>
         <ul>
-          <li><code>/createmap [name]</code> - Create a new custom map</li>
           <li><code>/usemap [mapId]</code> - Use a map for the next game</li>
           <li><code>/listmaps</code> - View all available maps</li>
           <li><code>/previewmap [mapId]</code> - Preview a map</li>

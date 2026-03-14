@@ -143,7 +143,7 @@ passport.deserializeUser((obj, done) => {
 
 // Bot API client
 const botAPI = axios.create({
-  baseURL: process.env.BOT_API_URL || 'http://localhost:3000',
+  baseURL: process.env.BOT_API_URL || `http://localhost:${process.env.BOT_API_PORT || 3002}`,
   headers: {
     'Authorization': `Bearer ${process.env.BOT_API_KEY}`
   }
@@ -386,6 +386,22 @@ app.post('/api/game/:channelId/apply-status', ensureAuthenticated, async (req, r
   }
 });
 
+// GM AI control routes
+const gmAIProxy = (path) => async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/${path}`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || `Failed: ${path}` });
+  }
+};
+app.post('/api/game/:channelId/gm/take-control',   ensureAuthenticated, gmAIProxy('gm/take-control'));
+app.post('/api/game/:channelId/gm/release-control', ensureAuthenticated, gmAIProxy('gm/release-control'));
+app.post('/api/game/:channelId/gm/ai-move',         ensureAuthenticated, gmAIProxy('gm/ai-move'));
+app.post('/api/game/:channelId/gm/ai-attack',       ensureAuthenticated, gmAIProxy('gm/ai-attack'));
+app.post('/api/game/:channelId/gm/ai-end-turn',     ensureAuthenticated, gmAIProxy('gm/ai-end-turn'));
+
 app.post('/api/game/:channelId/start-battle', ensureAuthenticated, async (req, res) => {
   try {
     const r = await botAPI.post(`/api/game/${req.params.channelId}/start-battle`,
@@ -434,7 +450,11 @@ app.post('/api/broadcast/:channelId', async (req, res) => {
     const { channelId } = req.params;
     const update = req.body;
 
-    io.to(channelId).emit('gameUpdate', update);
+    if (update.type === 'battleLogEntry') {
+      io.to(channelId).emit('battleLogEntry', { message: update.message, logType: update.logType || 'ai' });
+    } else {
+      io.to(channelId).emit('gameUpdate', update);
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error broadcasting update:', error.message);

@@ -866,7 +866,7 @@ function getShipType(shipClass) {
   return 'auxiliary';
 }
 
-function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null }) {
+function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null, isGM = false, moveHighlights = [], attackHighlights = [] }) {
   const canvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
   // mineImg is loaded via iconsRef below; keep this null so the fallback never draws
@@ -912,6 +912,18 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     return s;
   }, [spawnZoneCoords]);
 
+  const moveSet = useMemo(() => {
+    const s = new Set();
+    for (const c of moveHighlights) s.add(`${c.x},${c.y}`);
+    return s;
+  }, [moveHighlights]);
+
+  const attackSet = useMemo(() => {
+    const s = new Set();
+    for (const c of attackHighlights) s.add(`${c.x},${c.y}`);
+    return s;
+  }, [attackHighlights]);
+
   const allPlayers = useMemo(() =>
     (gameState?.players || []).filter(p => p.x != null),
   [gameState]);
@@ -951,6 +963,9 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     // Terrain
     for (const cell of terrainMap.values()) {
       const { x, y, type } = cell;
+      // Mines are rendered via the infrastructure icon system (GM-only).
+      // Skip the minefield terrain color so the green square never shows.
+      if (type === 'minefield') continue;
       const colors = TERRAIN_COLORS[type] || TERRAIN_COLORS.island;
       const px = MARGIN + x * CELL;
       const py = MARGIN + y * CELL;
@@ -999,6 +1014,73 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.shadowBlur = 0; // reset shadow so it doesn't bleed into other draws
     }
 
+    // Movement range highlight — yellow pulsing fill + perimeter glow
+    if (moveSet.size > 0) {
+      ctx.save();
+      const t = Date.now() / 1000;
+      const pulse = 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 1.4));
+
+      ctx.fillStyle = `rgba(255, 210, 0, ${0.12 + 0.18 * pulse})`;
+      for (const key of moveSet) {
+        const [mx, my] = key.split(',').map(Number);
+        if (mx < 0 || mx >= mapSize || my < 0 || my >= mapSize) continue;
+        ctx.fillRect(MARGIN + mx * CELL, MARGIN + my * CELL, CELL, CELL);
+      }
+
+      ctx.beginPath();
+      for (const key of moveSet) {
+        const [mx, my] = key.split(',').map(Number);
+        if (mx < 0 || mx >= mapSize || my < 0 || my >= mapSize) continue;
+        const px = MARGIN + mx * CELL;
+        const py = MARGIN + my * CELL;
+        if (!moveSet.has(`${mx},${my - 1}`)) { ctx.moveTo(px, py);        ctx.lineTo(px + CELL, py);        }
+        if (!moveSet.has(`${mx},${my + 1}`)) { ctx.moveTo(px, py + CELL); ctx.lineTo(px + CELL, py + CELL); }
+        if (!moveSet.has(`${mx - 1},${my}`)) { ctx.moveTo(px, py);        ctx.lineTo(px, py + CELL);        }
+        if (!moveSet.has(`${mx + 1},${my}`)) { ctx.moveTo(px + CELL, py); ctx.lineTo(px + CELL, py + CELL); }
+      }
+      const glowAlpha = 0.5 + 0.5 * pulse;
+      ctx.lineCap = 'square';
+      ctx.shadowColor = `rgba(255, 220, 0, ${glowAlpha})`;
+      ctx.shadowBlur = 8 + 6 * pulse;
+      ctx.strokeStyle = `rgba(255, 220, 0, ${glowAlpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Attack range highlight — red pulsing fill on enemies in range
+    if (attackSet.size > 0) {
+      ctx.save();
+      const t = Date.now() / 1000;
+      const pulse = 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 1.2));
+
+      ctx.fillStyle = `rgba(255, 50, 50, ${0.15 + 0.20 * pulse})`;
+      for (const key of attackSet) {
+        const [ax, ay] = key.split(',').map(Number);
+        if (ax < 0 || ax >= mapSize || ay < 0 || ay >= mapSize) continue;
+        ctx.fillRect(MARGIN + ax * CELL, MARGIN + ay * CELL, CELL, CELL);
+      }
+
+      ctx.beginPath();
+      for (const key of attackSet) {
+        const [ax, ay] = key.split(',').map(Number);
+        if (ax < 0 || ax >= mapSize || ay < 0 || ay >= mapSize) continue;
+        const px = MARGIN + ax * CELL;
+        const py = MARGIN + ay * CELL;
+        ctx.moveTo(px, py); ctx.lineTo(px + CELL, py);
+        ctx.lineTo(px + CELL, py + CELL); ctx.lineTo(px, py + CELL);
+        ctx.closePath();
+      }
+      const glowAlpha = 0.6 + 0.4 * pulse;
+      ctx.lineCap = 'square';
+      ctx.shadowColor = `rgba(255, 80, 80, ${glowAlpha})`;
+      ctx.shadowBlur = 8 + 6 * pulse;
+      ctx.strokeStyle = `rgba(255, 80, 80, ${glowAlpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Grid lines
     ctx.strokeStyle = 'rgba(226,232,240,0.30)';
     ctx.lineWidth = 0.5;
@@ -1008,15 +1090,11 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.beginPath(); ctx.moveTo(MARGIN, hy); ctx.lineTo(MARGIN + mapSize * CELL, hy); ctx.stroke();
     }
 
-    // Build set of mine coords visible to any alive player (≤5 cell Euclidean distance)
+    // Mines are only visible to the GM
     const visibleMines = new Set();
-    for (const item of infrastructure) {
-      if (item.type !== 'mine') continue;
-      for (const p of allPlayers) {
-        if (!p.sunk && p.x != null && p.y != null) {
-          const dist = Math.sqrt(Math.pow(p.x - item.x, 2) + Math.pow(p.y - item.y, 2));
-          if (dist <= 5) { visibleMines.add(`${item.x},${item.y}`); break; }
-        }
+    if (isGM) {
+      for (const item of infrastructure) {
+        if (item.type === 'mine') visibleMines.add(`${item.x},${item.y}`);
       }
     }
 
@@ -1031,12 +1109,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
         const px = MARGIN + item.x * CELL;
         const py = MARGIN + item.y * CELL;
         if (mineIconImg) {
-          const scale = Math.min(CELL / mineIconImg.width, CELL / mineIconImg.height);
-          const dw = mineIconImg.width * scale;
-          const dh = mineIconImg.height * scale;
-          ctx.save();
-          ctx.drawImage(mineIconImg, px + (CELL - dw) / 2, py + (CELL - dh) / 2, dw, dh);
-          ctx.restore();
+          ctx.drawImage(mineIconImg, px, py, CELL, CELL);
         } else {
           ctx.fillStyle = '#7c3aed';
           ctx.beginPath();
@@ -1201,7 +1274,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, moveSet, attackSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
 
   // Always keep ref current so the animation loop never has a stale drawMap
   drawMapFnRef.current = drawMap;
@@ -1211,11 +1284,13 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     if (canvasRef.current && gameState) drawMap();
   }, [drawMap, gameState]);
 
-  // Spawn zone pulse animation — starts/stops based on whether there are spawn zones
-  const hasSpawnZones = spawnZoneCoords.length > 0;
+  // Animation loop — runs whenever there are pulsing highlights (spawn zones, move range, or attack range)
+  const hasAnimatedHighlights = spawnZoneCoords.length > 0 || moveHighlights.length > 0 || attackHighlights.length > 0;
   useEffect(() => {
-    if (!hasSpawnZones) {
+    if (!hasAnimatedHighlights) {
       cancelAnimationFrame(animFrameRef.current);
+      // Still draw once so the map renders cleanly with no highlights
+      if (canvasRef.current && drawMapFnRef.current) drawMapFnRef.current();
       return;
     }
     const loop = () => {
@@ -1224,7 +1299,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     };
     animFrameRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [hasSpawnZones]);
+  }, [hasAnimatedHighlights]);
 
   const getGridCoords = (e) => {
     const canvas = canvasRef.current;

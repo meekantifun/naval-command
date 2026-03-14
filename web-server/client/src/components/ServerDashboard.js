@@ -297,6 +297,12 @@ function ServerDashboard({ user, guild, onSelectGame, onChangeServer }) {
                   </div>
                 </div>
               ))}
+              <div className="game-card new-battle-card" onClick={() => { setAdminInitialTab('game'); setShowAdmin(true); }}>
+                <div className="new-battle-content">
+                  <div className="new-battle-plus">+</div>
+                  <div className="new-battle-label">New Battle</div>
+                </div>
+              </div>
             </div>
           )}
         </main>

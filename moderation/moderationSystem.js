@@ -43,11 +43,7 @@ class ModerationSystem {
     }
 
     async handleSlashCommand(interaction) {
-        const roleCommandNames = [
-            'buttonroles', 'listbuttonroles', 'deletebuttonrole',
-            'dropdownroles', 'listdropdownroles', 'deletedropdownrole',
-            'roleinfo', 'rolecount', 'embed', 'listembeds'
-        ];
+        const roleCommandNames = ['roles', 'listroles', 'roleinfo', 'rolecount', 'embed', 'listembeds'];
 
         const messageLogCommandNames = [
             'setmsglogchannel', 'removemsglogchannel', 'msglogchannelinfo',

@@ -488,3 +488,57 @@
     padding: 8px 5px;
   }
 }
+
+.aircraft-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.aircraft-config-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.aircraft-type-label {
+  width: 140px;
+  flex-shrink: 0;
+  font-weight: 600;
+  color: #b9bbbe;
+  font-size: 0.95rem;
+}
+
+.aircraft-name-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #2f3136;
+  border: 1px solid #4f545c;
+  border-radius: 6px;
+  color: #dcddde;
+  font-size: 0.95rem;
+}
+
+.aircraft-name-input:focus {
+  outline: none;
+  border-color: #5865f2;
+}
+
+.recon-aircraft-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #40444b;
+}
+
+.recon-aircraft-section h4 {
+  margin: 0 0 4px;
+  color: #dcddde;
+  font-size: 1rem;
+}
+
+.recon-aircraft-section .section-note {
+  margin: 0 0 14px;
+  color: #72767d;
+  font-size: 0.85rem;
+}

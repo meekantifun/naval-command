@@ -166,6 +166,15 @@ function CharacterManager({ guildId, user }) {
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState(null);
+  const [expandedCards, setExpandedCards] = useState(new Set());
+
+  const toggleCard = (idx) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
+  };
 
   useEffect(() => {
     loadCharacters();
@@ -256,15 +265,21 @@ function CharacterManager({ guildId, user }) {
           <p className="no-data">No characters found. Create one above!</p>
         ) : (
           <div className="character-list">
-            {characters.map((char, idx) => (
-              <div key={idx} className="character-card expanded">
-                <div className="character-header">
+            {characters.map((char, idx) => {
+              const isExpanded = expandedCards.has(idx);
+              return (
+              <div key={idx} className={`character-card${isExpanded ? ' expanded' : ' collapsed'}`}>
+                <div className="character-header" onClick={() => toggleCard(idx)} style={{cursor:'pointer'}}>
                   <div className="character-title">
-                    <h4>{char.name} {char.isActive && <span className="badge-active">Active</span>}</h4>
+                    <h4>
+                      {char.name}
+                      {char.isActive && <span className="badge-active">Active</span>}
+                      <span className={`card-toggle-arrow${isExpanded ? ' open' : ''}`}>▶</span>
+                    </h4>
                     <p className="char-class">{char.shipClass} • {char.tonnage ? `${char.tonnage.toLocaleString()} tons` : 'N/A'}</p>
                     <p className="char-user">User ID: {char.userId}</p>
                   </div>
-                  <div className="character-actions">
+                  <div className="character-actions" onClick={e => e.stopPropagation()}>
                     <button onClick={() => handleEdit(char)} className="btn-edit">
                       Edit
                     </button>
@@ -273,6 +288,8 @@ function CharacterManager({ guildId, user }) {
                     </button>
                   </div>
                 </div>
+
+                {isExpanded && (<div className="char-section-wrapper">
 
                 {/* Ship Specifications */}
                 {char.tonnage && (
@@ -506,8 +523,9 @@ function CharacterManager({ guildId, user }) {
                     field="level"
                   />
                 </div>
+                </div>)}
               </div>
-            ))}
+            );})}
           </div>
         )}
       </div>

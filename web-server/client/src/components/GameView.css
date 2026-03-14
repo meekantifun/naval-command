@@ -787,6 +787,48 @@
 .gm-confirm button:first-of-type { background: #ed4245; color: #fff; }
 .gm-confirm button:last-of-type { background: #40444b; color: #dcddde; }
 
+/* ===== GM AI CONTROL ===== */
+.gm-ai-control {
+  margin: 8px 0;
+  padding: 10px;
+  background: rgba(88, 101, 242, 0.12);
+  border: 1px solid #5865f2;
+  border-radius: 6px;
+}
+.gm-ai-control h4 {
+  margin: 0 0 8px;
+  color: #5865f2;
+  font-size: 13px;
+  font-weight: 700;
+}
+.gm-coord-input {
+  flex: 1;
+  background: #36393f;
+  color: #dcddde;
+  border: 1px solid #40444b;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: monospace;
+  text-transform: uppercase;
+}
+.gm-control-btn {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.gm-control-btn.take { background: #5865f2; color: #fff; }
+.gm-control-btn.take:hover { background: #4752c4; }
+.gm-control-btn.release { background: #ed4245; color: #fff; }
+.gm-control-btn.release:hover { background: #c0392b; }
+.ship-card-simple.enemy.gm-controlled { border-color: #5865f2 !important; }
+
 /* ===== MVP END-SCREEN OVERLAY ===== */
 .confetti-canvas {
   position: fixed;

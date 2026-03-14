@@ -1288,9 +1288,29 @@ class CharacterManager {
         let description = '';
         characters.forEach((char, index) => {
             const data = char.data;
-            description += `**${index + 1}. ${char.name}**\n`;
-            description += `🚢 ${data.shipClass || 'Unknown'} | ⚖️ ${data.tonnage || 0}t | 🚄 ${data.speedKnots || 0}kn\n`;
-            description += `❤️ ${data.calculatedHP || 0} HP | 💰 ${data.currency || 0} Currency | ⭐ Level ${data.level || 1}\n\n`;
+
+            // Weapons summary
+            const weapons = data.weapons || {};
+            const weaponList = Object.values(weapons).map(w => {
+                const barrels = w.barrels || 1;
+                return `${w.name || w.type || 'Gun'} (${barrels}× ${w.caliber || '?'})`;
+            });
+            const weaponStr = weaponList.length > 0 ? weaponList.join(', ') : 'None';
+
+            // AA summary
+            const aaSystems = data.aaSystems || [];
+            const aaStr = aaSystems.length > 0
+                ? aaSystems.map(a => `${a.mounts}× ${a.caliber}`).join(', ')
+                : 'None';
+
+            description += `**${index + 1}. ${char.name}**`;
+            if (data.nationality) description += ` — ${data.nationality}`;
+            description += `\n`;
+            description += `🚢 **${data.shipClass || 'Unknown'}** | ⚖️ ${data.tonnage || 0}t | 🚄 ${data.speedKnots || 0}kn\n`;
+            description += `❤️ ${data.calculatedHP || 0} HP | 🛡️ ${data.armorThickness || 0}mm armor\n`;
+            description += `⭐ Level ${data.level || 1} | 💰 ${data.currency || 0} credits\n`;
+            description += `🔫 **Weapons:** ${weaponStr}\n`;
+            description += `🎯 **AA:** ${aaStr}\n\n`;
         });
 
         embed.setDescription(description);

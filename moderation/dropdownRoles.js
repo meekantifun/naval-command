@@ -3,7 +3,7 @@
 // ║                    Single-select roles with dropdown menus                  ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs').promises;
 
 class DropdownRoles {
@@ -36,7 +36,7 @@ class DropdownRoles {
     }
 
     async createDropdownRoleEmbed(interaction) {
-        if (!interaction.member.permissions.has('MANAGE_ROLES')) {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
             return interaction.reply({
                 content: '❌ You need the "Manage Roles" permission to use this command!',
                 flags: MessageFlags.Ephemeral
@@ -428,7 +428,7 @@ class DropdownRoles {
     }
 
     async deleteDropdownRole(interaction, messageId) {
-        if (!interaction.member.permissions.has('MANAGE_ROLES')) {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
             return interaction.reply({
                 content: '❌ You need the "Manage Roles" permission to delete dropdown role configurations!',
                 flags: MessageFlags.Ephemeral

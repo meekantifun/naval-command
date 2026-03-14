@@ -3,7 +3,7 @@
 // ║                    Toggle roles with button interactions                     ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs').promises;
 
 class ButtonRoles {
@@ -36,7 +36,7 @@ class ButtonRoles {
     }
 
     async createButtonRoleEmbed(interaction) {
-        if (!interaction.member.permissions.has('MANAGE_ROLES')) {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
             return interaction.reply({
                 content: '❌ You need the "Manage Roles" permission to use this command!',
                 flags: MessageFlags.Ephemeral
@@ -328,7 +328,7 @@ class ButtonRoles {
     }
 
     async deleteButtonRole(interaction, messageId) {
-        if (!interaction.member.permissions.has('MANAGE_ROLES')) {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageRoles)) {
             return interaction.reply({
                 content: '❌ You need the "Manage Roles" permission to delete button role configurations!',
                 flags: MessageFlags.Ephemeral

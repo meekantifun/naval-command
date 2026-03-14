@@ -3,7 +3,7 @@
 // ║                   Custom embed creation and editing system                   ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs').promises;
 
 class EmbedManager {
@@ -37,7 +37,7 @@ class EmbedManager {
 
     async createEmbedCommand(interaction) {
         // Check if user has GM permissions (manage messages or administrator)
-        if (!interaction.member.permissions.has('MANAGE_MESSAGES') && !interaction.member.permissions.has('ADMINISTRATOR')) {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return interaction.reply({
                 content: '❌ You need "Manage Messages" or "Administrator" permissions to create custom embeds!',
                 flags: MessageFlags.Ephemeral

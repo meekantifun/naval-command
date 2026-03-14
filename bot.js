@@ -18,6 +18,7 @@ const MissionObjectives = require('./missions');
 const PlayerCreationModule = require('./handlers/playerCreation');
 const AIConfig = require('./systems/aiConfig');
 const FactionConfig = require('./systems/factionConfig');
+const AIPersonality = require('./systems/aiPersonality');
 const CarrierSystem = require('./systems/carrierSystem');
 const { AIRCRAFT_MOVEMENT_RANGES } = require('./systems/carrierSystem');
 const ShopSystem = require('./systems/shopSystem');
@@ -451,10 +452,10 @@ class NavalWarfareBot {
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('join').setDescription('Join the current battle'),
             new SlashCommandBuilder().setName('start').setDescription('Start the battle').setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-            new SlashCommandBuilder().setName('move').setDescription('Move your ship to a coordinate')
+            new SlashCommandBuilder().setName('move').setDescription('Move your ship or aircraft to a coordinate')
+                .addStringOption(option => option.setName('type').setDescription('What to move').setRequired(true)
+                    .addChoices({ name: 'Ship', value: 'ship' }, { name: 'Aircraft', value: 'aircraft' }))
                 .addStringOption(option => option.setName('coordinate').setDescription('Target coordinate (e.g., A1)').setRequired(true)),
-            new SlashCommandBuilder().setName('moveair').setDescription('Move selected aircraft squadron')
-                .addStringOption(option => option.setName('coordinate').setDescription('Target coordinate (e.g., B50)').setRequired(true)),
             new SlashCommandBuilder().setName('weather').setDescription('Set weather conditions')
                 .addStringOption(option => option.setName('condition').setDescription('Weather condition').setRequired(true)
                     .addChoices({name: 'Clear', value: 'clear'}, {name: 'Rainy', value: 'rainy'}, {name: 'Foggy', value: 'foggy'},
@@ -464,8 +465,6 @@ class NavalWarfareBot {
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('end').setDescription('End the current battle').setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('shop').setDescription('View the equipment shop'),
-            new SlashCommandBuilder().setName('equip').setDescription('Equip purchased items')
-                .addStringOption(option => option.setName('item').setDescription('Item to equip').setRequired(true)),
             new SlashCommandBuilder().setName('stats').setDescription('View your current stats'),
             new SlashCommandBuilder().setName('equipment').setDescription('View detailed equipment mastery')
                 .addStringOption(option => option.setName('item').setDescription('Specific equipment to view (optional)')),
@@ -477,6 +476,20 @@ class NavalWarfareBot {
                 .addStringOption(option => option.setName('target').setDescription('Target to set on fire').setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('flood').setDescription('Set a target to flood')
                 .addStringOption(option => option.setName('target').setDescription('Target to flood').setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+            new SlashCommandBuilder().setName('speak').setDescription('[GM] Post a message as a specific AI unit in the battle')
+                .addStringOption(option => option.setName('ai')
+                    .setDescription('Which AI unit speaks')
+                    .setRequired(true)
+                    .setAutocomplete(true))
+                .addStringOption(option => option.setName('message')
+                    .setDescription('What the AI says — use *action* and "speech" formatting')
+                    .setRequired(true))
+                .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+            new SlashCommandBuilder().setName('aicanspeak').setDescription('[GM] Control whether AI responds to player messages in chat')
+                .addStringOption(option => option.setName('value')
+                    .setDescription('true = always, false = never, 1–100 = % chance')
+                    .setRequired(true))
+                .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('roleplay').setDescription('Toggle roleplay mode on/off')
                 .addBooleanOption(option =>
                     option.setName('enabled')
@@ -975,7 +988,6 @@ class NavalWarfareBot {
             case 'spawn': await this.spawnAI(interaction); break;
             case 'end': await this.endGame(interaction); break;
             case 'shop': await this.showShop(interaction); break;
-            case 'equip': await this.equipItem(interaction); break;
             case 'stats': await this.showPlayerStats(interaction); break;
             case 'clearpins': await this.clearPins(interaction); break;
             case 'kill': await this.killTarget(interaction); break;
@@ -983,6 +995,8 @@ class NavalWarfareBot {
             case 'fire': await this.setFire(interaction); break;
             case 'flood': await this.setFlood(interaction); break;
             case 'equipment': await this.showEquipmentStats(interaction); break;
+            case 'speak':      await this.handleGMSpeak(interaction); break;
+            case 'aicanspeak': await this.handleAICanSpeak(interaction); break;
             case 'roleplay':
                 await this.setRoleplayMode(interaction);
                 break;
@@ -1324,6 +1338,11 @@ class NavalWarfareBot {
             // Handle shell selection buttons (for shooting)
             if (interaction.customId.includes('shell_')) {
                 return await this.handleShellSelection(interaction, game);
+            }
+
+            // Handle air support interactions
+            if (interaction.customId.startsWith('airsupp_')) {
+                return await this.handleAirSupportInteraction(interaction, game);
             }
 
             // Handle target selection buttons (for shooting)
@@ -1990,7 +2009,7 @@ class NavalWarfareBot {
 
         if (customMapsArray.length === 0) {
             await interaction.reply({
-                content: '❌ No custom maps available! Use `/createmap` to create custom maps first.',
+                content: '❌ No custom maps available! Create custom maps in the web panel.',
                 flags: MessageFlags.Ephemeral
             });
             return;
@@ -5466,12 +5485,19 @@ class NavalWarfareBot {
             // AI Turn
             await this.aiTurn(game, channel);
 
+            // Sync web dashboard after AI turn so positions and HP reflect immediately
+            this.broadcastGameUpdate(game.channelId).catch(() => {});
+
             // Guard: game may have been ended during the AI turn (e.g. via API/GM)
             if (game.phase !== 'battle') return;
 
             // Process aircraft recovery
             const recoveryMessages = this.processAircraftRecovery(game);
             for (const message of recoveryMessages) await channel.send(message);
+
+            // Process pending air support strikes
+            const airSupportMessages = await this.processAirSupport(game, channel);
+            for (const message of airSupportMessages) await channel.send(message);
 
             game.turnNumber++;
 
@@ -5664,6 +5690,8 @@ class NavalWarfareBot {
 
             // Reset action points
             player.actionPoints = player.shipClass.includes('Carrier') ? 3 : 2;
+            player.actionsThisTurn = 0;
+            player.weaponsFiredThisTurn = new Set();
 
             // Initialize timer reset tracking
             player.timerResets = 0;
@@ -5960,6 +5988,25 @@ class NavalWarfareBot {
             }
         }
 
+        // Add Launch Recon button if player has a recon aircraft and hasn't used it yet
+        if (player.reconAircraft && !player.reconUsed) {
+            buttons.splice(-1, 0, new ButtonBuilder()
+                .setCustomId('launch_recon')
+                .setLabel('🛩️ Launch Recon')
+                .setStyle(ButtonStyle.Primary)
+            );
+        }
+
+        // Add Use Item button if player has an Air Support Marker
+        const hasAirSupport = player.inventory && (player.inventory['air_support_marker'] || 0) > 0;
+        if (hasAirSupport) {
+            buttons.splice(-1, 0, new ButtonBuilder()
+                .setCustomId('use_item')
+                .setLabel('✈️ Air Support')
+                .setStyle(ButtonStyle.Success)
+            );
+        }
+
         const actionRows = [];
         for (let i = 0; i < buttons.length; i += 5) {
             actionRows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
@@ -6048,6 +6095,12 @@ class NavalWarfareBot {
                     break;
                 case 'dmg_control':
                     await this.handleDamageControl(interaction, player, game);
+                    break;
+                case 'use_item':
+                    await this.showItemSelection(interaction, player, game);
+                    break;
+                case 'launch_recon':
+                    await this.handleLaunchRecon(interaction, player, game);
                     break;
                 case 'end_turn':
                     console.log('🔧 Executing end_turn case for player:', player.username || player.id);
@@ -6308,6 +6361,8 @@ class NavalWarfareBot {
     async opforPlayerTurn(opforPlayer, game, channel) {
         // Reset action points
         opforPlayer.actionPoints = opforPlayer.shipClass.includes('Carrier') ? 3 : 2;
+        opforPlayer.actionsThisTurn = 0;
+        opforPlayer.weaponsFiredThisTurn = new Set();
         
         const turnEmbed = new EmbedBuilder()
             .setTitle(`🔴 OPFOR ${opforPlayer.shipClass} Turn`)
@@ -6404,6 +6459,7 @@ class NavalWarfareBot {
         const ammoText   = optimalAmmo === 'he' ? 'HE shells' : 'AP shells';
 
         let msg;
+        let personalityEvent;
         if (result.hit) {
             const maxHP  = target.stats?.health || target.maxHealth || 100;
             const curHP  = target.currentHealth ?? target.health ?? 0;
@@ -6414,11 +6470,20 @@ class NavalWarfareBot {
             if (result.overpenetration) msg += ' *(overpenetration)*';
             if (target.onFire)         msg += ' 🔥 **Target on fire!**';
             if (!target.alive)         msg += `\n☠️ **${targetName} has been sunk!**`;
+            personalityEvent = !target.alive ? 'sunk_player'
+                             : result.critical ? 'attack_hit_critical'
+                             : 'attack_hit';
         } else {
             msg = `💨 **${aiName}** fires ${ammoText} at **${targetName}**... *Miss!*`;
+            personalityEvent = 'attack_miss';
         }
 
         await channel.send(msg);
+        this.broadcastLogEntry(game.channelId, msg.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\n/g, ' '));
+
+        const quoteMsg = AIPersonality.speak(ai, personalityEvent);
+        if (quoteMsg) await channel.send(quoteMsg);
+
         return result;
     }
 
@@ -6432,7 +6497,7 @@ class NavalWarfareBot {
 
         this.moveConvoyShips(game, channel);
 
-        const aiEntities = Array.from(game.enemies.values()).filter(ai => ai.alive && !ai.isOPFOR);
+        const aiEntities = Array.from(game.enemies.values()).filter(ai => ai.alive && !ai.isOPFOR && !ai.gmControlled);
         const opforPlayers = Array.from(game.enemies.values()).filter(ai => ai.alive && ai.isOPFOR);
         const alivePlayers = Array.from(game.players.values()).filter(p => p.alive);
 
@@ -6521,12 +6586,16 @@ class NavalWarfareBot {
                         const oldCell   = game.getMapCell(oldPos);
                         if (oldCell) oldCell.occupant = null;
                         ai.position     = newPos;
+                        const rNums     = game.coordToNumbers(newPos);
+                        ai.x = rNums.x; ai.y = rNums.y - 1;
                         const newCell   = game.getMapCell(newPos);
                         if (newCell) newCell.occupant = 'ai';
                         this.updateAIDirection(ai, oldPos, newPos);
-                        await channel.send(
-                            `💨 **${aiName}** is retreating to **${newPos}**! *(${Math.round(aiHPPct * 100)}% HP — disengaging)*`
-                        );
+                        const retreatMsg = `💨 **${aiName}** is retreating to **${newPos}**! *(${Math.round(aiHPPct * 100)}% HP — disengaging)*`;
+                        await channel.send(retreatMsg);
+                        this.broadcastLogEntry(game.channelId, `💨 ${aiName} retreating to ${newPos} (${Math.round(aiHPPct * 100)}% HP)`);
+                        const retreatQuote = AIPersonality.speak(ai, 'retreat', 0.80);
+                        if (retreatQuote) await channel.send(retreatQuote);
                     }
                     // Parting shot: fire at best target even while fleeing
                     const retreatDist = game.calculateDistance(ai.position, bestTarget.position);
@@ -6556,6 +6625,8 @@ class NavalWarfareBot {
                 const oldCell = game.getMapCell(oldPos);
                 if (oldCell) oldCell.occupant = null;
                 ai.position   = newPos;
+                const aNums   = game.coordToNumbers(newPos);
+                ai.x = aNums.x; ai.y = aNums.y - 1;
                 const newCell = game.getMapCell(newPos);
                 if (newCell) newCell.occupant = 'ai';
 
@@ -6581,6 +6652,7 @@ class NavalWarfareBot {
                 }
 
                 await channel.send(moveMsg);
+                this.broadcastLogEntry(game.channelId, moveMsg.replace(/\*\*/g, '').replace(/\*/g, ''));
 
                 // Move + Attack: if the advance brought us into range, also fire this turn
                 if (ai.alive) {
@@ -6612,6 +6684,17 @@ class NavalWarfareBot {
             }
         }
         
+        // GM-controlled AI turns
+        const gmAIs = Array.from(game.enemies.values()).filter(ai => ai.alive && !ai.isOPFOR && ai.gmControlled);
+        for (const ai of gmAIs) {
+            if (game.phase !== 'battle') break;
+            const statusDamage = this.processTurnEffects(ai, game);
+            for (const m of statusDamage) await channel.send(m);
+            if (!ai.alive) continue;
+            await this.gmControlledAiTurn(ai, game, channel);
+            if (this.checkWinConditions(game)) return;
+        }
+
         // ADD THIS SECTION HERE - Process AI aircraft
         const aiAircraft = Array.from(game.aircraft?.values() || []).filter(a =>
             a.alive && (a.owner === 'enemy' || a.isAI)
@@ -7415,12 +7498,12 @@ class NavalWarfareBot {
         const targets = this.getTargetsInRange(player, game, weaponRange);
         
         if (targets.length === 0) {
-            const weaponDisplayName = weaponType === 'main' ? 'Primary Guns' : 
+            const weaponDisplayName = weaponType === 'main' ? 'Primary Guns' :
                                       weaponType === 'secondary' ? 'Secondary Guns' : 'Torpedoes';
-            return interaction.update({ 
+            return interaction.update({
                 content: `❌ No targets in range for ${weaponDisplayName}! (Range: ${weaponRange} cells)`,
                 embeds: [],
-                components: [] 
+                components: []
             });
         }
 
@@ -7505,9 +7588,21 @@ class NavalWarfareBot {
             return interaction.update({ content: '❌ Target not found or already destroyed!', embeds: [], components: [] });
         }
         
+        // Enforce once-per-turn firing restrictions
+        if (!player.weaponsFiredThisTurn) player.weaponsFiredThisTurn = new Set();
+        if (weaponType === 'torpedoes' && player.weaponsFiredThisTurn.has('torpedoes')) {
+            return interaction.update({ content: '❌ Torpedoes can only be fired once per turn!', embeds: [], components: [] });
+        }
+        if (weaponType === 'main' && player.shipClass?.includes('Battleship') && player.weaponsFiredThisTurn.has('main')) {
+            return interaction.update({ content: '❌ Battleship main guns can only be fired once per turn!', embeds: [], components: [] });
+        }
+
         // Execute the attack
         const result = this.executeAttack(player, target, weaponType, shellType, game);
-        
+
+        // Record weapon fired this turn
+        player.weaponsFiredThisTurn.add(weaponType);
+
         // Consume ammunition and action point
         player.actionPoints--;
         const ammoType = weaponType === 'torpedoes' ? 'torpedoes' : weaponType;
@@ -7536,6 +7631,14 @@ class NavalWarfareBot {
         const channel = interaction.channel;
         if (channel) {
             await channel.send(`${result.message}${specialEffects}`);
+
+            // AI enemy personality reaction when hit by a player
+            if (result.hit && target.universe) {
+                const isLowHP = target.alive && ((target.currentHealth / (target.stats?.health || target.maxHealth || 100)) < 0.30);
+                const aiEvent = !target.alive ? 'ai_sunk' : isLowHP ? 'ai_low_hp' : 'ai_hit';
+                const aiQuote = AIPersonality.speak(target, aiEvent, 0.55);
+                if (aiQuote) await channel.send(aiQuote);
+            }
         }
 
         // Update interaction with private confirmation
@@ -7582,7 +7685,12 @@ class NavalWarfareBot {
         }
 
         // Get weapon damage from the weapon object (now auto-calculated)
-        const weaponData = attacker.weapons[weapon];
+        // weapons may be stored as an object keyed by ID or as an array
+        const weaponData = attacker.weapons
+            ? (attacker.weapons[weapon] || (Array.isArray(attacker.weapons)
+                ? attacker.weapons.find(w => w.type === weapon)
+                : Object.values(attacker.weapons).find(w => w.type === weapon)))
+            : null;
         let baseDamage = weaponData ? weaponData.damage : this.getWeaponDamage(weapon, ammoType);
         
         // Apply equipment level bonus for players
@@ -7831,22 +7939,33 @@ class NavalWarfareBot {
     getWeaponRange(player, weaponType) {
         // Get weapon data from player's weapons
         const weaponData = player.weapons[weaponType];
-        
+
+        let range;
         if (weaponData && weaponData.range) {
-            return weaponData.range; // Use the auto-calculated range
+            range = weaponData.range; // Use the auto-calculated range
+        } else {
+            // Fallback to old system if no weapon data
+            switch (weaponType) {
+                case 'main':
+                    range = player.stats.range || 8;
+                    break;
+                case 'secondary':
+                    range = Math.floor((player.stats.range || 8) * 0.7);
+                    break;
+                case 'torpedoes':
+                    range = Math.floor((player.stats.range || 8) * 0.8);
+                    break;
+                default:
+                    range = player.stats.range || 8;
+            }
         }
-        
-        // Fallback to old system if no weapon data
-        switch (weaponType) {
-            case 'main':
-                return player.stats.range || 8;
-            case 'secondary':
-                return Math.floor((player.stats.range || 8) * 0.7);
-            case 'torpedoes':
-                return Math.floor((player.stats.range || 8) * 0.8);
-            default:
-                return player.stats.range || 8;
+
+        // Recon aircraft bonus: +5 range to main batteries
+        if (weaponType === 'main' && player.reconActive) {
+            range += 5;
         }
+
+        return range;
     }
 
     getWeaponDamage(weapon, ammoType) {
@@ -7861,7 +7980,7 @@ class NavalWarfareBot {
 
     getTargetsInRange(attacker, game, range) {
         const targets = [];
-        
+
         if (attacker.id.startsWith('ai_')) {
             // AI targets players
             for (const player of game.players.values()) {
@@ -7871,7 +7990,7 @@ class NavalWarfareBot {
             }
             // AI also targets player aircraft
             for (const aircraft of game.aircraft?.values() || []) {
-                if (aircraft.owner === 'player' && aircraft.alive && 
+                if (aircraft.owner === 'player' && aircraft.alive &&
                     game.calculateDistance(attacker.position, aircraft.position) <= range) {
                     targets.push(aircraft);
                 }
@@ -7885,18 +8004,221 @@ class NavalWarfareBot {
             }
             // Players also target enemy aircraft
             for (const aircraft of game.aircraft?.values() || []) {
-                if (aircraft.owner === 'enemy' && aircraft.alive && 
+                if (aircraft.owner === 'enemy' && aircraft.alive &&
                     game.calculateDistance(attacker.position, aircraft.position) <= range) {
                     targets.push(aircraft);
                 }
             }
         }
-        
+
         return targets;
     }
 
     async handleSkills(interaction, player, game) {
        await interaction.reply({ content: 'Skills system not implemented yet!', flags: MessageFlags.Ephemeral });
+    }
+
+    async handleLaunchRecon(interaction, player, game) {
+        if (!player.reconAircraft) {
+            return interaction.reply({ content: '❌ No reconnaissance aircraft configured.', flags: MessageFlags.Ephemeral });
+        }
+        if (player.reconUsed) {
+            return interaction.reply({ content: '❌ Reconnaissance aircraft has already been launched this battle.', flags: MessageFlags.Ephemeral });
+        }
+        if (player.actionPoints < 1) {
+            return interaction.reply({ content: '❌ Not enough Action Points!', flags: MessageFlags.Ephemeral });
+        }
+
+        player.reconActive = true;
+        player.reconUsed = true;
+        player.actionPoints -= 1;
+
+        const reconName = player.reconAircraft.name || 'Reconnaissance Aircraft';
+        const reconType = player.reconAircraft.type || 'floatplane';
+        const displayName = player.displayName || player.username;
+
+        await interaction.reply({ content: `🛩️ **${reconName}** launched! Main battery range extended by +5 cells for the rest of the battle.`, flags: MessageFlags.Ephemeral });
+
+        if (game.textChannel) {
+            game.textChannel.send(`🛩️ **${displayName}** has launched their **${reconName}** (${reconType}) for aerial reconnaissance, extending their main battery range!`);
+        }
+    }
+
+    async gmControlledAiTurn(ai, game, channel) {
+        return new Promise(async (resolve) => {
+            ai.turnResolve = resolve;
+            ai.turnActionsUsed = 0;
+            const aiName = GameUtils.getAIDisplayName(ai);
+            const maxHP   = ai.stats?.health || ai.maxHealth || 100;
+            const curHP   = ai.currentHealth ?? ai.hp ?? maxHP;
+            const hpPct   = Math.round((curHP / maxHP) * 100);
+
+            const weaponNames = Object.entries(ai.weapons || {})
+                .map(([k, w]) => `${w.name || k} (DMG ${w.damage ?? '?'}, RNG ${w.range ?? '?'})`)
+                .join('\n') || 'None configured';
+
+            const embed = new EmbedBuilder()
+                .setTitle(`🕹️ GM Controlling: ${aiName}`)
+                .setDescription(`<@${ai.gmControllerId}> — use the buttons below or the web dashboard to command this unit.\nClick **End AI Turn** when done.`)
+                .addFields(
+                    { name: 'HP',       value: `${curHP}/${maxHP} (${hpPct}%)`, inline: true },
+                    { name: 'Position', value: ai.position || 'Unknown',         inline: true },
+                    { name: 'Range',    value: `${ai.stats?.range ?? '?'}`,      inline: true },
+                    { name: 'Weapons',  value: weaponNames }
+                )
+                .setColor(0x5865f2);
+
+            const buttons = this.createGMAIButtons(ai);
+            const msg = await channel.send({
+                content: `<@${ai.gmControllerId}> Your controlled AI is ready to act!`,
+                embeds: [embed],
+                components: buttons
+            });
+            ai.activeTurnMessageId = msg.id;
+
+            // Auto-timeout after 10 minutes
+            ai.gmTurnTimeout = setTimeout(() => {
+                if (ai.turnResolve) {
+                    ai.turnResolve();
+                    ai.turnResolve = null;
+                    ai.activeTurnMessageId = null;
+                    channel.send(`⏰ **${aiName}**'s GM turn timed out.`).catch(() => {});
+                }
+            }, 10 * 60 * 1000);
+        });
+    }
+
+    createGMAIButtons(ai) {
+        const buttons = [
+            new ButtonBuilder().setCustomId(`gmai_move_${ai.id}`).setLabel('Move AI').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`gmai_attack_${ai.id}`).setLabel('Attack').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`gmai_endturn_${ai.id}`).setLabel('End AI Turn').setStyle(ButtonStyle.Success),
+        ];
+        if (ai.hangar > 0 || ai.availableSquadrons) {
+            buttons.splice(2, 0, new ButtonBuilder()
+                .setCustomId(`gmai_aircraft_${ai.id}`)
+                .setLabel('Launch Aircraft')
+                .setStyle(ButtonStyle.Secondary)
+            );
+        }
+        const rows = [];
+        for (let i = 0; i < buttons.length; i += 5) {
+            rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+        }
+        return rows;
+    }
+
+    async handleGMAIButton(interaction) {
+        const customId = interaction.customId;
+        const game = this.games.get(interaction.channelId);
+        if (!game) return interaction.reply({ content: '❌ No active game.', flags: MessageFlags.Ephemeral });
+
+        // Parse: gmai_{action}_{aiId}
+        const parts = customId.split('_');
+        const action = parts[1];
+        const aiId   = parts.slice(2).join('_');
+        const ai     = game.enemies.get(aiId);
+
+        if (!ai) return interaction.reply({ content: '❌ AI unit not found.', flags: MessageFlags.Ephemeral });
+        if (!ai.gmControlled || ai.gmControllerId !== interaction.user.id) {
+            return interaction.reply({ content: '❌ You are not controlling this unit.', flags: MessageFlags.Ephemeral });
+        }
+
+        const aiName = GameUtils.getAIDisplayName(ai);
+
+        if (action === 'endturn') {
+            if (ai.gmTurnTimeout) { clearTimeout(ai.gmTurnTimeout); ai.gmTurnTimeout = null; }
+            if (ai.turnResolve)   { ai.turnResolve(); ai.turnResolve = null; }
+            ai.activeTurnMessageId = null;
+            await interaction.update({ content: `✅ **${aiName}** turn ended.`, embeds: [], components: [] });
+            await this.broadcastGameUpdate(game.channelId).catch(() => {});
+
+        } else if (action === 'move') {
+            const modal = new ModalBuilder()
+                .setCustomId(`gmai_move_submit_${aiId}`)
+                .setTitle(`Move ${aiName}`);
+            const coordInput = new TextInputBuilder()
+                .setCustomId('coordinate')
+                .setLabel('Target Coordinate (e.g. B12)')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(coordInput));
+            await interaction.showModal(modal);
+
+        } else if (action === 'attack') {
+            const alivePlayers = Array.from(game.players.values()).filter(p => p.alive);
+            if (alivePlayers.length === 0) {
+                return interaction.reply({ content: '❌ No alive players to attack.', flags: MessageFlags.Ephemeral });
+            }
+            const options = alivePlayers.map(p => ({
+                label: GameUtils.getPlayerDisplayName(p).slice(0, 100),
+                value: p.id
+            }));
+            const menu = new StringSelectMenuBuilder()
+                .setCustomId(`gmai_attack_select_${aiId}`)
+                .setPlaceholder('Select a target')
+                .addOptions(options);
+            await interaction.reply({
+                content: 'Select a target to attack:',
+                components: [new ActionRowBuilder().addComponents(menu)],
+                flags: MessageFlags.Ephemeral
+            });
+
+        } else if (action === 'aircraft') {
+            await this.processAICarrierOperations(ai, game, interaction.channel);
+            await interaction.reply({ content: `✈️ **${aiName}** aircraft operations processed.`, flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    async handleGMAIModalSubmit(interaction) {
+        const customId = interaction.customId;
+        const game = this.games.get(interaction.channelId);
+        if (!game) return interaction.reply({ content: '❌ No active game.', flags: MessageFlags.Ephemeral });
+
+        // gmai_move_submit_{aiId}
+        const aiId = customId.replace('gmai_move_submit_', '');
+        const ai   = game.enemies.get(aiId);
+        if (!ai) return interaction.reply({ content: '❌ AI not found.', flags: MessageFlags.Ephemeral });
+
+        const coord = interaction.fields.getTextInputValue('coordinate').trim().toUpperCase();
+        const cell  = game.getMapCell(coord);
+        if (!cell || (cell.type !== 'ocean' && cell.type !== 'reef')) {
+            return interaction.reply({ content: `❌ Invalid or impassable coordinate: **${coord}**`, flags: MessageFlags.Ephemeral });
+        }
+
+        const oldPos = ai.position;
+        const oldCell = game.getMapCell(oldPos);
+        if (oldCell) oldCell.occupant = null;
+        ai.position = coord;
+        ai.x = game.coordToNumbers(coord).x;
+        ai.y = game.coordToNumbers(coord).y - 1;
+        if (cell) cell.occupant = 'ai';
+        this.updateAIDirection(ai, oldPos, coord);
+
+        const aiName = GameUtils.getAIDisplayName(ai);
+        await interaction.reply({ content: `✅ **${aiName}** moved from **${oldPos}** to **${coord}**.`, flags: MessageFlags.Ephemeral });
+        await interaction.channel.send(`🕹️ **${aiName}** [GM] moves to **${coord}**.`);
+        await this.updateGameDisplay(game, interaction.channel).catch(() => {});
+        await this.broadcastGameUpdate(game.channelId).catch(() => {});
+    }
+
+    async handleGMAITargetSelect(interaction) {
+        const customId = interaction.customId;
+        const game = this.games.get(interaction.channelId);
+        if (!game) return interaction.reply({ content: '❌ No active game.', flags: MessageFlags.Ephemeral });
+
+        // gmai_attack_select_{aiId}
+        const aiId    = customId.replace('gmai_attack_select_', '');
+        const ai      = game.enemies.get(aiId);
+        const targetId = interaction.values[0];
+        const target  = game.players.get(targetId);
+
+        if (!ai || !target) return interaction.reply({ content: '❌ AI or target not found.', flags: MessageFlags.Ephemeral });
+
+        const result  = await this.executeAIAttack(ai, target, game, interaction.channel);
+        await interaction.update({ content: `✅ Attack executed.`, components: [] });
+        await this.updateGameDisplay(game, interaction.channel).catch(() => {});
+        await this.broadcastGameUpdate(game.channelId).catch(() => {});
     }
 
     async handleDamageControl(interaction, player, game) {
@@ -10578,7 +10900,7 @@ class NavalWarfareBot {
                            `**Distance to Carrier:** ${distanceToCarrier.toFixed(1)} cells\n` +
                            `**Can Land:** ${canLand ? '✅ Yes (use button below)' : '❌ No (too far)'}\n` +
                            `**Ammo:** ${aircraft.ammo}/${aircraft.maxAmmo}\n\n` +
-                           `**🚁 To Move:** Use \`/moveair <coordinate>\` (e.g., \`/moveair B50\`)\n` +
+                           `**🚁 To Move:** Use \`/move aircraft <coordinate>\` (e.g., \`/move aircraft B50\`)\n` +
                            `**Selected Squadron:** This squadron is now selected for movement.\n\n` +
                            `**Available Destinations:**`)
             .addFields(moveFields)
@@ -12792,27 +13114,6 @@ class NavalWarfareBot {
             }
         }
 
-        // Draw infrastructure directly in SVG (game.infrastructureData set before this call)
-        if (game.infrastructureData && game.infrastructureData.length > 0) {
-            svg += `<g class="infrastructure">`;
-            for (const item of game.infrastructureData) {
-                if (item.type === 'mine') continue; // mines shown as hazard cells, not icons
-                const pixelX = gridStartX + (item.x * cellSize);
-                const pixelY = gridStartY + (item.y * cellSize);
-                const infraSvg = this.drawInfrastructureByType(item.type, pixelX, pixelY, cellSize);
-                if (infraSvg) {
-                    svg += infraSvg;
-                    if (item.name) {
-                        const labelX = pixelX + cellSize / 2;
-                        const labelY = pixelY + cellSize + 9;
-                        svg += `<rect x="${labelX - item.name.length * 3 - 2}" y="${labelY - 8}" width="${item.name.length * 6 + 4}" height="10" fill="rgba(0,0,0,0.7)" rx="1"/>`;
-                        svg += `<text x="${labelX}" y="${labelY}" font-size="7" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif">${item.name}</text>`;
-                    }
-                }
-            }
-            svg += `</g>`;
-        }
-
         // Draw clean grid lines
         svg += `<g class="grid-line">`;
         for (let x = 0; x <= mapSize; x++) {
@@ -12824,6 +13125,329 @@ class NavalWarfareBot {
             svg += `<line x1="${gridStartX}" y1="${lineY}" x2="${gridStartX + mapSize * cellSize}" y2="${lineY}"/>`;
         }
         svg += `</g>`;
+
+        // Draw infrastructure as native SVG elements (Sharp/librsvg fallback; Puppeteer uses canvas overlay when available)
+        if (game.infrastructureData && game.infrastructureData.length > 0) {
+            const WEB_CELL = 16;
+            const INFRA_SPAN = {
+                major_city: { w: 3, h: 3 }, port_facility: { w: 3, h: 3 },
+                military_base: { w: 2, h: 2 }, industrial: { w: 2, h: 2 },
+                airfield: { w: 3, h: 2 }, airfield_base: { w: 3, h: 2 },
+                small_airfield: { w: 2, h: 1 }, town: { w: 2, h: 2 },
+            };
+            const iSpan = (tp) => INFRA_SPAN[tp] || { w: 1, h: 1 };
+            const iR = (x,y,w,h,fill,stroke,sw,dsh) =>
+                `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${sw||1}"${dsh ? ` stroke-dasharray="${dsh}"` : ''}` : ''}/>`;
+            const iC = (ccx,ccy,rad,fill,stroke,sw) =>
+                `<circle cx="${ccx}" cy="${ccy}" r="${rad}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${sw||1}"` : ''}/>`;
+            const iL = (x1,y1,x2,y2,stroke,sw,dash) =>
+                `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${sw||1}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+            const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const iFirePlume = (fx, fy, sz) => {
+                const f1 = `<path d="M ${fx-sz*0.5},${fy+sz*0.6} C ${fx-sz*0.55},${fy-sz*0.3} ${fx-sz*0.1},${fy-sz*1.3} ${fx},${fy-sz*1.7} C ${fx+sz*0.1},${fy-sz*1.3} ${fx+sz*0.55},${fy-sz*0.3} ${fx+sz*0.5},${fy+sz*0.6} Z" fill="#ea580c"/>`;
+                const f2 = `<path d="M ${fx-sz*0.25},${fy+sz*0.4} C ${fx-sz*0.28},${fy-sz*0.5} ${fx-sz*0.05},${fy-sz} ${fx},${fy-sz*1.25} C ${fx+sz*0.05},${fy-sz} ${fx+sz*0.28},${fy-sz*0.5} ${fx+sz*0.25},${fy+sz*0.4} Z" fill="#fbbf24"/>`;
+                return `<circle cx="${fx}" cy="${fy}" r="${sz*2.2}" fill="#ea580c" opacity="0.30"/>` + f1 + f2;
+            };
+            const iSmokePuff = (fx, fy, r) =>
+                `<circle cx="${fx}" cy="${fy}" r="${r}" fill="#334155" opacity="0.60"/>` +
+                `<circle cx="${fx-r*0.5}" cy="${fy-r*0.7}" r="${r*0.75}" fill="#475569" opacity="0.40"/>`;
+            const iVegPatch = (fx, fy, sz) =>
+                `<circle cx="${fx}" cy="${fy}" r="${sz}" fill="#14532d" opacity="0.75"/>` +
+                `<circle cx="${fx-sz*0.55}" cy="${fy+sz*0.4}" r="${sz*0.7}" fill="#166534" opacity="0.55"/>` +
+                `<circle cx="${fx+sz*0.5}" cy="${fy-sz*0.35}" r="${sz*0.65}" fill="#166634" opacity="0.55"/>`;
+
+            const sortedInfra = [...game.infrastructureData].sort((a, b) => {
+                const sa = iSpan(a.type), sb = iSpan(b.type);
+                return (sb.w * sb.h) - (sa.w * sa.h);
+            });
+
+            const occupiedCells = new Set();
+            for (const item of sortedInfra) {
+                if (item.type === 'mine') continue;
+                const span = iSpan(item.type);
+                const pw = span.w * WEB_CELL, ph = span.h * WEB_CELL;
+                const isx = item.x - Math.floor(span.w / 2);
+                const isy = item.y - Math.floor(span.h / 2);
+
+                // Skip if any cell in this span is already occupied (matches website behaviour)
+                let blocked = false;
+                for (let dx = 0; dx < span.w && !blocked; dx++) {
+                    for (let dy = 0; dy < span.h && !blocked; dy++) {
+                        if (occupiedCells.has(`${isx+dx},${isy+dy}`)) blocked = true;
+                    }
+                }
+                if (blocked) continue;
+                for (let dx = 0; dx < span.w; dx++) {
+                    for (let dy = 0; dy < span.h; dy++) {
+                        occupiedCells.add(`${isx+dx},${isy+dy}`);
+                    }
+                }
+                const pixX = gridStartX + isx * cellSize;
+                const pixY = gridStartY + isy * cellSize;
+                const sc = cellSize / WEB_CELL;
+                const cxw = pw / 2, cyw = ph / 2;
+                const state = item.state;
+                const iname = item.name;
+
+                let inner = '';
+                if (state === 'destroyed') {
+                    inner += iR(0,0,pw,ph,'#0f0a0a') + iR(0.5,0.5,pw-1,ph-1,'none','#7f1d1d',1);
+                    switch (item.type) {
+                        case 'major_city':
+                            inner += iR(3,20,8,ph-24,'#1c1917') + iR(35,16,9,ph-20,'#1c1917');
+                            inner += iR(16,8,16,ph-12,'#292524');
+                            inner += iR(3,14,3,7,'#0f0a0a') + iR(7,16,3,5,'#0f0a0a') + iR(35,10,3,8,'#0f0a0a') + iR(40,12,4,6,'#0f0a0a') + iR(16,4,5,5,'#0f0a0a') + iR(27,5,5,5,'#0f0a0a');
+                            inner += iR(18,14,8,5,'#7f1d1d') + iR(0,ph-4,pw,4,'#44403c');
+                            for (let i=0;i<6;i++) inner += iR(3+i*7,ph-5,4,3,'#44403c');
+                            inner += iFirePlume(12,18,4) + iFirePlume(28,10,5) + iFirePlume(39,16,3);
+                            inner += iSmokePuff(14,9,7) + iSmokePuff(cxw,5,8) + iSmokePuff(38,8,6);
+                            break;
+                        case 'port_facility':
+                            inner += iR(3,18,12,ph-22,'#1c1917');
+                            inner += `<polygon points="3,18 15,22 15,26" fill="#44403c"/>`;
+                            inner += iR(30,22,12,ph-26,'#292524');
+                            inner += `<path d="M 36,${ph-14} L 33,10 L 17,16" fill="none" stroke="#44403c" stroke-width="2"/>`;
+                            inner += iL(24,13,22,ph-16,'#44403c',0.75);
+                            inner += iR(0,ph-12,pw,12,'#030712');
+                            inner += iR(4,ph-10,6,3,'#292524') + iR(22,ph-11,8,4,'#292524');
+                            inner += iFirePlume(9,14,4) + iFirePlume(32,18,4);
+                            inner += iSmokePuff(12,7,6) + iSmokePuff(34,10,6);
+                            break;
+                        case 'military_base':
+                            inner += iR(0,0,pw,ph,'#1a1a0a');
+                            inner += iL(2,2,2,ph*0.55,'#2d4a0e',1.5) + iL(pw-2,2,pw-2,ph*0.38,'#2d4a0e',1.5) + iL(2,ph-2,pw*0.42,ph-2,'#2d4a0e',1.5);
+                            inner += iC(cxw,cyw,8,'none','#44403c',1) + iC(cxw,cyw,5,'none','#44403c',1) + iC(cxw,cyw,5,'#1c1917');
+                            inner += iR(4,3,4,3,'#44403c') + iR(20,5,3,4,'#44403c') + iR(7,22,4,3,'#44403c') + iR(19,20,3,4,'#44403c');
+                            inner += iFirePlume(cxw+5,cyw-5,3) + iSmokePuff(cxw,cyw-9,5);
+                            break;
+                        case 'military_outpost':
+                        case 'outpost':
+                            inner += iR(1,1,pw-2,ph-2,'#1a1a0a');
+                            inner += iR(2,8,5,4,'#44403c') + iR(8,7,4,5,'#44403c');
+                            inner += iFirePlume(cxw,cyw-2,2.5);
+                            break;
+                        case 'industrial':
+                            inner += iR(0,0,pw,ph,'#0a0a12');
+                            inner += iR(2,18,pw-4,ph-20,'#1e293b') + iR(2,15,pw-4,5,'#334155');
+                            inner += iR(8,13,5,4,'#0a0a12') + iR(17,14,6,3,'#0a0a12');
+                            inner += iR(4,4,4,13,'#334155') + iR(4,2,2,4,'#0a0a12');
+                            inner += iR(10,14,5,2,'#475569') + iR(20,15,4,2,'#475569');
+                            inner += iFirePlume(6,3,4) + iFirePlume(22,16,3);
+                            inner += iSmokePuff(8,2,6) + iSmokePuff(cxw,4,7);
+                            break;
+                        case 'airfield':
+                        case 'airfield_base': {
+                            inner += iR(0,0,pw,ph,'#1a1a0a');
+                            inner += iR(1,1,pw*0.22,ph-2,'#14532d') + iR(pw*0.78,1,pw*0.21,ph-2,'#14532d');
+                            inner += iR(pw*0.25,2,pw*0.5,ph-4,'#292524');
+                            for (const [ccx2,ccy2] of [[pw*0.375,cyw-2],[pw*0.61,cyw+3]]) {
+                                inner += iC(ccx2,ccy2,5,'none','#44403c',1) + iC(ccx2,ccy2,4,'#1c1917');
+                            }
+                            inner += iR(6,ph-8,8,3,'#44403c') + iR(7,ph-10,10,2,'#44403c');
+                            inner += iFirePlume(10,ph-10,3) + iSmokePuff(12,ph-14,4);
+                            break;
+                        }
+                        case 'small_airfield':
+                            inner += iR(1,1,pw-2,ph-2,'#292524');
+                            inner += iC(cxw,cyw,4,'none','#44403c',1) + iC(cxw,cyw,3,'#1c1917');
+                            break;
+                        case 'town':
+                            inner += iR(0,0,pw,ph,'#0f0a0a');
+                            inner += iR(3,11,14,13,'none','#292524',1.5);
+                            inner += iR(5,14,10,7,'#44403c') + iR(4,22,13,2,'#44403c');
+                            inner += iR(10,7,2,5,'#292524') + iR(20,8,9,5,'#1c1917');
+                            inner += iR(19,11,11,3,'#44403c') + iR(14,20,4,3,'#44403c') + iR(22,16,5,2,'#44403c');
+                            inner += iFirePlume(24,14,3) + iFirePlume(8,10,2.5);
+                            inner += iSmokePuff(10,5,5) + iSmokePuff(26,8,4);
+                            break;
+                        case 'lighthouse':
+                            inner += iR(4,ph-4,8,4,'#292524') + iR(cxw-3,7,6,ph-11,'#475569');
+                            inner += iR(cxw-3,5,3,3,'#0f0a0a') + iR(cxw,4,3,4,'#0f0a0a');
+                            inner += iFirePlume(cxw,5,2.5);
+                            break;
+                        case 'port_gun':
+                            inner += iR(1,1,pw-2,ph-2,'#1c1917') + iR(3,8,10,5,'#44403c');
+                            inner += iL(cxw-2,cyw+2,2,ph-2,'#292524',2);
+                            inner += iSmokePuff(cxw+2,cyw-2,3);
+                            break;
+                        default:
+                            inner += iR(1,1,pw-2,ph-2,'#1c1917') + iR(2,ph-6,pw-4,4,'#44403c');
+                            inner += iFirePlume(cxw,cyw,Math.min(pw,ph)/4);
+                            break;
+                    }
+                    if (iname) { const tw=iname.length*4.2; inner += iR(cxw-tw/2-2,ph+1,tw+4,9,'#450a0a') + `<text x="${cxw}" y="${ph+8}" fill="#fca5a5" font-size="7" text-anchor="middle" font-family="monospace" font-weight="bold">${esc(iname)}</text>`; }
+                } else if (state === 'abandoned') {
+                    inner += iR(0,0,pw,ph,'#0d1a0d') + iR(0.5,0.5,pw-1,ph-1,'none','#1a3a1a',1);
+                    switch (item.type) {
+                        case 'major_city':
+                            inner += iR(3,28,8,ph-32,'#1c2a1c') + iR(35,24,8,ph-28,'#1c2a1c');
+                            inner += iR(14,20,16,ph-24,'#182818');
+                            inner += `<path d="M 3,28 A 4,4 0 0 1 11,28 Z" fill="#1c2a1c"/>`;
+                            inner += `<path d="M 14,20 A 8,8 0 0 1 30,20 Z" fill="#1c2a1c"/>`;
+                            inner += `<path d="M 31,24 A 4,4 0 0 1 43,24 Z" fill="#1c2a1c"/>`;
+                            inner += iR(0,ph-4,pw,4,'#1a2e1a');
+                            inner += iVegPatch(9,28,4) + iVegPatch(30,26,3) + iVegPatch(cxw,ph-6,5) + iVegPatch(5,ph-5,3) + iVegPatch(42,ph-4,3);
+                            break;
+                        case 'port_facility':
+                            inner += iR(0,0,pw,ph,'#0d1a2e') + iR(0,ph-12,pw,12,'#0a1220');
+                            inner += iR(cxw-14,ph-14,28,3,'#1c1a14') + iR(cxw-2,ph-22,4,9,'#1c1a14');
+                            inner += `<rect x="${cxw-12}" y="${ph-14}" width="20" height="2" fill="#14532d" fill-opacity="0.55"/>`;
+                            inner += iR(3,16,12,ph-28,'#0d1a2e');
+                            inner += `<path d="M 3,16 A 6,6 0 0 1 15,16 Z" fill="#111f2e"/>`;
+                            inner += iR(32,20,12,ph-32,'#0d1a2e');
+                            inner += `<path d="M 32,20 A 6,6 0 0 1 44,20 Z" fill="#111f2e"/>`;
+                            inner += iVegPatch(6,22,4) + iVegPatch(38,26,3) + iVegPatch(cxw,ph-16,3);
+                            break;
+                        case 'military_base':
+                            inner += iR(0,0,pw,ph,'#0a140a');
+                            inner += iR(1,1,pw-2,ph-2,'none','#1a3a0a',1.5,'3,3');
+                            inner += iR(0,0,5,5,'#1c2a0e') + iR(pw-5,0,5,5,'#1c2a0e') + iR(0,ph-5,5,5,'#1c2a0e') + iR(pw-5,ph-5,5,5,'#1c2a0e');
+                            inner += iL(cxw,6,cxw,ph-6,'#1a4a0a',1) + iL(6,cyw,pw-6,cyw,'#1a4a0a',1);
+                            inner += iVegPatch(cxw,cyw,6) + iVegPatch(cxw-6,cyw+5,3) + iVegPatch(cxw+7,cyw-4,3);
+                            break;
+                        case 'military_outpost':
+                        case 'outpost':
+                            inner += iR(1,1,pw-2,ph-2,'#0a140a');
+                            inner += iL(cxw,3,cxw,ph-3,'#1a4a0a',1) + iL(3,cyw,pw-3,cyw,'#1a4a0a',1);
+                            inner += iVegPatch(cxw,cyw,pw/3.5);
+                            break;
+                        case 'industrial':
+                            inner += iR(0,0,pw,ph,'#0a1020') + iR(2,18,pw-4,ph-20,'#1e293b');
+                            inner += iR(2,15,pw-4,5,'#0a1020') + iR(8,13,5,4,'#0a1020') + iR(17,14,6,3,'#0a1020');
+                            inner += iR(4,6,4,12,'#334155');
+                            inner += iVegPatch(6,5,3) + iVegPatch(14,18,4) + iVegPatch(24,16,4) + iVegPatch(10,ph-6,3);
+                            break;
+                        case 'airfield':
+                        case 'airfield_base':
+                            inner += iR(1,1,pw-2,ph-2,'#14532d');
+                            inner += iR(pw*0.28,3,pw*0.44,ph-6,'#1e293b');
+                            inner += iR(pw*0.31,5,3,ph-10,'#14532d') + iR(pw*0.58,3,3,ph-6,'#14532d');
+                            inner += iVegPatch(8,6,4) + iVegPatch(pw-10,ph-8,4) + iVegPatch(cxw,cyw-4,3);
+                            break;
+                        case 'small_airfield':
+                            inner += iR(1,1,pw-2,ph-2,'#0d1a0d') + iR(pw*0.25,2,pw*0.5,ph-4,'#334155');
+                            inner += iVegPatch(cxw-4,cyw,3) + iVegPatch(cxw+5,cyw-2,2.5);
+                            break;
+                        case 'town':
+                            inner += iR(0,0,pw,ph,'#0d1a0d');
+                            inner += iR(3,11,14,13,'none','#292524',1);
+                            inner += iR(4,16,12,8,'#1c2a1c') + iR(10,7,2,5,'#292524') + iR(20,8,8,5,'#1c2a1c');
+                            inner += iVegPatch(11,6,2.5) + iVegPatch(23,10,3) + iVegPatch(9,20,4) + iVegPatch(24,22,5) + iVegPatch(4,ph-5,4) + iVegPatch(16,ph-6,3);
+                            break;
+                        case 'lighthouse':
+                            inner += iR(4,ph-4,8,4,'#94a3b8') + iR(cxw-3,4,6,ph-8,'#e2e8f0');
+                            inner += iR(cxw-3,10,6,3,'#166534') + iR(cxw-3,18,6,2,'#166534');
+                            inner += iVegPatch(cxw-1,4,2.5) + iC(cxw,3,3.5,'#1e293b');
+                            break;
+                        case 'port_gun':
+                            inner += iR(1,1,pw-2,ph-2,'#1c2a1c') + iC(cxw,cyw+2,pw/2-2,'#2a3a1a');
+                            inner += iL(cxw,cyw,pw-2,ph-2,'#44403c',2);
+                            inner += iVegPatch(cxw-3,cyw+2,3);
+                            break;
+                        default:
+                            inner += iR(1,1,pw-2,ph-2,'#1c2a1c');
+                            inner += iVegPatch(cxw,cyw,pw/3.5);
+                            break;
+                    }
+                    if (iname) { const tw=iname.length*4.2; inner += iR(cxw-tw/2-2,ph+1,tw+4,9,'#000000') + `<text x="${cxw}" y="${ph+8}" fill="#6b7280" font-size="7" text-anchor="middle" font-family="monospace" font-weight="bold">${esc(iname)}</text>`; }
+                } else {
+                    switch (item.type) {
+                        case 'major_city':
+                            inner += iR(0,0,pw,ph,'#0c1a2e') + iR(0.5,0.5,pw-1,ph-1,'none','#f59e0b',1);
+                            inner += iR(0,ph-4,pw,4,'#374151');
+                            inner += iR(2,26,5,ph-30,'#0f2744') + iR(41,24,5,ph-28,'#0f2744');
+                            inner += iR(3,18,9,ph-22,'#1e3a8a') + iR(36,14,9,ph-18,'#1e3a8a');
+                            inner += iR(8,10,8,ph-14,'#1d4ed8') + iR(32,12,8,ph-16,'#1d4ed8');
+                            inner += iR(16,3,16,ph-7,'#92400e') + iR(17,4,14,ph-8,'#f59e0b') + iR(22,2,4,3,'#fcd34d');
+                            for (let row=0;row<9;row++) { inner += iR(19,6+row*4,2,2,'#fef3c7') + iR(25,6+row*4,2,2,'#fef3c7'); if(row>0) inner += iR(22,6+row*4,2,2,'#fef3c7'); }
+                            for (let row=0;row<5;row++) { inner += iR(9,12+row*4,2,2,'#bfdbfe') + iR(13,12+row*4,2,2,'#bfdbfe') + iR(33,14+row*4,2,2,'#bfdbfe') + iR(37,14+row*4,2,2,'#bfdbfe'); }
+                            if (iname) { const tw=iname.length*4.2; inner += iR(cxw-tw/2-2,ph+1,tw+4,9,'#000000') + `<text x="${cxw}" y="${ph+8}" fill="#fff" font-size="7" text-anchor="middle" font-family="monospace" font-weight="bold">${esc(iname)}</text>`; }
+                            break;
+                        case 'port_facility':
+                            inner += iR(0,0,pw,ph,'#0c1a3e') + iR(0.5,0.5,pw-1,ph-1,'none','#3b82f6',1);
+                            inner += iR(0,ph-11,pw,11,'#1e40af');
+                            inner += `<path d="M 2,${ph-9} C ${pw*0.3},${ph-11} ${pw*0.7},${ph-7} ${pw-2},${ph-9}" fill="none" stroke="#60a5fa" stroke-width="0.5"/>`;
+                            inner += `<path d="M 2,${ph-5} C ${pw*0.3},${ph-7} ${pw*0.7},${ph-3} ${pw-2},${ph-5}" fill="none" stroke="#60a5fa" stroke-width="0.5"/>`;
+                            inner += iR(cxw-14,ph-13,28,3,'#4b5563') + iR(cxw-3,ph-20,6,9,'#4b5563');
+                            inner += iR(3,10,14,ph-21,'#1e3a8a') + iR(31,14,14,ph-25,'#1e3a8a');
+                            inner += iR(3,10,14,3,'#1d4ed8') + iR(31,14,14,3,'#1d4ed8');
+                            for (let row=0;row<4;row++) { inner += iR(5,15+row*5,3,3,'#93c5fd') + iR(11,15+row*5,3,3,'#93c5fd') + iR(33,18+row*5,3,3,'#93c5fd') + iR(39,18+row*5,3,3,'#93c5fd'); }
+                            inner += `<path d="M 37,${ph-13} L 37,7 L 20,7" fill="none" stroke="#94a3b8" stroke-width="1.5"/>`;
+                            inner += iL(27,7,27,ph-13,'#64748b',0.75);
+                            inner += iL(22,14,22,26,'#93c5fd',1.5) + iL(19,17,25,17,'#93c5fd',1.5) + iC(22,15,2,'none','#93c5fd',1.5);
+                            inner += `<path d="M 22,26 L 19,23 M 22,26 L 25,23" fill="none" stroke="#93c5fd" stroke-width="1.5"/>`;
+                            if (iname) { const tw=iname.length*4.2; inner += iR(cxw-tw/2-2,ph+1,tw+4,9,'#000000') + `<text x="${cxw}" y="${ph+8}" fill="#fff" font-size="7" text-anchor="middle" font-family="monospace" font-weight="bold">${esc(iname)}</text>`; }
+                            break;
+                        case 'military_base':
+                            inner += iR(0,0,pw,ph,'#1a2e05') + iR(1,1,pw-2,ph-2,'none','#4d7c0f',2);
+                            inner += iR(0,0,7,7,'#365314') + iR(pw-7,0,7,7,'#365314') + iR(0,ph-7,7,7,'#365314') + iR(pw-7,ph-7,7,7,'#365314');
+                            inner += iR(4,4,pw-8,ph-8,'#2d4a0e');
+                            inner += iL(cxw,5,cxw,ph-5,'#84cc16',2.5) + iL(5,cyw,pw-5,cyw,'#84cc16',2.5);
+                            inner += iC(cxw,cyw,3,'#84cc16');
+                            break;
+                        case 'military_outpost':
+                        case 'outpost':
+                            inner += iR(1,1,pw-2,ph-2,'#365314');
+                            inner += iL(cxw,2,cxw,ph-2,'#84cc16',1.5) + iL(2,cyw,pw-2,cyw,'#84cc16',1.5);
+                            inner += iR(2,2,2,2,'#84cc16') + iR(pw-4,2,2,2,'#84cc16') + iR(2,ph-4,2,2,'#84cc16') + iR(pw-4,ph-4,2,2,'#84cc16');
+                            break;
+                        case 'airfield':
+                        case 'airfield_base': {
+                            inner += iR(0,0,pw,ph,'#1e293b') + iR(0.5,0.5,pw-1,ph-1,'none','#475569',1);
+                            inner += iR(1,1,pw-2,ph-2,'#14532d');
+                            const rwX=pw*0.25, rwW=pw*0.5;
+                            inner += iR(rwX,2,rwW,ph-4,'#374151');
+                            inner += iR(rwX,2,2,ph-4,'#4b5563') + iR(rwX+rwW-2,2,2,ph-4,'#4b5563');
+                            inner += iL(cxw,3,cxw,ph-3,'#fef3c7',1,'4,4');
+                            for(let i=0;i<3;i++){ inner += iR(rwX+3+i*5,3,3,4,'#fff') + iR(rwX+3+i*5,ph-7,3,4,'#fff'); }
+                            for(let i=0;i<4;i++){ const ly=4+i*(ph-8)/3; inner += iR(rwX-3,ly,2,2,'#fef3c7') + iR(rwX+rwW+1,ly,2,2,'#fef3c7'); }
+                            inner += iL(rwX+rwW,cyw,pw-2,cyw,'#fbbf24',1);
+                            break;
+                        }
+                        case 'small_airfield':
+                            inner += iR(1,1,pw-2,ph-2,'#374151');
+                            inner += iL(4,2,4,ph-2,'#e2e8f0',1.5) + iL(pw-4,2,pw-4,ph-2,'#e2e8f0',1.5) + iL(4,cyw,pw-4,cyw,'#e2e8f0',1.5);
+                            break;
+                        case 'industrial': {
+                            inner += iR(0,0,pw,ph,'#1e293b') + iR(0.5,0.5,pw-1,ph-1,'none','#475569',1);
+                            inner += iR(2,16,pw-4,ph-18,'#334155') + iR(2,16,pw-4,3,'#475569');
+                            const chimneys=[{ox:4,ht:12},{ox:10,ht:18},{ox:17,ht:12},{ox:23,ht:16}];
+                            for(const ch of chimneys){
+                                if(ch.ox+4>pw-2) continue;
+                                inner += iR(ch.ox,16-ch.ht,4,ch.ht,'#64748b');
+                                inner += `<circle cx="${ch.ox+2}" cy="${16-ch.ht-4}" r="3" fill="#cbd5e1" opacity="0.55"/>`;
+                                inner += `<circle cx="${ch.ox+4}" cy="${16-ch.ht-7}" r="2" fill="#cbd5e1" opacity="0.40"/>`;
+                            }
+                            break;
+                        }
+                        case 'town':
+                            inner += iR(0,0,pw,ph,'#2a1200');
+                            inner += iR(pw/2-2,0,4,ph,'#78350f') + iR(0,ph/2-2,pw,4,'#78350f');
+                            inner += iR(3,11,14,13,'#d97706');
+                            inner += `<polygon points="1,12 10,4 19,12" fill="#92400e"/>`;
+                            inner += iR(8,18,4,6,'#78350f') + iR(4,13,3,3,'#fef3c7') + iR(14,13,3,3,'#fef3c7');
+                            inner += iR(20,5,9,8,'#b45309');
+                            inner += `<polygon points="18,6 24,1 30,6" fill="#78350f"/>`;
+                            inner += iR(22,6,2,2,'#fef3c7') + iR(26,6,2,2,'#fef3c7');
+                            inner += iC(24,22,5,'#166534') + iR(23,27,2,3,'#14532d');
+                            if (iname) { const tw=iname.length*4.2; inner += iR(cxw-tw/2-2,ph+1,tw+4,9,'#000000') + `<text x="${cxw}" y="${ph+8}" fill="#fff" font-size="7" text-anchor="middle" font-family="monospace" font-weight="bold">${esc(iname)}</text>`; }
+                            break;
+                        case 'lighthouse':
+                            inner += iR(4,ph-4,8,4,'#94a3b8');
+                            inner += iR(cxw-3,4,6,ph-8,'#f1f5f9') + iR(cxw-3,8,6,3,'#ef4444');
+                            inner += iC(cxw,3,3.5,'#fef08a','#fbbf24',1);
+                            break;
+                        case 'port_gun':
+                            inner += iR(1,1,pw-2,ph-2,'#1c1917');
+                            inner += iC(cxw,cyw+2,pw/2-2,'#44403c');
+                            inner += iL(cxw,cyw,pw-1,2,'#a8a29e',2);
+                            break;
+                        default: break;
+                    }
+                }
+                svg += `<g transform="translate(${pixX},${pixY}) scale(${sc},${sc})">${inner}</g>`;
+            }
+        }
 
         // Add clean coordinate labels
         svg += `<g class="map-text" fill="#1f2937" font-size="12" text-anchor="middle">`;
@@ -12852,14 +13476,13 @@ class NavalWarfareBot {
                         const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
                         const color = player.alive ? "#10b981" : "#ef4444";
 
-                        // Load ship icon
-                        const iconPath = this.getShipClassIcon(player.shipClass);
-                        const iconBase64 = this.loadIconAsBase64(iconPath);
+                        // getShipClassIcon already returns a base64 data URI
+                        const iconBase64 = this.getShipClassIcon(player.shipClass, player.alive);
 
                         if (iconBase64) {
                             // Ship icon with background circle
-                            svg += `<circle cx="${pixelX}" cy="${pixelY}" r="8" fill="${color}" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`;
-                            svg += `<image x="${pixelX - 6}" y="${pixelY - 6}" width="12" height="12" href="${iconBase64}" opacity="0.8"/>`;
+                            svg += `<circle cx="${pixelX}" cy="${pixelY}" r="12" fill="${color}" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`;
+                            svg += `<image x="${pixelX - 9}" y="${pixelY - 9}" width="18" height="18" href="${iconBase64}" opacity="0.95"/>`;
                         } else {
                             // Fallback to ship silhouette
                             const shipType = player.shipClass.toLowerCase().includes('carrier') ? 'carrier' :
@@ -12871,10 +13494,10 @@ class NavalWarfareBot {
                             svg += this.drawShipSilhouette(pixelX, pixelY, shipType, color, cellSize);
                         }
 
-                        // Ship name label (if space allows)
+                        // Ship name label
                         if (cellSize > 15) {
-                            const shipName = (player.displayName || player.shipClass).substring(0, 6);
-                            svg += `<text x="${pixelX}" y="${pixelY + 15}" font-size="8" text-anchor="middle" fill="#1f2937" class="map-text">${shipName}</text>`;
+                            const shipName = (player.characterAlias || player.name || player.shipClass || '').substring(0, 6);
+                            svg += `<text x="${pixelX}" y="${pixelY + 18}" font-size="8" text-anchor="middle" fill="#1f2937" class="map-text">${shipName}</text>`;
                         }
                     }
                 } catch (error) {
@@ -12883,7 +13506,7 @@ class NavalWarfareBot {
             }
         }
 
-        // Draw enemy ships with enhanced styling
+        // Draw enemy ships with icons
         for (const enemy of game.enemies.values()) {
             if (enemy.position) {
                 try {
@@ -12893,20 +13516,26 @@ class NavalWarfareBot {
                         const pixelY = gridStartY + ((coords.y - 1) * cellSize) + cellSize/2;
                         const color = enemy.alive ? "#ef4444" : "#991b1b";
 
-                        // Enhanced enemy ship representation
-                        const enemyShipType = enemy.shipClass ?
-                            (enemy.shipClass.toLowerCase().includes('carrier') ? 'carrier' :
-                             enemy.shipClass.toLowerCase().includes('battleship') ? 'battleship' :
-                             enemy.shipClass.toLowerCase().includes('cruiser') ? 'cruiser' :
-                             enemy.shipClass.toLowerCase().includes('destroyer') ? 'destroyer' :
-                             enemy.shipClass.toLowerCase().includes('submarine') ? 'submarine' : 'destroyer') : 'destroyer';
+                        // getEnemyClassIcon returns a base64 data URI
+                        const enemyIconBase64 = this.getEnemyClassIcon(enemy.shipClass, enemy.alive);
 
-                        svg += this.drawEnemyShipSilhouette(pixelX, pixelY, enemyShipType, color, cellSize);
+                        if (enemyIconBase64) {
+                            svg += `<circle cx="${pixelX}" cy="${pixelY}" r="12" fill="${color}" stroke="#ffffff" stroke-width="2" opacity="0.9"/>`;
+                            svg += `<image x="${pixelX - 9}" y="${pixelY - 9}" width="18" height="18" href="${enemyIconBase64}" opacity="0.95"/>`;
+                        } else {
+                            const enemyShipType = enemy.shipClass ?
+                                (enemy.shipClass.toLowerCase().includes('carrier') ? 'carrier' :
+                                 enemy.shipClass.toLowerCase().includes('battleship') ? 'battleship' :
+                                 enemy.shipClass.toLowerCase().includes('cruiser') ? 'cruiser' :
+                                 enemy.shipClass.toLowerCase().includes('destroyer') ? 'destroyer' :
+                                 enemy.shipClass.toLowerCase().includes('submarine') ? 'submarine' : 'destroyer') : 'destroyer';
+                            svg += this.drawEnemyShipSilhouette(pixelX, pixelY, enemyShipType, color, cellSize);
+                        }
 
-                        // Enemy name label (if space allows)
-                        if (cellSize > 15 && enemy.shipClass) {
-                            const enemyName = enemy.shipClass.substring(0, 6);
-                            svg += `<text x="${pixelX}" y="${pixelY + 15}" font-size="8" text-anchor="middle" fill="#991b1b" class="map-text">${enemyName}</text>`;
+                        // Enemy name label
+                        if (cellSize > 15) {
+                            const enemyLabel = (enemy.customName || enemy.name || enemy.shipClass || '').substring(0, 6);
+                            svg += `<text x="${pixelX}" y="${pixelY + 18}" font-size="8" text-anchor="middle" fill="#991b1b" class="map-text">${enemyLabel}</text>`;
                         }
                     }
                 } catch (error) {
@@ -12917,80 +13546,92 @@ class NavalWarfareBot {
 
         // Add clean status panels
         const panelX = gridStartX + (mapSize * cellSize) + 30;
+        const ENTRY_H = 22; // pixels per player/enemy row
+        const PANEL_HEADER = 40; // height for title + top padding
+        const PANEL_PAD = 10; // bottom padding
 
-        // Player status panel
+        // Pre-calculate panel heights so rects are emitted with correct dimensions
+        const playerPanelY = 60;
+        const playerPanelH = PANEL_HEADER + game.players.size * ENTRY_H + PANEL_PAD;
+        const enemyPanelY = playerPanelY + playerPanelH + 20;
+        const enemyPanelH = PANEL_HEADER + game.enemies.size * ENTRY_H + PANEL_PAD;
+
         svg += `<g class="map-text">`;
-        svg += `<rect x="${panelX}" y="60" width="200" height="180" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
-        svg += `<text x="${panelX + 10}" y="80" font-size="14" font-weight="bold" fill="#1f2937">Player Forces</text>`;
 
-        let yPos = 100;
-        let playerCount = 0;
+        // ── Player Forces panel ──────────────────────────────────────────────
+        svg += `<rect x="${panelX}" y="${playerPanelY}" width="200" height="${playerPanelH}" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
+        svg += `<text x="${panelX + 10}" y="${playerPanelY + 20}" font-size="14" font-weight="bold" fill="#1f2937">Player Forces</text>`;
+
+        let yPos = playerPanelY + PANEL_HEADER;
         for (const player of game.players.values()) {
-            if (playerCount >= 6) break; // Limit for clean display
-            const shipName = (player.displayName || player.username || player.shipClass || 'Ship').substring(0, 15);
+            const shipName = (player.characterAlias || player.name || player.shipClass || 'Ship').substring(0, 15);
 
-            // Get ship class icon
+            // Ship class icon
             const iconPath = this.getShipClassIcon(player.shipClass);
-
-            // Calculate health percentage
-            const currentHealth = player.currentHealth || player.maxHealth || 100;
-            const maxHealth = player.maxHealth || 100;
-            const healthPercent = Math.max(0, (currentHealth / maxHealth) * 100);
-
-            // Determine health bar color
-            let healthColor = '#ef4444'; // Red for <25%
-            if (healthPercent >= 50) {
-                healthColor = '#10b981'; // Green for 50-100%
-            } else if (healthPercent >= 25) {
-                healthColor = '#f59e0b'; // Yellow for 25-49%
-            }
-
-            // Ship class icon (16x16) with dark background for visibility
             if (iconPath) {
-                // Dark background rectangle for icon visibility
-                svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#1f2937" stroke="#374151" stroke-width="1" rx="2"/>`;
+                svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#dbeafe" stroke="#93c5fd" stroke-width="1" rx="3"/>`;
                 svg += `<image x="${panelX + 5}" y="${yPos - 8}" width="16" height="16" href="${iconPath}"/>`;
             } else {
-                // Fallback circle if icon not found
                 const color = player.alive ? "#10b981" : "#ef4444";
                 svg += `<circle cx="${panelX + 13}" cy="${yPos - 1}" r="4" fill="${color}"/>`;
             }
 
-            // Ship name
+            // Name
             svg += `<text x="${panelX + 25}" y="${yPos - 2}" font-size="10" fill="#374151">${shipName}</text>`;
 
-            // Health bar background
+            // HP bar
+            const currentHealth = player.currentHealth || player.maxHealth || 100;
+            const maxHealth = player.maxHealth || 100;
+            const healthPercent = Math.max(0, (currentHealth / maxHealth) * 100);
+            let healthColor = '#ef4444';
+            if (healthPercent >= 50) healthColor = '#10b981';
+            else if (healthPercent >= 25) healthColor = '#f59e0b';
             const healthBarWidth = 120;
-            const healthBarHeight = 8;
-            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${healthBarWidth}" height="${healthBarHeight}" fill="#e5e7eb" stroke="#d1d5db" stroke-width="0.5" rx="2"/>`;
-
-            // Health bar fill
-            const fillWidth = (healthPercent / 100) * healthBarWidth;
-            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${fillWidth}" height="${healthBarHeight}" fill="${healthColor}" rx="2"/>`;
-
-            // Health text (high contrast)
+            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${healthBarWidth}" height="8" fill="#e5e7eb" stroke="#d1d5db" stroke-width="0.5" rx="2"/>`;
+            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${(healthPercent / 100) * healthBarWidth}" height="8" fill="${healthColor}" rx="2"/>`;
             const healthText = `${currentHealth}/${maxHealth}`;
-            const textColor = healthPercent < 25 ? '#ffffff' : '#000000'; // White text on red, black on green/yellow
-            svg += `<text x="${panelX + 25 + (healthBarWidth / 2)}" y="${yPos + 7}" font-size="8" font-weight="bold" fill="${textColor}" text-anchor="middle">${healthText}</text>`;
+            const textColor = healthPercent < 25 ? '#ffffff' : '#000000';
+            svg += `<text x="${panelX + 25 + healthBarWidth / 2}" y="${yPos + 7}" font-size="8" font-weight="bold" fill="${textColor}" text-anchor="middle">${healthText}</text>`;
 
-            yPos += 22; // Increased spacing for health bars
-            playerCount++;
+            yPos += ENTRY_H;
         }
 
-        // Enemy status panel (moved down to accommodate larger player panel)
-        svg += `<rect x="${panelX}" y="260" width="200" height="120" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" rx="4"/>`;
-        svg += `<text x="${panelX + 10}" y="280" font-size="14" font-weight="bold" fill="#1f2937">Enemy Forces</text>`;
+        // ── Enemy Forces panel ───────────────────────────────────────────────
+        svg += `<rect x="${panelX}" y="${enemyPanelY}" width="200" height="${enemyPanelH}" fill="#fff1f2" stroke="#fecdd3" stroke-width="1" rx="4"/>`;
+        svg += `<text x="${panelX + 10}" y="${enemyPanelY + 20}" font-size="14" font-weight="bold" fill="#991b1b">Enemy Forces</text>`;
 
-        yPos = 300;
-        let enemyCount = 0;
+        yPos = enemyPanelY + PANEL_HEADER;
         for (const enemy of game.enemies.values()) {
-            if (enemyCount >= 4) break; // Limit for clean display
-            const enemyName = (enemy.shipClass || 'Enemy').substring(0, 15);
-            const color = enemy.alive ? "#ef4444" : "#991b1b";
-            svg += `<rect x="${panelX + 12}" y="${yPos - 6}" width="8" height="8" fill="${color}"/>`;
-            svg += `<text x="${panelX + 25}" y="${yPos}" font-size="11" fill="#374151">${enemyName}</text>`;
-            yPos += 18;
-            enemyCount++;
+            const enemyDisplayName = (enemy.customName || enemy.name || enemy.shipClass || 'Enemy').substring(0, 15);
+
+            // Enemy icon
+            const enemyIconPath = this.getEnemyClassIcon(enemy.shipClass, enemy.alive);
+            if (enemyIconPath) {
+                svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#ffe4e6" stroke="#fca5a5" stroke-width="1" rx="3"/>`;
+                svg += `<image x="${panelX + 5}" y="${yPos - 8}" width="16" height="16" href="${enemyIconPath}"/>`;
+            } else {
+                const eColor = enemy.alive ? "#ef4444" : "#991b1b";
+                svg += `<circle cx="${panelX + 13}" cy="${yPos - 1}" r="4" fill="${eColor}"/>`;
+            }
+
+            // Name
+            svg += `<text x="${panelX + 25}" y="${yPos - 2}" font-size="10" fill="#374151">${enemyDisplayName}</text>`;
+
+            // HP bar
+            const eCurrent = enemy.currentHealth ?? enemy.hp ?? enemy.health ?? 100;
+            const eMax = enemy.maxHealth ?? enemy.maxHp ?? 100;
+            const eHealthPct = Math.max(0, eMax > 0 ? (eCurrent / eMax) * 100 : 0);
+            let eHealthColor = '#ef4444';
+            if (eHealthPct >= 50) eHealthColor = '#10b981';
+            else if (eHealthPct >= 25) eHealthColor = '#f59e0b';
+            const eBarW = 120;
+            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${eBarW}" height="8" fill="#e5e7eb" stroke="#d1d5db" stroke-width="0.5" rx="2"/>`;
+            svg += `<rect x="${panelX + 25}" y="${yPos + 2}" width="${(eHealthPct / 100) * eBarW}" height="8" fill="${eHealthColor}" rx="2"/>`;
+            const eHpText = `${eCurrent}/${eMax}`;
+            const eTextColor = eHealthPct < 25 ? '#ffffff' : '#000000';
+            svg += `<text x="${panelX + 25 + eBarW / 2}" y="${yPos + 7}" font-size="8" font-weight="bold" fill="${eTextColor}" text-anchor="middle">${eHpText}</text>`;
+
+            yPos += ENTRY_H;
         }
 
         svg += `</g>`;
@@ -16543,6 +17184,281 @@ class NavalWarfareBot {
         return [];
     }
 
+    async showItemSelection(interaction, player, game) {
+        const inventory = player.inventory || {};
+        const buttons = [];
+
+        for (const [itemId, qty] of Object.entries(inventory)) {
+            if (qty <= 0) continue;
+            const item = this.shopSystem.shopItems.get(itemId);
+            if (!item || item.type !== 'consumable' || item.effect !== 'air_support') continue;
+
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(`airsupp_item_${itemId}_${interaction.user.id}`)
+                    .setLabel(`${item.emoji || '📦'} ${item.name} (x${qty})`)
+                    .setStyle(ButtonStyle.Primary)
+            );
+        }
+
+        if (buttons.length === 0) {
+            return interaction.reply({ content: '❌ No usable items in your inventory!', flags: MessageFlags.Ephemeral });
+        }
+
+        buttons.push(
+            new ButtonBuilder()
+                .setCustomId(`airsupp_cancel_${interaction.user.id}`)
+                .setLabel('Cancel')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+        const rows = [];
+        for (let i = 0; i < buttons.length; i += 5) {
+            rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+        }
+
+        await interaction.reply({
+            embeds: [
+                new EmbedBuilder()
+                    .setTitle('📦 Use Item')
+                    .setDescription('Select an item to use:')
+                    .setColor(0x00AA00)
+            ],
+            components: rows,
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    async handleAirSupportInteraction(interaction, game) {
+        const parts = interaction.customId.split('_');
+        const subAction = parts[1]; // 'cancel', 'item', 'target'
+
+        if (subAction === 'cancel') {
+            const userId = parts[2];
+            if (userId !== interaction.user.id) {
+                return interaction.reply({ content: '❌ Not your selection!', flags: MessageFlags.Ephemeral });
+            }
+            return interaction.update({ content: '❌ Cancelled.', embeds: [], components: [] });
+        }
+
+        if (subAction === 'item') {
+            // airsupp_item_{itemId}_{userId}
+            const userId = parts[parts.length - 1];
+            const itemId = parts.slice(2, parts.length - 1).join('_');
+
+            if (userId !== interaction.user.id) {
+                return interaction.reply({ content: '❌ Not your selection!', flags: MessageFlags.Ephemeral });
+            }
+
+            const player = game.players.get(interaction.user.id);
+            if (!player || !player.alive) {
+                return interaction.update({ content: '❌ You are not in this game!', embeds: [], components: [] });
+            }
+
+            const enemies = Array.from(game.enemies.values()).filter(e => e.alive);
+            if (enemies.length === 0) {
+                return interaction.update({ content: '❌ No enemies to target!', embeds: [], components: [] });
+            }
+
+            const buttons = [];
+            for (const enemy of enemies.slice(0, 20)) {
+                const hp = `${enemy.currentHealth}/${enemy.maxHealth}HP`;
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(`airsupp_target_${enemy.id}_${userId}`)
+                        .setLabel(`${enemy.customName || enemy.shipClass} (${hp})`)
+                        .setStyle(ButtonStyle.Danger)
+                );
+            }
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(`airsupp_cancel_${userId}`)
+                    .setLabel('Cancel')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+            const rows = [];
+            for (let i = 0; i < buttons.length; i += 5) {
+                rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+            }
+
+            return interaction.update({
+                embeds: [
+                    new EmbedBuilder()
+                        .setTitle('✈️ Air Support — Select Target')
+                        .setDescription('Choose an enemy for the B-17 bombers to target.\nThe bombers will arrive in **1–5 turns**.')
+                        .setColor(0xFF8800)
+                ],
+                components: rows
+            });
+        }
+
+        if (subAction === 'target') {
+            // airsupp_target_{enemyId}_{userId}
+            const userId = parts[parts.length - 1];
+            const targetId = parts.slice(2, parts.length - 1).join('_');
+
+            if (userId !== interaction.user.id) {
+                return interaction.reply({ content: '❌ Not your selection!', flags: MessageFlags.Ephemeral });
+            }
+
+            const player = game.players.get(interaction.user.id);
+            if (!player || !player.alive) {
+                return interaction.update({ content: '❌ You are not in this game!', embeds: [], components: [] });
+            }
+
+            const target = game.enemies.get(targetId);
+            if (!target || !target.alive) {
+                return interaction.update({ content: '❌ Target not found or already destroyed!', embeds: [], components: [] });
+            }
+
+            // Consume item
+            if (!player.inventory || !player.inventory['air_support_marker'] || player.inventory['air_support_marker'] <= 0) {
+                return interaction.update({ content: '❌ You no longer have an Air Support Marker!', embeds: [], components: [] });
+            }
+            player.inventory['air_support_marker']--;
+
+            // Schedule strike
+            const arrivalTurn = game.turnNumber + Math.floor(Math.random() * 5) + 1;
+            if (!game.pendingAirSupport) game.pendingAirSupport = [];
+            game.pendingAirSupport.push({
+                requesterId: player.id,
+                requesterName: player.shipName || player.shipClass || player.username,
+                targetId: target.id,
+                targetName: target.customName || target.shipClass
+            , arrivalTurn });
+
+            // Deduct action point
+            player.actionPoints--;
+
+            const turnsUntil = arrivalTurn - game.turnNumber;
+            await interaction.update({
+                embeds: [
+                    new EmbedBuilder()
+                        .setTitle('✈️ Air Support Requested!')
+                        .setDescription(
+                            `A flight of **B-17 Flying Fortresses** has been called in!\n\n` +
+                            `🎯 **Target:** ${target.customName || target.shipClass}\n` +
+                            `⏱️ **ETA:** ${turnsUntil} turn${turnsUntil !== 1 ? 's' : ''}\n\n` +
+                            `*The bombers will drop 2 × 4,000 lb HE bombs. Enemy AA may intercept.*`
+                        )
+                        .setColor(0x00AA00)
+                ],
+                components: []
+            });
+
+            await interaction.channel.send(
+                `📻 **Air Support Requested!** <@${player.id}> has called in a B-17 bombing run on ` +
+                `**${target.customName || target.shipClass}**. Bombers ETA: **${turnsUntil} turn${turnsUntil !== 1 ? 's' : ''}**.`
+            );
+
+            if (player.actionPoints <= 0) {
+                this.endPlayerTurn(player);
+            }
+        }
+    }
+
+    async processAirSupport(game, channel) {
+        if (!game.pendingAirSupport || game.pendingAirSupport.length === 0) return [];
+
+        const messages = [];
+        const stillPending = [];
+
+        for (const strike of game.pendingAirSupport) {
+            if (game.turnNumber < strike.arrivalTurn) {
+                stillPending.push(strike);
+                continue;
+            }
+
+            const target = game.enemies.get(strike.targetId);
+            if (!target || !target.alive) {
+                messages.push(`✈️ **B-17 Formation** arrived to bomb **${strike.targetName}**, but the target was already destroyed!`);
+                continue;
+            }
+
+            // AA intercept check — each enemy fires at the formation
+            let formationHP = 300;
+            let intercepted = false;
+            let interceptLines = '';
+
+            for (const enemy of game.enemies.values()) {
+                if (!enemy.alive || !enemy.aaSystem || enemy.aaSystem.ammo <= 0) continue;
+                const aa = enemy.aaSystem;
+                // B-17s fly at high altitude — halve AA effectiveness
+                const aaAcc = aa.accuracy * 0.5;
+                const rounds = Math.min(3, aa.ammo);
+                aa.ammo -= rounds;
+
+                let hits = 0;
+                for (let i = 0; i < rounds; i++) {
+                    if (Math.random() < aaAcc) hits++;
+                }
+
+                if (hits > 0) {
+                    const dmg = hits * aa.damage;
+                    formationHP -= dmg;
+                    interceptLines += `\n> 💥 **${enemy.customName || enemy.shipClass}** AA hits the formation for **${dmg}** damage!`;
+                    if (formationHP <= 0) { intercepted = true; break; }
+                }
+            }
+
+            if (intercepted) {
+                messages.push(
+                    `✈️ **B-17 Formation Inbound!**${interceptLines}\n` +
+                    `> ☁️ The bomber formation was **shot down** by anti-aircraft fire before reaching the target!`
+                );
+                continue;
+            }
+
+            // Bomb run — 2 × 4,000 lb HE bombs, 50% hit chance each
+            let bombMsg = `✈️ **B-17 Flying Fortress Formation — Bomb Run on ${target.customName || target.shipClass}!**`;
+            if (interceptLines) bombMsg += `\n*AA fired on the formation but failed to bring them down:*${interceptLines}`;
+            bombMsg += `\n\n**📦 Bomb Drop:**`;
+
+            let totalDamage = 0;
+            let firesStarted = 0;
+
+            for (let bomb = 1; bomb <= 2; bomb++) {
+                if (Math.random() < 0.50) {
+                    const dmg = 80 + Math.floor(Math.random() * 41); // 80–120
+                    totalDamage += dmg;
+                    bombMsg += `\n> 💣 **Bomb ${bomb}: HIT!** — ${dmg} damage`;
+                    if (Math.random() < 0.60) {
+                        firesStarted++;
+                        bombMsg += ` 🔥 Fire started!`;
+                    }
+                } else {
+                    bombMsg += `\n> 💦 **Bomb ${bomb}: MISS** — splashes nearby`;
+                }
+            }
+
+            if (totalDamage > 0 || firesStarted > 0) {
+                target.currentHealth = Math.max(0, target.currentHealth - totalDamage);
+
+                if (firesStarted > 0 && !target.onFire) {
+                    target.onFire = true;
+                    target.fireTimer = firesStarted * 2;
+                }
+
+                bombMsg += `\n\n**Result:** ${target.customName || target.shipClass} takes **${totalDamage}** damage`;
+                if (firesStarted > 0) bombMsg += `, **${firesStarted} fire${firesStarted > 1 ? 's' : ''} started**`;
+                bombMsg += `! (${target.currentHealth}/${target.maxHealth} HP remaining)`;
+
+                if (target.currentHealth <= 0) {
+                    target.alive = false;
+                    bombMsg += `\n💥 **${target.customName || target.shipClass} has been sunk!**`;
+                }
+            } else {
+                bombMsg += `\n\nAll bombs missed. **${target.customName || target.shipClass}** is undamaged.`;
+            }
+
+            messages.push(bombMsg);
+        }
+
+        game.pendingAirSupport = stillPending;
+        return messages;
+    }
+
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║                            QRF & MONITORING SYSTEM                           ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -16976,6 +17892,64 @@ Use \`/stats\` during a battle to view your current ship statistics!
 `;
 
         await interaction.reply({ content: profileMessage, flags: MessageFlags.Ephemeral });
+    }
+
+    async handleGMSpeak(interaction) {
+        const game = this.games.get(interaction.channelId);
+        if (!game) {
+            return interaction.reply({ content: '❌ No active battle in this channel.', ephemeral: true });
+        }
+
+        const aiId  = interaction.options.getString('ai');
+        const msg   = interaction.options.getString('message');
+
+        // Look up enemy by id (from autocomplete value) or fall back to name match
+        let enemy = game.enemies.get(aiId);
+        if (!enemy) {
+            enemy = Array.from(game.enemies.values()).find(e =>
+                (e.id != null && String(e.id) === aiId) ||
+                (e.customName || e.name || '') === aiId
+            );
+        }
+
+        if (!enemy) {
+            return interaction.reply({ content: '❌ AI unit not found in this battle.', ephemeral: true });
+        }
+
+        const AIPersonality = require('./systems/aiPersonality');
+        const name   = AIPersonality.cleanName(enemy);
+        const abbrev = AIPersonality.getClassAbbrev(enemy);
+        const prefix = abbrev ? `[${abbrev}] ` : '';
+
+        await interaction.reply({ content: '✅ Sent.', ephemeral: true });
+        await interaction.channel.send(`**${prefix}${name}**: ${msg}`);
+    }
+
+    async handleAICanSpeak(interaction) {
+        const game = this.games.get(interaction.channelId);
+        if (!game) {
+            return interaction.reply({ content: '❌ No active battle in this channel.', ephemeral: true });
+        }
+
+        const raw = interaction.options.getString('value').trim().toLowerCase();
+
+        if (raw === 'false') {
+            game.aiSpeakChance = 0;
+            return interaction.reply({ content: '🔇 AI personality responses are now **disabled**. The AI will not respond to player messages.' });
+        }
+
+        if (raw === 'true') {
+            game.aiSpeakChance = 1.0;
+            return interaction.reply({ content: '🔊 AI personality responses are now **enabled**. The AI will respond to every player message.' });
+        }
+
+        const num = parseInt(raw, 10);
+        if (isNaN(num) || num < 1 || num > 100) {
+            return interaction.reply({ content: '❌ Value must be `true`, `false`, or a number from **1–100** (percentage chance).', ephemeral: true });
+        }
+
+        game.aiSpeakChance = num / 100;
+        return interaction.reply({ content: `🎲 AI personality responses set to **${num}%** — the AI will respond to roughly ${num} out of every 100 player messages.` });
     }
 
     async setWeather(interaction) {
@@ -18444,7 +19418,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     actionsThisTurn: p.actionsThisTurn ?? 0,
                     maxActions: p.maxActions ?? p.actionPoints ?? 2,
                     damageControlCooldown: p.damageControlCooldown ?? 0,
-                    bleeding: p.bleeding ?? false
+                    bleeding: p.bleeding ?? false,
+                    stats: p.stats
                 }));
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => ({
@@ -18458,7 +19433,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     onFire: e.onFire,
                     flooding: e.flooding,
                     sunk: e.sunk ?? !e.alive,
-                    isBoss: e.isBoss
+                    isBoss: e.isBoss,
+                    gmControlled: e.gmControlled ?? false,
+                    stats: e.stats,
+                    weapons: e.weapons,
+                    position: e.position
                 }));
 
                 // Use terrain captured when the Discord map image was generated (always in sync).
@@ -18599,6 +19578,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(404).json({ error: 'Player not found in game' });
                 }
 
+                if (game.phase !== 'battle') {
+                    return res.status(400).json({ error: 'Cannot move outside of battle phase' });
+                }
+
                 if (player.sunk) {
                     return res.status(400).json({ error: 'Ship is sunk' });
                 }
@@ -18612,10 +19595,19 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Invalid coordinates' });
                 }
 
+                // Check movement range (Euclidean distance — circular radius)
+                if (player.x != null && player.y != null) {
+                    const dist = Math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2);
+                    const maxSpeed = player.stats?.speed || 3;
+                    if (dist > maxSpeed) {
+                        return res.status(400).json({ error: `Too far! Max movement: ${maxSpeed}, Distance: ${dist.toFixed(1)}` });
+                    }
+                }
+
                 // Check if position is on land
-                const isLand = game.islands.some(island => {
-                    return island.cells.some(cell => cell.x === x && cell.y === y);
-                });
+                const destCoord = game.generateExtendedCoordinate(x, y + 1);
+                const destCell = game.getMapCell(destCoord);
+                const isLand = destCell && destCell.type === 'island';
 
                 if (isLand) {
                     return res.status(400).json({ error: 'Cannot move onto land' });
@@ -18633,6 +19625,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.y = y;
                 player.position = game.generateExtendedCoordinate(x, y + 1); // keep Discord position string in sync
                 player.actionsThisTurn++;
+                if (player.actionsThisTurn >= player.maxActions) {
+                    player.actionPoints = 0;
+                    this.finalizePlayerTurn(player);
+                }
 
                 // Broadcast update to web clients
                 await this.broadcastGameUpdate(channelId);
@@ -18701,14 +19697,18 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Target is already sunk' });
                 }
 
-                // Calculate distance
-                const distance = Math.sqrt(
-                    Math.pow(player.x - target.x, 2) +
-                    Math.pow(player.y - target.y, 2)
+                // Calculate distance using position strings (more reliable than x/y which may be absent on enemies)
+                const dist = game.calculateDistance(player.position, target.position);
+                const distance = isFinite(dist) ? dist : Math.sqrt(
+                    Math.pow((player.x ?? 0) - (target.x ?? 0), 2) +
+                    Math.pow((player.y ?? 0) - (target.y ?? 0), 2)
                 );
 
-                // Get weapon
-                const weapon = player.weapons.find(w => w.type === weaponType);
+                // Get weapon (weapons may be stored as an array or as an object keyed by ID)
+                const weaponsArr = Array.isArray(player.weapons)
+                    ? player.weapons
+                    : Object.values(player.weapons || {});
+                const weapon = weaponsArr.find(w => w.type === weaponType);
                 if (!weapon) {
                     return res.status(400).json({ error: 'Weapon not found' });
                 }
@@ -18717,12 +19717,25 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Target out of range' });
                 }
 
-                // Perform attack using existing combat system
-                if (shellType) weapon._webShellType = shellType;
-                const attackResult = await this.performAttack(player, target, weapon, game);
-                delete weapon._webShellType;
+                // Enforce once-per-turn firing restrictions
+                if (!player.weaponsFiredThisTurn) player.weaponsFiredThisTurn = new Set();
+                if (weaponType === 'torpedoes' && player.weaponsFiredThisTurn.has('torpedoes')) {
+                    return res.status(400).json({ error: 'Torpedoes can only be fired once per turn' });
+                }
+                if (weaponType === 'main' && player.shipClass?.includes('Battleship') && player.weaponsFiredThisTurn.has('main')) {
+                    return res.status(400).json({ error: 'Battleship main guns can only be fired once per turn' });
+                }
 
+                // Perform attack using existing combat system
+                const attackResult = this.executeAttack(player, target, weaponType, shellType || 'ap', game);
+
+                // Record weapon fired this turn
+                player.weaponsFiredThisTurn.add(weaponType);
                 player.actionsThisTurn++;
+                if (player.actionsThisTurn >= player.maxActions) {
+                    player.actionPoints = 0;
+                    this.finalizePlayerTurn(player);
+                }
 
                 // Broadcast update to web clients
                 await this.broadcastGameUpdate(channelId);
@@ -18740,8 +19753,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         if (attackResult) {
                             const pName = player.characterAlias || player.displayName || player.username || 'A player';
                             const tName = target.characterAlias || target.displayName || target.customName || target.username || 'target';
-                            const msgs = (attackResult.messages || []).join(' ');
-                            ch.send({ content: `**${pName}** → **${tName}**: ${msgs}` });
+                            const msg = attackResult.message || (attackResult.messages || []).join(' ');
+                            ch.send({ content: `**${pName}** → **${tName}**: ${msg}` });
                         }
                     })
                     .catch(() => {});
@@ -18792,6 +19805,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 squadron.y = y;
                 squadron.deployed = true;
                 player.actionsThisTurn++;
+                if (player.actionsThisTurn >= player.maxActions) {
+                    player.actionPoints = 0;
+                    this.finalizePlayerTurn(player);
+                }
 
                 // Broadcast update to web clients
                 await this.broadcastGameUpdate(channelId);
@@ -18936,6 +19953,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.damageControlCooldown = 8;
                 player.actionsThisTurn++;
                 player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
+                if (player.actionsThisTurn >= player.maxActions) {
+                    player.actionPoints = 0;
+                    this.finalizePlayerTurn(player);
+                }
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
                 // Announce to Discord and sync map display (fire-and-forget)
@@ -19149,6 +20170,136 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     .catch(() => {});
             } catch (error) {
                 console.error('Error applying status:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: Take / release control of an AI unit
+        app.post('/api/game/:channelId/gm/take-control', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aiId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const ai = game.enemies.get(aiId);
+                if (!ai || !ai.alive) return res.status(404).json({ error: 'AI not found or dead' });
+                ai.gmControlled = true;
+                ai.gmControllerId = userId;
+                const aiName = ai.customName || ai.name || ai.id;
+                this.client.channels.fetch(channelId)
+                    .then(ch => ch?.send(`🕹️ **GM** has taken control of **${aiName}**. It will no longer act automatically.`))
+                    .catch(() => {});
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error taking AI control:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        app.post('/api/game/:channelId/gm/release-control', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aiId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const ai = game.enemies.get(aiId);
+                if (!ai) return res.status(404).json({ error: 'AI not found' });
+                // If AI is mid-turn, resolve it so the battle can continue
+                if (ai.turnResolve) { ai.turnResolve(); ai.turnResolve = null; }
+                if (ai.gmTurnTimeout) { clearTimeout(ai.gmTurnTimeout); ai.gmTurnTimeout = null; }
+                ai.gmControlled = false;
+                ai.gmControllerId = null;
+                ai.activeTurnMessageId = null;
+                const aiName = ai.customName || ai.name || ai.id;
+                this.client.channels.fetch(channelId)
+                    .then(ch => ch?.send(`🤖 **${aiName}** has been returned to AI control.`))
+                    .catch(() => {});
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error releasing AI control:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: Move a controlled AI from the web dashboard
+        app.post('/api/game/:channelId/gm/ai-move', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aiId, coordinate } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const ai = game.enemies.get(aiId);
+                if (!ai || !ai.alive || !ai.gmControlled) return res.status(404).json({ error: 'AI not found or not GM-controlled' });
+                const coord = coordinate.trim().toUpperCase();
+                const cell  = game.getMapCell(coord);
+                if (!cell || (cell.type !== 'ocean' && cell.type !== 'reef')) {
+                    return res.status(400).json({ error: `Invalid or impassable coordinate: ${coord}` });
+                }
+                const oldPos = ai.position;
+                const oldCell = game.getMapCell(oldPos);
+                if (oldCell) oldCell.occupant = null;
+                ai.position = coord;
+                const nums = game.coordToNumbers(coord);
+                ai.x = nums.x; ai.y = nums.y - 1;
+                cell.occupant = 'ai';
+                this.updateAIDirection(ai, oldPos, coord);
+                const aiName = GameUtils.getAIDisplayName(ai);
+                this.client.channels.fetch(channelId)
+                    .then(ch => ch?.send(`🕹️ **${aiName}** [GM] moves to **${coord}**.`))
+                    .catch(() => {});
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true, position: coord });
+            } catch (error) {
+                console.error('Error moving GM-controlled AI:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: Fire from a controlled AI at a target
+        app.post('/api/game/:channelId/gm/ai-attack', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aiId, targetId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const ai = game.enemies.get(aiId);
+                if (!ai || !ai.alive || !ai.gmControlled) return res.status(404).json({ error: 'AI not found or not GM-controlled' });
+                const target = game.players.get(targetId);
+                if (!target || !target.alive) return res.status(404).json({ error: 'Target not found or dead' });
+                const channel = await this.client.channels.fetch(channelId).catch(() => null);
+                if (!channel) return res.status(400).json({ error: 'Cannot access channel' });
+                await this.executeAIAttack(ai, target, game, channel);
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error executing GM AI attack:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // GM: End a GM-controlled AI's turn
+        app.post('/api/game/:channelId/gm/ai-end-turn', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aiId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                const ai = game.enemies.get(aiId);
+                if (!ai || !ai.gmControlled) return res.status(404).json({ error: 'AI not found or not GM-controlled' });
+                if (ai.gmTurnTimeout) { clearTimeout(ai.gmTurnTimeout); ai.gmTurnTimeout = null; }
+                if (ai.turnResolve) { ai.turnResolve(); ai.turnResolve = null; }
+                ai.activeTurnMessageId = null;
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error ending GM AI turn:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
@@ -19875,6 +21026,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
         this.httpServer = app;
     }
 
+    broadcastLogEntry(channelId, text, type = 'ai') {
+        const WEB_SERVER_URL = process.env.WEB_SERVER_URL || 'http://localhost:3001';
+        const BOT_API_KEY = process.env.BOT_API_KEY || 'default_api_key';
+        axios.post(
+            `${WEB_SERVER_URL}/api/broadcast/${channelId}`,
+            { type: 'battleLogEntry', logType: type, message: text, channelId, timestamp: Date.now() },
+            { headers: { 'Authorization': `Bearer ${BOT_API_KEY}` } }
+        ).catch(() => {});
+    }
+
     async broadcastGameUpdate(channelId) {
         try {
             const WEB_SERVER_URL = process.env.WEB_SERVER_URL || 'http://localhost:3001';
@@ -20052,9 +21213,12 @@ class NavalBattle {
             tonnage: playerData.tonnage || this.getDefaultTonnage(shipClass),
             speedKnots: playerData.speedKnots || this.getDefaultSpeed(shipClass),
             aaSystems: playerData.aaSystems ? [...playerData.aaSystems] : [],
-            aaSystem: null
+            aaSystem: null,
+            reconAircraft: playerData.reconAircraft || null,
+            reconActive: false,
+            reconUsed: false
         };
-        
+
         this.players.set(userId, player);
 
         const storedPlayer = this.players.get(userId);
@@ -21037,7 +22201,7 @@ class NavalBattle {
 
     getTargetsInRange(attacker, game, range) {
         const targets = [];
-        
+
         if (attacker.id.startsWith('ai_')) {
             // AI targets players
             for (const player of game.players.values()) {
@@ -21047,7 +22211,7 @@ class NavalBattle {
             }
             // AI also targets player aircraft
             for (const aircraft of game.aircraft?.values() || []) {
-                if (aircraft.owner === 'player' && aircraft.alive && 
+                if (aircraft.owner === 'player' && aircraft.alive &&
                     game.calculateDistance(attacker.position, aircraft.position) <= range) {
                     targets.push(aircraft);
                 }
@@ -21061,13 +22225,13 @@ class NavalBattle {
             }
             // Players also target enemy aircraft
             for (const aircraft of game.aircraft?.values() || []) {
-                if (aircraft.owner === 'enemy' && aircraft.alive && 
+                if (aircraft.owner === 'enemy' && aircraft.alive &&
                     game.calculateDistance(attacker.position, aircraft.position) <= range) {
                     targets.push(aircraft);
                 }
             }
         }
-        
+
         return targets;
     }
 

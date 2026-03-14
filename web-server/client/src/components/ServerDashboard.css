@@ -331,6 +331,49 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+.new-battle-card {
+  border: 2px dashed #40444b !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.new-battle-card:hover {
+  border-color: #3ba55d !important;
+  box-shadow: 0 4px 12px rgba(59, 165, 93, 0.2);
+}
+
+.new-battle-content {
+  text-align: center;
+  pointer-events: none;
+}
+
+.new-battle-plus {
+  font-size: 56px;
+  font-weight: 300;
+  color: #72767d;
+  line-height: 1;
+  margin-bottom: 12px;
+  transition: color 0.2s;
+}
+
+.new-battle-card:hover .new-battle-plus {
+  color: #3ba55d;
+}
+
+.new-battle-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #72767d;
+  transition: color 0.2s;
+}
+
+.new-battle-card:hover .new-battle-label {
+  color: #3ba55d;
+}
+
 .game-card-header {
   display: flex;
   justify-content: space-between;

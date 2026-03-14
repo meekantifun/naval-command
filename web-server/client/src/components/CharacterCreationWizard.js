@@ -103,7 +103,8 @@ function buildInitialFormData(initialData) {
       ...calculateStats(2500, 35, { belt: 25, deck: 15, turret: 10 }),
       weapons: {},
       availableAircraft: {},
-      aaSystems: []
+      aaSystems: [],
+      reconAircraft: null
     };
   }
   const tonnage = initialData.tonnage || 2500;
@@ -119,7 +120,8 @@ function buildInitialFormData(initialData) {
     ...calculateStats(tonnage, speedKnots, armor),
     weapons: initialData.weapons || {},
     availableAircraft: initialData.availableAircraft || {},
-    aaSystems: initialData.aaSystems || []
+    aaSystems: initialData.aaSystems || [],
+    reconAircraft: initialData.reconAircraft || null
   };
 }
 
@@ -137,6 +139,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
   const [mountGroupInput, setMountGroupInput] = useState({ count: 1, config: 'single' });
 
   const [currentAA, setCurrentAA] = useState({
+    name: '',
     caliber: '40mm',
     mountType: 'single',
     mounts: 4
@@ -301,7 +304,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
       rateOfFire: Math.round(data.rateOfFire * mult),
     } : {};
     setFormData({ ...formData, aaSystems: [...formData.aaSystems, { ...currentAA, ...aaStats }] });
-    setCurrentAA({ caliber: '40mm', mountType: 'single', mounts: 4 });
+    setCurrentAA({ name: '', caliber: '40mm', mountType: 'single', mounts: 4 });
   };
 
   const removeAASystem = (index) => {
@@ -326,6 +329,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
         availableAircraft: formData.availableAircraft,
         activeSquadrons: initialData?.activeSquadrons || {},
         aaSystems: formData.aaSystems,
+        reconAircraft: formData.reconAircraft || null,
         stats: {
           health: formData.calculatedHP,
           armor: formData.calculatedArmor,
@@ -600,6 +604,48 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                   </div>
                 )}
               </div>
+
+              {['Battleship', 'Heavy Cruiser', 'Light Cruiser'].includes(formData.shipClass) && (
+                <div className="recon-aircraft-section">
+                  <h4>Reconnaissance Aircraft <span className="optional">(optional)</span></h4>
+                  <p className="section-note">When launched in battle, extends main battery range by +5 cells.</p>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Aircraft Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. OS2U Kingfisher"
+                        value={formData.reconAircraft?.name || ''}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setFormData({
+                            ...formData,
+                            reconAircraft: name.trim()
+                              ? { ...(formData.reconAircraft || {}), name: name.trim() }
+                              : null
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Type</label>
+                      <select
+                        value={formData.reconAircraft?.type || 'floatplane'}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          reconAircraft: formData.reconAircraft
+                            ? { ...formData.reconAircraft, type: e.target.value }
+                            : { name: '', type: e.target.value }
+                        })}
+                      >
+                        <option value="floatplane">Floatplane</option>
+                        <option value="biplane">Biplane</option>
+                        <option value="observation_plane">Observation Plane</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -608,10 +654,36 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
             <div className="wizard-step">
               <h3>Aircraft Configuration</h3>
               <div className="info-box">
-                <p>Aircraft are assigned by the Game Master during battles.</p>
-                <p>Your carrier has a hangar capacity of <strong>{Math.floor(formData.tonnage / 500)}</strong> aircraft.</p>
+                <p>Give each squadron type a custom name. These names appear in the squadron selection menu when this carrier joins a battle.</p>
+                <p>Hangar capacity: <strong>{Math.floor(formData.tonnage / 500)}</strong> aircraft.</p>
               </div>
-              <p className="note">Click "Next" to continue to AA systems configuration.</p>
+              <div className="aircraft-config">
+                {[
+                  { key: 'fighters',        label: 'Fighter',        emoji: '✈️', placeholder: 'e.g. F6F Hellcat' },
+                  { key: 'dive_bombers',    label: 'Dive Bomber',    emoji: '💣', placeholder: 'e.g. SBD Dauntless' },
+                  { key: 'torpedo_bombers', label: 'Torpedo Bomber', emoji: '🚀', placeholder: 'e.g. TBF Avenger' },
+                ].map(({ key, label, emoji, placeholder }) => (
+                  <div key={key} className="aircraft-config-row">
+                    <span className="aircraft-type-label">{emoji} {label}</span>
+                    <input
+                      type="text"
+                      placeholder={placeholder}
+                      value={formData.availableAircraft?.[key]?.name || ''}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        const updated = { ...(formData.availableAircraft || {}) };
+                        if (name.trim()) updated[key] = { name: name.trim(), type: key };
+                        else delete updated[key];
+                        setFormData({ ...formData, availableAircraft: updated });
+                      }}
+                      className="aircraft-name-input"
+                    />
+                  </div>
+                ))}
+              </div>
+              {Object.keys(formData.availableAircraft || {}).length === 0 && (
+                <p className="note">Leave fields blank to skip aircraft configuration.</p>
+              )}
             </div>
           )}
 
@@ -622,6 +694,15 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
 
               <div className="aa-builder">
                 <div className="form-row">
+                  <div className="form-group">
+                    <label>Name <span className="optional">(optional)</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Bofors 40mm"
+                      value={currentAA.name}
+                      onChange={(e) => setCurrentAA({ ...currentAA, name: e.target.value })}
+                    />
+                  </div>
                   <div className="form-group">
                     <label>Caliber</label>
                     <select value={currentAA.caliber}
@@ -662,8 +743,8 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                     {formData.aaSystems.map((aa, idx) => (
                       <div key={idx} className="aa-card-preview">
                         <div>
-                          <strong>{aa.caliber}</strong>
-                          <span className="aa-meta">{aa.mounts}× {aa.mountType || 'mount'}</span>
+                          <strong>{aa.name || aa.caliber}</strong>
+                          <span className="aa-meta">{aa.caliber} · {aa.mounts}× {aa.mountType || 'mount'}</span>
                         </div>
                         <button onClick={() => removeAASystem(idx)} className="btn-remove">×</button>
                       </div>

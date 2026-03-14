@@ -352,7 +352,7 @@ class CustomMapSystem {
                     await this.handleMapCancel(interaction);
                     break;
                 case 'select':
-                    await this.handleTemplateSelection(interaction, parts[2]); // template key
+                    await this.handleTemplateSelection(interaction, parts.slice(2, parts.length - 1).join('_')); // template key (may contain underscores)
                     break;
                 case 'upload':
                     await this.handleFileUpload(interaction, parts[2]);
