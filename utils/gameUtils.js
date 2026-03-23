@@ -363,7 +363,7 @@ class GameUtils {
      * @returns {object|null} Best player to attack
      */
     static findBestTarget(ai, game, focusTarget) {
-        const players = Array.from(game.players.values()).filter(p => p.alive);
+        const players = Array.from(game.players.values()).filter(p => p.alive && game.hasVisionOf(p.position, 'ai'));
         if (players.length === 0) return null;
 
         const aiRange = ai.stats?.range || 10;

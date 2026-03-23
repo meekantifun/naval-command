@@ -7587,7 +7587,12 @@ class NavalWarfareBot {
         if (!target || !target.alive) {
             return interaction.update({ content: '❌ Target not found or already destroyed!', embeds: [], components: [] });
         }
-        
+
+        // Line of sight check — player side must have vision of the target
+        if (!game.hasVisionOf(target.position, 'player')) {
+            return interaction.update({ content: '❌ No line of sight to target! Another ship or aircraft must have eyes on them first.', embeds: [], components: [] });
+        }
+
         // Enforce once-per-turn firing restrictions
         if (!player.weaponsFiredThisTurn) player.weaponsFiredThisTurn = new Set();
         if (weaponType === 'torpedoes' && player.weaponsFiredThisTurn.has('torpedoes')) {
@@ -7983,32 +7988,37 @@ class NavalWarfareBot {
 
     getTargetsInRange(attacker, game, range) {
         const targets = [];
+        const aiSide = attacker.id.startsWith('ai_') || !!attacker.isOPFOR;
 
-        if (attacker.id.startsWith('ai_')) {
-            // AI targets players
+        if (aiSide) {
+            // AI targets players — only those visible to the enemy side
             for (const player of game.players.values()) {
-                if (player.alive && game.calculateDistance(attacker.position, player.position) <= range) {
+                if (player.alive && game.calculateDistance(attacker.position, player.position) <= range
+                    && game.hasVisionOf(player.position, 'ai')) {
                     targets.push(player);
                 }
             }
             // AI also targets player aircraft
             for (const aircraft of game.aircraft?.values() || []) {
                 if (aircraft.owner === 'player' && aircraft.alive &&
-                    game.calculateDistance(attacker.position, aircraft.position) <= range) {
+                    game.calculateDistance(attacker.position, aircraft.position) <= range
+                    && game.hasVisionOf(aircraft.position, 'ai')) {
                     targets.push(aircraft);
                 }
             }
         } else {
-            // Players target enemies
+            // Players target enemies — only those visible to the player side
             for (const enemy of game.enemies.values()) {
-                if (enemy.alive && game.calculateDistance(attacker.position, enemy.position) <= range) {
+                if (enemy.alive && game.calculateDistance(attacker.position, enemy.position) <= range
+                    && game.hasVisionOf(enemy.position, 'player')) {
                     targets.push(enemy);
                 }
             }
             // Players also target enemy aircraft
             for (const aircraft of game.aircraft?.values() || []) {
                 if (aircraft.owner === 'enemy' && aircraft.alive &&
-                    game.calculateDistance(attacker.position, aircraft.position) <= range) {
+                    game.calculateDistance(attacker.position, aircraft.position) <= range
+                    && game.hasVisionOf(aircraft.position, 'player')) {
                     targets.push(aircraft);
                 }
             }
@@ -19720,6 +19730,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Target out of range' });
                 }
 
+                // Line of sight check
+                if (!game.hasVisionOf(target.position, 'player')) {
+                    return res.status(400).json({ error: 'No line of sight to target' });
+                }
+
                 // Enforce once-per-turn firing restrictions
                 if (!player.weaponsFiredThisTurn) player.weaponsFiredThisTurn = new Set();
                 if (weaponType === 'torpedoes' && player.weaponsFiredThisTurn.has('torpedoes')) {
@@ -22057,11 +22072,60 @@ class NavalBattle {
 
     calculateDistance(pos1, pos2) {
         if (!pos1 || !pos2) return Infinity;
-        
+
         const coords1 = this.coordToNumbers(pos1);
         const coords2 = this.coordToNumbers(pos2);
-        
+
         return Math.sqrt(Math.pow(coords2.x - coords1.x, 2) + Math.pow(coords2.y - coords1.y, 2));
+    }
+
+    // Returns true if there are no land tiles between pos1 and pos2 (Bresenham's line trace)
+    hasLineOfSight(pos1, pos2) {
+        if (!pos1 || !pos2 || !this.map) return true;
+
+        const LAND = new Set(['island', 'mountain', 'forest', 'grassland', 'city', 'town']);
+        const c1 = this.coordToNumbers(pos1);
+        const c2 = this.coordToNumbers(pos2);
+
+        let x = c1.x, y = c1.y;
+        const dx = Math.abs(c2.x - x);
+        const dy = Math.abs(c2.y - y);
+        const sx = x < c2.x ? 1 : -1;
+        const sy = y < c2.y ? 1 : -1;
+        let err = dx - dy;
+
+        while (!(x === c2.x && y === c2.y)) {
+            const e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 < dx) { err += dx; y += sy; }
+            if (x === c2.x && y === c2.y) break; // Reached target cell — don't block on the target itself
+            const cell = this.map.get(GameUtils.generateExtendedCoordinate(x, y));
+            if (cell && LAND.has(cell.type)) return false;
+        }
+
+        return true;
+    }
+
+    // Returns true if any unit on 'side' has a clear line of sight to targetPos
+    // side: 'player' checks all players + player aircraft; 'ai' checks all enemies
+    hasVisionOf(targetPos, side) {
+        if (!targetPos || !this.map) return true;
+
+        if (side === 'player') {
+            for (const p of this.players.values()) {
+                if (p.alive && p.position && this.hasLineOfSight(p.position, targetPos)) return true;
+            }
+            for (const aircraft of this.aircraft?.values() || []) {
+                if (aircraft.owner === 'player' && aircraft.alive && aircraft.position &&
+                    this.hasLineOfSight(aircraft.position, targetPos)) return true;
+            }
+            return false;
+        } else {
+            for (const enemy of this.enemies.values()) {
+                if (enemy.alive && enemy.position && this.hasLineOfSight(enemy.position, targetPos)) return true;
+            }
+            return false;
+        }
     }
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -22204,32 +22268,37 @@ class NavalBattle {
 
     getTargetsInRange(attacker, game, range) {
         const targets = [];
+        const aiSide = attacker.id.startsWith('ai_') || !!attacker.isOPFOR;
 
-        if (attacker.id.startsWith('ai_')) {
-            // AI targets players
+        if (aiSide) {
+            // AI targets players — only those visible to the enemy side
             for (const player of game.players.values()) {
-                if (player.alive && game.calculateDistance(attacker.position, player.position) <= range) {
+                if (player.alive && game.calculateDistance(attacker.position, player.position) <= range
+                    && game.hasVisionOf(player.position, 'ai')) {
                     targets.push(player);
                 }
             }
             // AI also targets player aircraft
             for (const aircraft of game.aircraft?.values() || []) {
                 if (aircraft.owner === 'player' && aircraft.alive &&
-                    game.calculateDistance(attacker.position, aircraft.position) <= range) {
+                    game.calculateDistance(attacker.position, aircraft.position) <= range
+                    && game.hasVisionOf(aircraft.position, 'ai')) {
                     targets.push(aircraft);
                 }
             }
         } else {
-            // Players target enemies
+            // Players target enemies — only those visible to the player side
             for (const enemy of game.enemies.values()) {
-                if (enemy.alive && game.calculateDistance(attacker.position, enemy.position) <= range) {
+                if (enemy.alive && game.calculateDistance(attacker.position, enemy.position) <= range
+                    && game.hasVisionOf(enemy.position, 'player')) {
                     targets.push(enemy);
                 }
             }
             // Players also target enemy aircraft
             for (const aircraft of game.aircraft?.values() || []) {
                 if (aircraft.owner === 'enemy' && aircraft.alive &&
-                    game.calculateDistance(attacker.position, aircraft.position) <= range) {
+                    game.calculateDistance(attacker.position, aircraft.position) <= range
+                    && game.hasVisionOf(aircraft.position, 'player')) {
                     targets.push(aircraft);
                 }
             }
