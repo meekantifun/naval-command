@@ -75,6 +75,21 @@
   color: #fff;
 }
 
+/* ── Sound toggle ── */
+.btn-sound-toggle {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-sound-toggle:hover { background: rgba(255,255,255,0.15); }
+.btn-sound-toggle.muted { opacity: 0.5; }
+
 /* ── Canvas scroll container ── */
 .map-scroll-wrapper {
   flex: 1;
@@ -83,6 +98,123 @@
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: #1e293b;
+  position: relative;
+}
+
+/* ═══════════════════════════════════════════════════
+   WEATHER OVERLAY
+   pointer-events: none so the map stays fully clickable
+   ═══════════════════════════════════════════════════ */
+.weather-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+/* ── Shared child layers (hidden by default) ── */
+.wx-rain, .wx-fog, .wx-lightning, .wx-tint, .wx-vignette {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+/* ══ RAINY ══════════════════════════════════════════ */
+@keyframes wx-rain-fall {
+  from { transform: translateY(-60px); }
+  to   { transform: translateY(0px);   }
+}
+.wx-rainy .wx-rain {
+  inset: -30%;
+  opacity: 0.6;
+  background-image: repeating-linear-gradient(
+    173deg,
+    transparent 0px, transparent 3px,
+    rgba(174, 214, 255, 0.2) 3px, rgba(174, 214, 255, 0.2) 4px
+  );
+  background-size: 20px 60px;
+  animation: wx-rain-fall 0.4s linear infinite;
+}
+
+/* ══ FOGGY ══════════════════════════════════════════ */
+@keyframes wx-fog-a {
+  from { transform: translateX(0)   scale(1);    opacity: 0.7; }
+  to   { transform: translateX(18%) scale(1.1);  opacity: 1;   }
+}
+@keyframes wx-fog-b {
+  from { transform: translateX(0)    scale(1);    opacity: 0.55; }
+  to   { transform: translateX(-14%) scale(0.95); opacity: 0.85; }
+}
+.wx-foggy .wx-fog { opacity: 1; }
+.wx-foggy .wx-fog::before {
+  content: '';
+  position: absolute;
+  width: 130%; height: 55%; top: 5%; left: -15%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(210,225,240,0.30) 0%, transparent 70%);
+  filter: blur(28px);
+  animation: wx-fog-a 14s ease-in-out infinite alternate;
+}
+.wx-foggy .wx-fog::after {
+  content: '';
+  position: absolute;
+  width: 115%; height: 50%; top: 42%; right: -10%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(200,220,235,0.26) 0%, transparent 70%);
+  filter: blur(32px);
+  animation: wx-fog-b 19s ease-in-out infinite alternate;
+}
+
+/* ══ THUNDERSTORM ═══════════════════════════════════ */
+.wx-thunderstorm .wx-rain {
+  inset: -30%;
+  opacity: 0.8;
+  background-image: repeating-linear-gradient(
+    171deg,
+    transparent 0px, transparent 2px,
+    rgba(160, 200, 255, 0.25) 2px, rgba(160, 200, 255, 0.25) 3px
+  );
+  background-size: 14px 40px;
+  animation: wx-rain-fall 0.22s linear infinite;
+}
+@keyframes wx-lightning-flash {
+  0%, 88%   { opacity: 0;    }
+  89%       { opacity: 0.30; }
+  90%       { opacity: 0;    }
+  91%       { opacity: 0.16; }
+  92%, 100% { opacity: 0;    }
+}
+.wx-thunderstorm .wx-lightning {
+  background: rgba(220, 235, 255, 1);
+  animation: wx-lightning-flash 5.5s linear infinite;
+}
+.wx-thunderstorm .wx-tint {
+  opacity: 1;
+  background: rgba(10, 20, 60, 0.13);
+}
+
+/* ══ HURRICANE ══════════════════════════════════════ */
+.wx-hurricane .wx-rain {
+  inset: -30%;
+  opacity: 0.85;
+  background-image: repeating-linear-gradient(
+    155deg,
+    transparent 0px, transparent 2px,
+    rgba(160, 200, 255, 0.22) 2px, rgba(160, 200, 255, 0.22) 4px
+  );
+  background-size: 18px 45px;
+  animation: wx-rain-fall 0.17s linear infinite;
+}
+@keyframes wx-gust-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1.0; }
+}
+.wx-hurricane .wx-vignette {
+  opacity: 1;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.38) 100%);
+  animation: wx-gust-pulse 2.8s ease-in-out infinite;
 }
 
 .game-map-canvas {

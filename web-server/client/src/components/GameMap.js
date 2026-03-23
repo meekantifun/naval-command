@@ -866,9 +866,113 @@ function getShipType(shipClass) {
   return 'auxiliary';
 }
 
+// ── Weather audio hook ────────────────────────────────────────────────────────
+function useWeatherAudio(weather, muted) {
+  const ctxRef     = useRef(null);
+  const cleanupRef = useRef(null);
+
+  useEffect(() => {
+    if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }
+    if (muted || !weather || weather === 'clear') return;
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+
+    let ctx;
+    try {
+      if (!ctxRef.current || ctxRef.current.state === 'closed') ctxRef.current = new AudioCtx();
+      ctx = ctxRef.current;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    } catch (e) { return; }
+
+    const srcs = [];
+
+    // Pink-noise buffer (4 s, looping)
+    const bufLen = ctx.sampleRate * 4;
+    const pinkBuf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const pd = pinkBuf.getChannelData(0);
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i = 0; i < bufLen; i++) {
+      const w = Math.random() * 2 - 1;
+      b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
+      b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
+      b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
+      pd[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;
+      b6 = w*0.115926;
+    }
+
+    const master = ctx.createGain();
+    master.connect(ctx.destination);
+
+    const layer = (fType, freq, q, gain) => {
+      const src = ctx.createBufferSource();
+      src.buffer = pinkBuf; src.loop = true;
+      const f = ctx.createBiquadFilter();
+      f.type = fType; f.frequency.value = freq; f.Q.value = q;
+      const g = ctx.createGain(); g.gain.value = gain;
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start(); srcs.push(src);
+    };
+
+    if (weather === 'rainy') {
+      master.gain.value = 0.09;
+      layer('highpass', 6000, 0.5, 1.2);
+      layer('lowpass',  300,  0.5, 0.4);
+    } else if (weather === 'foggy') {
+      master.gain.value = 0.07;
+      layer('lowpass',   350, 0.8, 0.8);
+      layer('bandpass',  700, 1.5, 0.3);
+    } else if (weather === 'thunderstorm') {
+      master.gain.value = 0.12;
+      layer('highpass', 5500, 0.4, 1.5);
+      layer('lowpass',   250, 0.5, 0.5);
+      let stopped = false;
+      const boom = () => {
+        if (stopped || ctx.state === 'closed') return;
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = 45 + Math.random() * 30;
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0, ctx.currentTime);
+        env.gain.linearRampToValueAtTime(0.7, ctx.currentTime + 0.08);
+        env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.2);
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 160;
+        osc.connect(lp); lp.connect(env); env.connect(master);
+        osc.start(); osc.stop(ctx.currentTime + 2.2);
+        setTimeout(boom, 5000 + Math.random() * 12000);
+      };
+      setTimeout(boom, 1500 + Math.random() * 3000);
+      srcs.push({ stop: () => { stopped = true; }, disconnect: () => {} });
+    } else if (weather === 'hurricane') {
+      master.gain.value = 0.14;
+      layer('bandpass', 900, 0.4, 1.2);
+      layer('bandpass', 300, 0.5, 0.8);
+      layer('highpass', 7000, 0.3, 1.0);
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine'; lfo.frequency.value = 0.2;
+      const lfoG = ctx.createGain(); lfoG.gain.value = 0.04;
+      lfo.connect(lfoG); lfoG.connect(master.gain);
+      lfo.start(); srcs.push(lfo);
+    }
+
+    cleanupRef.current = () => {
+      srcs.forEach(s => { try { s.stop(); } catch(e) {} try { s.disconnect?.(); } catch(e) {} });
+      try { master.disconnect(); } catch(e) {}
+    };
+  }, [weather, muted]);
+
+  useEffect(() => () => {
+    cleanupRef.current?.();
+    try { ctxRef.current?.close(); } catch(e) {}
+  }, []);
+}
+
 function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null, isGM = false, moveHighlights = [], attackHighlights = [] }) {
   const canvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
+  const [soundMuted, setSoundMuted] = useState(false);
+  useWeatherAudio(gameState?.weather, soundMuted);
   // mineImg is loaded via iconsRef below; keep this null so the fallback never draws
   const mineImg = null;
 
@@ -1359,6 +1463,15 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
             ? <><strong>{hoverLabel}</strong> — click to inspect</>
             : 'Hover over the map'}
         </div>
+        {gameState?.weather && gameState.weather !== 'clear' && (
+          <button
+            className={`btn-sound-toggle ${soundMuted ? 'muted' : 'active'}`}
+            onClick={() => setSoundMuted(m => !m)}
+            title={soundMuted ? 'Unmute weather sounds' : 'Mute weather sounds'}
+          >
+            {soundMuted ? '🔇' : '🔊'}
+          </button>
+        )}
       </div>
 
       <div className="map-scroll-wrapper">
@@ -1371,6 +1484,15 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
           onMouseLeave={() => setHoveredCell(null)}
           className="game-map-canvas"
         />
+        {gameState?.weather && gameState.weather !== 'clear' && (
+          <div className={`weather-overlay wx-${gameState.weather}`}>
+            <div className="wx-rain" />
+            <div className="wx-fog" />
+            <div className="wx-lightning" />
+            <div className="wx-tint" />
+            <div className="wx-vignette" />
+          </div>
+        )}
       </div>
     </div>
   );
