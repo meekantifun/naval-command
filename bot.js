@@ -5441,10 +5441,6 @@ class NavalWarfareBot {
             
             // Normal game processing only happens when players are alive
             
-            // Process weather events
-            const weatherMessages = this.processWeatherEvents(game);
-            for (const message of weatherMessages) await channel.send(message);
-            
             // Process formation integrity
             const formationMessages = this.checkFormationIntegrity(game);
             for (const message of formationMessages) await channel.send(message);
@@ -6522,14 +6518,16 @@ class NavalWarfareBot {
         const weatherMessages = this.processWeatherEvents(game);
         for (const message of weatherMessages) await channel.send(message);
         
-        // Update map immediately if weather changed
+        // Update Discord map and web dashboard immediately if weather changed
         if (game.weatherChangedThisTurn) {
             try {
                 await this.updateGameDisplay(game, channel);
-                game.weatherChangedThisTurn = false; // Reset flag
+                game.weatherChangedThisTurn = false;
             } catch (error) {
                 console.error('❌ Error updating map after weather change:', error);
             }
+            // Push weather state to web clients immediately — don't wait until end of AI turn
+            this.broadcastGameUpdate(game.channelId).catch(() => {});
         }
         
         // ── Pre-compute focus target ──────────────────────────────────────────
@@ -17095,8 +17093,8 @@ class NavalWarfareBot {
         const messages = [];
         let weatherChanged = false;
         
-        // Check for new weather events
-        if (Math.random() < 0.15) {
+        // Check for new weather events (6% per turn — roughly one event per ~17 turns)
+        if (Math.random() < 0.06) {
             const availableEvents = Array.from(this.weatherEvents.values());
             if (availableEvents.length > 0) {
                 const event = availableEvents[Math.floor(Math.random() * availableEvents.length)];
