@@ -45,6 +45,25 @@
 .terrain-chip.port      { background: #1e3a8a; border-color: #1e40af; }
 .terrain-chip.mine      { background: #7c3aed; border-color: #6d28d9; }
 
+.map-gm-display {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  background: rgba(250, 166, 26, 0.12);
+  border: 1px solid rgba(250, 166, 26, 0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+.map-gm-label {
+  color: #faa61a;
+  font-weight: 700;
+}
+.map-gm-name {
+  color: #fde68a;
+}
+
 .map-coord-display {
   font-family: monospace;
   font-size: 0.85rem;

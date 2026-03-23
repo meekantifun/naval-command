@@ -1622,6 +1622,7 @@ class NavalWarfareBot {
         }
 
         const game = new NavalBattle(channelId, maxPlayers, interaction.user.id, this);
+        game.gmUsername = interaction.user.displayName || interaction.user.username || null;
         this.games.set(channelId, game);
 
         // Update status when new sortie starts
@@ -19532,6 +19533,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     infrastructure,
                     turnOrder: game.turnOrder,
                     gmId: game.gmId,
+                    gmUsername: game.gmUsername || null,
                     gmActive: game.gmActive !== false,
                     spawnZoneCoords: (() => {
                         const occupiedCoords = new Set(
@@ -20896,6 +20898,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Create proper NavalBattle instance
                 const game = new NavalBattle(channelId, maxP, userId || 'web-admin', this);
                 game.guildId = guildId;
+                if (userId) {
+                    this.client.users.fetch(userId).then(u => { game.gmUsername = u.displayName || u.username || null; }).catch(() => {});
+                }
 
                 // Handle enemy configuration — must match format expected by spawnConfiguredEnemies()
                 let enemyConfig;
@@ -21117,6 +21122,7 @@ class NavalBattle {
         this.channelId = channelId;
         this.maxPlayers = maxPlayers;
         this.gmId = gmId;
+        this.gmUsername = null; // Set after construction
         this.gmActive = true; // GM powers enabled by default; can be toggled off
         this.bot = bot;
         this.players = new Map();

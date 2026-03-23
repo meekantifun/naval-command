@@ -1348,6 +1348,12 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
           <span className="terrain-chip port">Port</span>
           <span className="terrain-chip mine">Mine</span>
         </div>
+        {gameState?.gmUsername && (
+          <div className="map-gm-display">
+            <span className="map-gm-label">GM:</span>
+            <span className="map-gm-name">{gameState.gmUsername}</span>
+          </div>
+        )}
         <div className="map-coord-display">
           {hoverLabel
             ? <><strong>{hoverLabel}</strong> — click to inspect</>
