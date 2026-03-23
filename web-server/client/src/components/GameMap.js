@@ -915,9 +915,17 @@ function useWeatherAudio(weather, muted) {
     };
 
     if (weather === 'rainy') {
-      master.gain.value = 0.09;
-      layer('highpass', 6000, 0.5, 1.2);
-      layer('lowpass',  300,  0.5, 0.4);
+      master.gain.value = 0.11;
+      // Main rain patter: centred in 1–4kHz where rain sounds most natural
+      layer('bandpass', 1500, 0.8, 1.0);  // splatter / patter body
+      layer('bandpass', 3500, 1.2, 0.6);  // drop-impact sparkle
+      layer('lowpass',   550, 0.4, 0.25); // ambient low wash
+      // Gentle LFO to break up the static feel (simulates gusts)
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine'; lfo.frequency.value = 0.12;
+      const lfoG = ctx.createGain(); lfoG.gain.value = 0.028;
+      lfo.connect(lfoG); lfoG.connect(master.gain);
+      lfo.start(); srcs.push(lfo);
     } else if (weather === 'foggy') {
       master.gain.value = 0.07;
       layer('lowpass',   350, 0.8, 0.8);

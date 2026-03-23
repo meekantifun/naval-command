@@ -123,19 +123,37 @@
 
 /* ══ RAINY ══════════════════════════════════════════ */
 @keyframes wx-rain-fall {
-  from { transform: translateY(-60px); }
+  from { transform: translateY(-80px); }
   to   { transform: translateY(0px);   }
 }
+@keyframes wx-rain-fall-slow {
+  from { transform: translateY(-110px); }
+  to   { transform: translateY(0px);    }
+}
 .wx-rainy .wx-rain {
-  inset: -30%;
-  opacity: 0.6;
+  inset: -50%;
+  opacity: 1;
+  /* Primary streaks: 2px wide, clearly visible */
   background-image: repeating-linear-gradient(
-    173deg,
-    transparent 0px, transparent 3px,
-    rgba(174, 214, 255, 0.2) 3px, rgba(174, 214, 255, 0.2) 4px
+    170deg,
+    transparent 0px, transparent 5px,
+    rgba(215, 235, 255, 0.55) 5px, rgba(215, 235, 255, 0.55) 7px
   );
-  background-size: 20px 60px;
-  animation: wx-rain-fall 0.4s linear infinite;
+  background-size: 28px 85px;
+  animation: wx-rain-fall 0.28s linear infinite;
+}
+/* Secondary layer — lighter, slower, larger spacing — adds depth */
+.wx-rainy .wx-rain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    172deg,
+    transparent 0px, transparent 9px,
+    rgba(195, 220, 255, 0.28) 9px, rgba(195, 220, 255, 0.28) 10px
+  );
+  background-size: 40px 110px;
+  animation: wx-rain-fall-slow 0.55s linear infinite;
 }
 
 /* ══ FOGGY ══════════════════════════════════════════ */
@@ -169,15 +187,27 @@
 
 /* ══ THUNDERSTORM ═══════════════════════════════════ */
 .wx-thunderstorm .wx-rain {
-  inset: -30%;
-  opacity: 0.8;
+  inset: -50%;
+  opacity: 1;
   background-image: repeating-linear-gradient(
     171deg,
-    transparent 0px, transparent 2px,
-    rgba(160, 200, 255, 0.25) 2px, rgba(160, 200, 255, 0.25) 3px
+    transparent 0px, transparent 4px,
+    rgba(185, 215, 255, 0.60) 4px, rgba(185, 215, 255, 0.60) 6px
   );
-  background-size: 14px 40px;
-  animation: wx-rain-fall 0.22s linear infinite;
+  background-size: 18px 55px;
+  animation: wx-rain-fall 0.18s linear infinite;
+}
+.wx-thunderstorm .wx-rain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    173deg,
+    transparent 0px, transparent 7px,
+    rgba(175, 210, 255, 0.30) 7px, rgba(175, 210, 255, 0.30) 8px
+  );
+  background-size: 30px 70px;
+  animation: wx-rain-fall-slow 0.38s linear infinite;
 }
 @keyframes wx-lightning-flash {
   0%, 88%   { opacity: 0;    }
