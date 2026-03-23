@@ -346,6 +346,16 @@ app.post('/api/game/:channelId/end-turn', ensureAuthenticated, async (req, res) 
   }
 });
 
+app.post('/api/game/:channelId/gm-toggle', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/gm-toggle`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to toggle GM status' });
+  }
+});
+
 app.post('/api/game/:channelId/weather', ensureAuthenticated, async (req, res) => {
   try {
     const r = await botAPI.post(`/api/game/${req.params.channelId}/weather`,
