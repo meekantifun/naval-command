@@ -731,6 +731,11 @@
 }
 .btn-start-battle:hover:not(:disabled) { background: #059669; }
 .btn-start-battle:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+.btn-gm-toggle { width: 100%; border: none; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-gm-toggle.gm-active { background: #f59e0b; color: #1a1a1a; }
+.btn-gm-toggle.gm-active:hover { background: #d97706; }
+.btn-gm-toggle.gm-inactive { background: #5865f2; color: #fff; }
+.btn-gm-toggle.gm-inactive:hover { background: #4752c4; }
 
 .spawn-hint-text, .spawn-ready-text {
   font-size: 13px;

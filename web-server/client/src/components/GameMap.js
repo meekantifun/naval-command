@@ -929,8 +929,8 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
   [gameState]);
 
   const allEnemies = useMemo(() =>
-    (gameState?.enemies || []).filter(e => e.x != null),
-  [gameState]);
+    (gameState?.enemies || []).filter(e => e.x != null && (e.visible || e.sunk || isGM)),
+  [gameState, isGM]);
 
   const terrainMap = useMemo(() => {
     const tm = new Map();

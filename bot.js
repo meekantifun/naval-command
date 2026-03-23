@@ -13519,9 +13519,9 @@ class NavalWarfareBot {
             }
         }
 
-        // Draw enemy ships with icons
+        // Draw enemy ships with icons (only those visible to players, plus wrecks)
         for (const enemy of game.enemies.values()) {
-            if (enemy.position) {
+            if (enemy.position && ((enemy.sunk ?? !enemy.alive) || game.hasVisionOf(enemy.position, 'player'))) {
                 try {
                     const coords = GameUtils.parseCoordinate(enemy.position);
                     if (coords) {
@@ -19435,23 +19435,28 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     stats: p.stats
                 }));
 
-                const enemiesArray = Array.from(game.enemies.values()).map(e => ({
-                    id: e.id,
-                    name: e.name || e.customName,
-                    shipClass: e.shipClass,
-                    x: e.x,
-                    y: e.y,
-                    health: e.health ?? e.currentHealth,
-                    maxHealth: e.maxHealth,
-                    onFire: e.onFire,
-                    flooding: e.flooding,
-                    sunk: e.sunk ?? !e.alive,
-                    isBoss: e.isBoss,
-                    gmControlled: e.gmControlled ?? false,
-                    stats: e.stats,
-                    weapons: e.weapons,
-                    position: e.position
-                }));
+                const enemiesArray = Array.from(game.enemies.values()).map(e => {
+                    const sunk = e.sunk ?? !e.alive;
+                    const visible = sunk || game.hasVisionOf(e.position, 'player');
+                    return {
+                        id: e.id,
+                        name: e.name || e.customName,
+                        shipClass: e.shipClass,
+                        x: visible ? e.x : null,
+                        y: visible ? e.y : null,
+                        health: e.health ?? e.currentHealth,
+                        maxHealth: e.maxHealth,
+                        onFire: e.onFire,
+                        flooding: e.flooding,
+                        sunk,
+                        isBoss: e.isBoss,
+                        gmControlled: e.gmControlled ?? false,
+                        stats: e.stats,
+                        weapons: e.weapons,
+                        position: visible ? e.position : null,
+                        visible
+                    };
+                });
 
                 // Use terrain captured when the Discord map image was generated (always in sync).
                 // Fall back to computing from game.map if no image has been generated yet.
@@ -19527,6 +19532,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     infrastructure,
                     turnOrder: game.turnOrder,
                     gmId: game.gmId,
+                    gmActive: game.gmActive !== false,
                     spawnZoneCoords: (() => {
                         const occupiedCoords = new Set(
                             Array.from(game.players.values())
@@ -20021,6 +20027,23 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // GM: Toggle GM powers on/off (only the original GM can call this)
+        app.post('/api/game/:channelId/gm-toggle', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' }); // Always allow toggle regardless of gmActive
+                game.gmActive = !(game.gmActive !== false);
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true, gmActive: game.gmActive });
+            } catch (error) {
+                console.error('Error toggling GM:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // GM: Change weather
         app.post('/api/game/:channelId/weather', authenticateAPIKey, async (req, res) => {
             try {
@@ -20028,7 +20051,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, condition } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const valid = ['clear', 'rainy', 'foggy', 'thunderstorm', 'hurricane'];
                 if (!valid.includes(condition)) return res.status(400).json({ error: 'Invalid weather condition' });
                 game.weather = condition;
@@ -20051,7 +20074,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, shipType, bossKey, x, y } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 if (game.enemies.size >= 20) return res.status(400).json({ error: 'Too many enemies (max 20)' });
 
                 const gameFaction = game.faction || game.setupState?.enemyFaction || 'siren';
@@ -20107,7 +20130,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 if (game.turnTimer) { clearTimeout(game.turnTimer); game.turnTimer = null; }
                 if (game.battleTimer) { clearTimeout(game.battleTimer); game.battleTimer = null; }
                 if (game.updateInterval) { clearInterval(game.updateInterval); game.updateInterval = null; }
@@ -20155,7 +20178,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, targetId, targetType, status } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const unit = targetType === 'player'
                     ? game.players.get(targetId)
                     : game.enemies.get(targetId);
@@ -20199,7 +20222,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, aiId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const ai = game.enemies.get(aiId);
                 if (!ai || !ai.alive) return res.status(404).json({ error: 'AI not found or dead' });
                 ai.gmControlled = true;
@@ -20222,7 +20245,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, aiId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const ai = game.enemies.get(aiId);
                 if (!ai) return res.status(404).json({ error: 'AI not found' });
                 // If AI is mid-turn, resolve it so the battle can continue
@@ -20250,7 +20273,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, aiId, coordinate } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const ai = game.enemies.get(aiId);
                 if (!ai || !ai.alive || !ai.gmControlled) return res.status(404).json({ error: 'AI not found or not GM-controlled' });
                 const coord = coordinate.trim().toUpperCase();
@@ -20285,7 +20308,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, aiId, targetId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const ai = game.enemies.get(aiId);
                 if (!ai || !ai.alive || !ai.gmControlled) return res.status(404).json({ error: 'AI not found or not GM-controlled' });
                 const target = game.players.get(targetId);
@@ -20308,7 +20331,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId, aiId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'Not the GM' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'Not the GM' });
                 const ai = game.enemies.get(aiId);
                 if (!ai || !ai.gmControlled) return res.status(404).json({ error: 'AI not found or not GM-controlled' });
                 if (ai.gmTurnTimeout) { clearTimeout(ai.gmTurnTimeout); ai.gmTurnTimeout = null; }
@@ -20329,7 +20352,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const { userId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
-                if (userId !== game.gmId) return res.status(403).json({ error: 'You are not the GM of this game' });
+                if (userId !== game.gmId || !game.gmActive) return res.status(403).json({ error: 'You are not the GM of this game' });
                 if (game.phase !== 'joining') return res.status(400).json({ error: `Game is not in joining phase (phase: ${game.phase})` });
                 if (game.players.size < 1) return res.status(400).json({ error: 'Need at least 1 player to start' });
 
@@ -21094,6 +21117,7 @@ class NavalBattle {
         this.channelId = channelId;
         this.maxPlayers = maxPlayers;
         this.gmId = gmId;
+        this.gmActive = true; // GM powers enabled by default; can be toggled off
         this.bot = bot;
         this.players = new Map();
         this.enemies = new Map();
@@ -22087,19 +22111,21 @@ class NavalBattle {
         const c1 = this.coordToNumbers(pos1);
         const c2 = this.coordToNumbers(pos2);
 
-        let x = c1.x, y = c1.y;
-        const dx = Math.abs(c2.x - x);
-        const dy = Math.abs(c2.y - y);
-        const sx = x < c2.x ? 1 : -1;
-        const sy = y < c2.y ? 1 : -1;
-        let err = dx - dy;
+        const dx = c2.x - c1.x;
+        const dy = c2.y - c1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist === 0) return true;
 
-        while (!(x === c2.x && y === c2.y)) {
-            const e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x += sx; }
-            if (e2 < dx) { err += dx; y += sy; }
-            if (x === c2.x && y === c2.y) break; // Reached target cell — don't block on the target itself
-            const cell = this.map.get(GameUtils.generateExtendedCoordinate(x, y));
+        // Step in 0.5-cell increments for reliable detection
+        const steps = Math.ceil(dist * 2);
+        for (let i = 1; i < steps; i++) {
+            const t = i / steps;
+            const cx = Math.round(c1.x + dx * t);
+            const cy = Math.round(c1.y + dy * t);
+            // Skip source and target cells
+            if (cx === c1.x && cy === c1.y) continue;
+            if (cx === c2.x && cy === c2.y) continue;
+            const cell = this.map.get(GameUtils.generateExtendedCoordinate(cx, cy));
             if (cell && LAND.has(cell.type)) return false;
         }
 

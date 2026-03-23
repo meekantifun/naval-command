@@ -455,7 +455,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const myPlayer = useMemo(() =>
     gameState?.players?.find(p => p.userId === user.id), [gameState, user.id]);
 
-  const isGM = gameState?.gmId === user.id;
+  const isGM = gameState?.gmId === user.id && gameState?.gmActive !== false;
   const needsSpawn = myPlayer && myPlayer.x == null && gameState?.phase === 'joining';
 
   const setupWebSocket = () => {
@@ -544,15 +544,15 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   const handleAttackFull = async (targetId, weaponType, shellType) => {
     try {
+      await axios.post(`${API_URL}/api/game/${channelId}/attack`,
+        { targetId, weaponType, shellType, characterAlias: selectedPlayer?.characterAlias },
+        { withCredentials: true }
+      );
       const attacker = selectedPlayer?.characterAlias || selectedPlayer?.username || 'You';
       const weapon   = attackState?.weaponName || weaponType || 'weapon';
       const target   = attackState?.targetName || 'target';
       const shell    = shellType && shellType !== 'torpedo' ? ` (${shellType.toUpperCase()})` : '';
       addLogEntry(`⚔️ ${attacker} fires ${weapon}${shell} at ${target}`, 'attack');
-      await axios.post(`${API_URL}/api/game/${channelId}/attack`,
-        { targetId, weaponType, shellType, characterAlias: selectedPlayer?.characterAlias },
-        { withCredentials: true }
-      );
       setAttackState(null);
       setSelectedCell(null);
     } catch (err) {
@@ -580,6 +580,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
       await axios.post(`${API_URL}/api/game/${channelId}/spawn-enemy`, payload, { withCredentials: true });
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to spawn enemy');
+    }
+  };
+
+  const handleGMToggle = async () => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/gm-toggle`, {}, { withCredentials: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to toggle GM status');
     }
   };
 
@@ -783,7 +791,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
       : { top: clientY + MARGIN_PX };
     const coord = coordLabel(x, y);
     const players = (gameState.players || []).filter(p => !p.sunk && p.x === x && p.y === y);
-    const enemies = (gameState.enemies || []).filter(e => !e.sunk && e.x === x && e.y === y);
+    const enemies = (gameState.enemies || []).filter(e => (e.visible || isGM) && e.x === x && e.y === y);
     const isLand = landSet.has(`${x},${y}`);
     const isSpawnCell = spawnSet.has(`${x},${y}`);
     const moveSpeed = selectedPlayer?.stats?.speed || 3;
@@ -984,6 +992,18 @@ function GameView({ channelId, user, onBack, onLogout }) {
                 )}
               </div>
 
+              {gameState?.gmId === user.id && (
+                <div className="sidebar-section">
+                  <button
+                    className={`btn btn-gm-toggle ${gameState?.gmActive !== false ? 'gm-active' : 'gm-inactive'}`}
+                    onClick={handleGMToggle}
+                    title={gameState?.gmActive !== false ? 'Click to play as a regular player' : 'Click to re-enable GM powers'}
+                  >
+                    {gameState?.gmActive !== false ? '🎮 Playing as GM — Click to drop GM powers' : '🔓 Restore GM Powers'}
+                  </button>
+                </div>
+              )}
+
               {isGM && (
                 <div className="sidebar-section">
                   <h3>⚙️ GM Controls</h3>
@@ -1112,12 +1132,12 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
           {/* Enemies */}
           <div className="sidebar-section">
-            <h3>Enemies ({gameState.enemies.filter(e => !e.sunk).length})</h3>
+            <h3>Enemies ({gameState.enemies.filter(e => !e.sunk && (e.visible || isGM)).length})</h3>
             <div className="enemy-list">
-              {gameState.enemies.filter(e => !e.sunk).length === 0 ? (
-                <p className="no-enemies">No enemies remaining</p>
+              {gameState.enemies.filter(e => !e.sunk && (e.visible || isGM)).length === 0 ? (
+                <p className="no-enemies">No enemies in sight</p>
               ) : (
-                gameState.enemies.filter(e => !e.sunk).map((enemy) => {
+                gameState.enemies.filter(e => !e.sunk && (e.visible || isGM)).map((enemy) => {
                   const hpPct = enemy.maxHealth > 0
                     ? Math.max(0, Math.min(100, Math.round((enemy.health / enemy.maxHealth) * 100)))
                     : 0;
