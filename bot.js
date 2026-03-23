@@ -5523,6 +5523,23 @@ class NavalWarfareBot {
 
     async endBattleInternal(game, channel) {
 
+        // Set phase immediately so all in-flight loops stop processing
+        game.phase = 'ended';
+
+        // Clear all active player turn timeouts so no "took too long" fires after the battle
+        for (const player of game.players.values()) {
+            if (player.turnTimeout) {
+                clearTimeout(player.turnTimeout);
+                player.turnTimeout = null;
+            }
+            // Silently resolve any turn currently waiting on player input
+            if (player.turnResolve) {
+                const resolve = player.turnResolve;
+                player.turnResolve = null;
+                resolve();
+            }
+        }
+
         // Stop player monitoring
         this.stopPlayerMonitoring(game);
         
@@ -6531,6 +6548,8 @@ class NavalWarfareBot {
 
         // Process regular AI
         for (const ai of aiEntities) {
+            if (game.phase !== 'battle') return; // Battle may have ended mid-turn
+
             const statusDamage = this.processTurnEffects(ai, game);
             for (const message of statusDamage) await channel.send(message);
 
@@ -6702,6 +6721,7 @@ class NavalWarfareBot {
         );
 
         for (const aircraft of aiAircraft) {
+            if (game.phase !== 'battle') return; // Battle may have ended mid-turn
             await this.processAIAircraftTurn(aircraft, game, channel);
         }
 
@@ -20138,6 +20158,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (game.updateInterval) { clearInterval(game.updateInterval); game.updateInterval = null; }
                 if (game.qrfTimer) { clearTimeout(game.qrfTimer); game.qrfTimer = null; }
                 game.phase = 'ended';
+                // Clear all player turn timeouts so no "took too long" message fires after the battle
+                for (const player of game.players.values()) {
+                    if (player.turnTimeout) { clearTimeout(player.turnTimeout); player.turnTimeout = null; }
+                    if (player.turnResolve) { const r = player.turnResolve; player.turnResolve = null; r(); }
+                }
                 // Cache for web dashboard before deletion
                 this.endedGames.set(channelId, {
                     channelId,
