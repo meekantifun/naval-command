@@ -7692,7 +7692,10 @@ class NavalWarfareBot {
                 : Object.values(attacker.weapons).find(w => w.type === weapon)))
             : null;
         let baseDamage = weaponData ? weaponData.damage : this.getWeaponDamage(weapon, ammoType);
-        
+
+        // Torpedoes detonate below the waterline — massively amplified damage regardless of caliber
+        if (weapon === 'torpedoes') baseDamage = Math.round(baseDamage * 2.2);
+
         // Apply equipment level bonus for players
         const channel = game.channelId ? this.client.channels.cache.get(game.channelId) : null;
         const guildId = channel?.guild?.id;
@@ -7969,7 +7972,7 @@ class NavalWarfareBot {
     }
 
     getWeaponDamage(weapon, ammoType) {
-       const damage = { main: { ap: 80, he: 65 }, secondary: { ap: 35, he: 30 }, torpedoes: { ap: 120, he: 120 } };
+       const damage = { main: { ap: 80, he: 65 }, secondary: { ap: 35, he: 30 }, torpedoes: { ap: 85, he: 85 } };
        return damage[weapon]?.[ammoType] || 50;
     }
 
