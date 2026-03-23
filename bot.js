@@ -8114,7 +8114,8 @@ class NavalWarfareBot {
                     ai.turnResolve();
                     ai.turnResolve = null;
                     ai.activeTurnMessageId = null;
-                    channel.send(`⏰ **${aiName}**'s GM turn timed out.`).catch(() => {});
+                    // Suppress public timeout message — internal only
+                    console.log(`⏰ GM-controlled ${aiName} turn timed out`);
                 }
             }, 10 * 60 * 1000);
         });
@@ -8229,7 +8230,8 @@ class NavalWarfareBot {
 
         const aiName = GameUtils.getAIDisplayName(ai);
         await interaction.reply({ content: `✅ **${aiName}** moved from **${oldPos}** to **${coord}**.`, flags: MessageFlags.Ephemeral });
-        await interaction.channel.send(`🕹️ **${aiName}** [GM] moves to **${coord}**.`);
+        game.addGMLog(`Moved ${aiName} to ${coord}`);
+        await interaction.channel.send(`🚢 **${aiName}** moves to **${coord}**.`);
         await this.updateGameDisplay(game, interaction.channel).catch(() => {});
         await this.broadcastGameUpdate(game.channelId).catch(() => {});
     }
@@ -19553,6 +19555,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     gmId: game.gmId,
                     gmUsername: game.gmUsername || null,
                     gmActive: game.gmActive !== false,
+                    gmLog: game.gmLog || [],
                     spawnZoneCoords: (() => {
                         const occupiedCoords = new Set(
                             Array.from(game.players.values())
@@ -20076,10 +20079,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!valid.includes(condition)) return res.status(400).json({ error: 'Invalid weather condition' });
                 game.weather = condition;
                 await this.broadcastGameUpdate(channelId);
+                game.addGMLog(`Set weather to ${condition}`);
                 res.json({ success: true });
-                // Announce to Discord (fire-and-forget)
+                // Announce to Discord without revealing GM involvement
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) ch.send({ content: `🌦️ Weather changed to **${condition}** by the GM.` }); })
+                    .then(ch => { if (ch) ch.send({ content: `🌦️ Weather conditions have shifted to **${condition}**.` }); })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error changing weather:', error);
@@ -20134,8 +20138,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 res.json({ success: true, enemyId: ai.id, name: ai.name });
 
                 const label = ai.isBoss ? `**BOSS** ${ai.name}` : `a **${shipType}** (${ai.name})`;
+                game.addGMLog(`Spawned ${ai.name || shipType} at ${ai.position}`);
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) ch.send({ content: `⚠️ GM deployed ${label} at **${ai.position}**!` }); })
+                    .then(ch => { if (ch) ch.send({ content: `⚠️ ${label} has appeared at **${ai.position}**!` }); })
                     .catch(() => {});
             } catch (error) {
                 console.error('Error spawning enemy:', error);
@@ -20185,7 +20190,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 setTimeout(() => this.endedGames.delete(channelId), 30 * 60 * 1000);
                 // Announce to Discord before deleting game (fire-and-forget)
                 this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) ch.send({ content: `🔴 The battle has been ended by the GM.` }); })
+                    .then(ch => { if (ch) ch.send({ content: `🔴 **The battle has ended. All forces stand down.**` }); })
                     .catch(() => {});
                 await this.broadcastGameUpdate(channelId);
                 this.games.delete(channelId);
@@ -20230,8 +20235,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         if (!ch) return;
                         const unitName = unit.characterAlias || unit.displayName || unit.customName || unit.username || 'a unit';
                         const emoji = status === 'fire' ? '🔥' : status === 'flood' ? '💧' : '💀';
-                        const verb = status === 'fire' ? 'set on fire' : status === 'flood' ? 'flooded' : 'sunk';
-                        ch.send({ content: `${emoji} GM: **${unitName}** has been ${verb}!` });
+                        const verb = status === 'fire' ? 'set on fire' : status === 'flood' ? 'flooding' : 'lost';
+                        game.addGMLog(`Applied status '${status}' to ${unitName}`);
+                        ch.send({ content: `${emoji} **${unitName}** is ${verb}!` });
                     })
                     .catch(() => {});
             } catch (error) {
@@ -20253,8 +20259,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 ai.gmControlled = true;
                 ai.gmControllerId = userId;
                 const aiName = ai.customName || ai.name || ai.id;
+                game.addGMLog(`Took control of ${aiName}`);
                 this.client.channels.fetch(channelId)
-                    .then(ch => ch?.send(`🕹️ **GM** has taken control of **${aiName}**. It will no longer act automatically.`))
+                    .then(ch => ch?.send(`🕹️ **${aiName}** is now operating under direct command.`))
                     .catch(() => {});
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
@@ -20280,8 +20287,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 ai.gmControllerId = null;
                 ai.activeTurnMessageId = null;
                 const aiName = ai.customName || ai.name || ai.id;
+                game.addGMLog(`Released control of ${aiName}`);
                 this.client.channels.fetch(channelId)
-                    .then(ch => ch?.send(`🤖 **${aiName}** has been returned to AI control.`))
+                    .then(ch => ch?.send(`🤖 **${aiName}** resumes autonomous operation.`))
                     .catch(() => {});
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
@@ -20315,8 +20323,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 cell.occupant = 'ai';
                 this.updateAIDirection(ai, oldPos, coord);
                 const aiName = GameUtils.getAIDisplayName(ai);
+                game.addGMLog(`Moved ${aiName} to ${coord}`);
                 this.client.channels.fetch(channelId)
-                    .then(ch => ch?.send(`🕹️ **${aiName}** [GM] moves to **${coord}**.`))
+                    .then(ch => ch?.send(`🚢 **${aiName}** moves to **${coord}**.`))
                     .catch(() => {});
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true, position: coord });
@@ -20414,7 +20423,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                             }
                         }
 
-                        await channel.send('🚢 **Battle started via web dashboard!** The GM has launched the mission.');
+                        await channel.send('🚢 **All hands to battle stations! The engagement has begun.**');
                         try { await this.updateGameDisplay(game, channel); } catch (e) { /* best-effort */ }
                         this.startPlayerMonitoring(game, channel);
                         this.startTurnSystem(game, channel);
@@ -21147,6 +21156,7 @@ class NavalBattle {
         this.gmId = gmId;
         this.gmUsername = null; // Set after construction
         this.gmActive = true; // GM powers enabled by default; can be toggled off
+        this.gmLog = []; // Private audit trail of GM actions
         this.bot = bot;
         this.players = new Map();
         this.enemies = new Map();
@@ -22121,6 +22131,12 @@ class NavalBattle {
 
         // Return default ocean cell if coordinate doesn't exist
         return { type: 'ocean', occupant: null };
+    }
+
+    addGMLog(action) {
+        if (!this.gmLog) this.gmLog = [];
+        this.gmLog.push({ ts: Date.now(), action });
+        if (this.gmLog.length > 200) this.gmLog.shift();
     }
 
     calculateDistance(pos1, pos2) {

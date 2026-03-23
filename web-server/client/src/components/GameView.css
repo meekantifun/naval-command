@@ -736,6 +736,11 @@
 .btn-gm-toggle.gm-active:hover { background: #d97706; }
 .btn-gm-toggle.gm-inactive { background: #5865f2; color: #fff; }
 .btn-gm-toggle.gm-inactive:hover { background: #4752c4; }
+.gm-log-section { border-left: 3px solid #faa61a; }
+.gm-log-entries { display: flex; flex-direction: column; gap: 3px; max-height: 180px; overflow-y: auto; }
+.gm-log-entry { display: flex; gap: 6px; font-size: 11px; line-height: 1.4; }
+.gm-log-time { color: #6b7280; white-space: nowrap; font-family: monospace; flex-shrink: 0; }
+.gm-log-action { color: #fde68a; }
 
 .spawn-hint-text, .spawn-ready-text {
   font-size: 13px;

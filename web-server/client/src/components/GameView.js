@@ -1323,6 +1323,23 @@ function GameView({ channelId, user, onBack, onLogout }) {
             </div>
           )}
 
+          {/* GM-only action log */}
+          {isGM && (gameState.gmLog?.length > 0) && (
+            <div className="sidebar-section gm-log-section">
+              <h3>📋 GM Log</h3>
+              <div className="gm-log-entries">
+                {[...(gameState.gmLog || [])].reverse().map((entry, i) => (
+                  <div key={i} className="gm-log-entry">
+                    <span className="gm-log-time">
+                      {new Date(entry.ts).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                    <span className="gm-log-action">{entry.action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           </>} {/* end battle-only sidebar content */}
 
         </div>
