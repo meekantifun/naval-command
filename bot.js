@@ -1226,6 +1226,14 @@ class NavalWarfareBot {
                 return;
             }
 
+            if (interaction.customId.startsWith('configure_recon_')) {
+                return await this.playerCreation.handleConfigureReconAircraft(interaction);
+            }
+
+            if (interaction.customId.startsWith('skip_recon_')) {
+                return await this.playerCreation.handleSkipReconAircraft(interaction);
+            }
+
             if (interaction.customId.startsWith('shop_')) {
                 return await this.shopSystem.handleShopInteraction(interaction);
             }
@@ -1571,6 +1579,8 @@ class NavalWarfareBot {
                 await this.playerCreation.handleAircraftAssignmentSubmit(interaction);
             } else if (interaction.customId.startsWith('create_aa_')) {
                 await this.playerCreation.handleAACreationSubmit(interaction);
+            } else if (interaction.customId.startsWith('recon_aircraft_')) {
+                await this.playerCreation.handleReconAircraftSubmit(interaction);
             } else {
                 // Handle any other modals you might have in the future
                 
@@ -6440,6 +6450,161 @@ class NavalWarfareBot {
         }
     }
 
+    /**
+     * Find the first alive AI auxiliary ship in the enemy fleet.
+     */
+    findAIAuxiliary(game) {
+        for (const enemy of game.enemies.values()) {
+            if (enemy.alive && enemy.type === 'auxiliary' && !enemy.isOPFOR && !enemy.gmControlled) {
+                return enemy;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Find a waypoint adjacent to an island that provides LoS cover from players,
+     * while still being closer to the target than the AI's current position.
+     * Returns a coordinate string, or null if no useful cover is found.
+     */
+    findIslandCoverWaypoint(ai, target, game) {
+        const aiNums = game.coordToNumbers(ai.position);
+        const targetNums = game.coordToNumbers(target.position);
+        if (!aiNums || !targetNums) return null;
+
+        const alivePlayers = Array.from(game.players.values()).filter(p => p.alive && p.position);
+        if (alivePlayers.length === 0) return null;
+
+        // Only seek cover if at least one player currently has LoS to the AI
+        const exposedTo = alivePlayers.filter(p => game.hasLineOfSight(p.position, ai.position));
+        if (exposedTo.length === 0) return null; // Already in cover
+
+        const aiDistToTarget = Math.hypot(targetNums.x - aiNums.x, targetNums.y - aiNums.y);
+        const searchRadius = 10;
+        let bestWaypoint = null;
+        let bestScore = Infinity;
+
+        for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+                const cx = aiNums.x + dx;
+                const cy = aiNums.y + dy;
+                if (cx < 0 || cx >= 75 || cy < 1 || cy > 75) continue;
+
+                const cellCoord = game.generateExtendedCoordinate(cx, cy);
+                const cell = game.getMapCell(cellCoord);
+                if (!cell || cell.type !== 'ocean' || cell.occupant) continue;
+
+                // Waypoint must be closer to target than current position
+                const distToTarget = Math.hypot(targetNums.x - cx, targetNums.y - cy);
+                if (distToTarget >= aiDistToTarget) continue;
+
+                // Must be adjacent to at least one island cell (provides cover geometry)
+                const adjacentToIsland = [
+                    [cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]
+                ].some(([nx, ny]) => {
+                    if (nx < 0 || nx >= 75 || ny < 1 || ny > 75) return false;
+                    const nc = game.getMapCell(game.generateExtendedCoordinate(nx, ny));
+                    return nc && nc.type === 'island';
+                });
+                if (!adjacentToIsland) continue;
+
+                // Must break LoS from at least one player who currently sees the AI
+                const breaksLoS = exposedTo.some(p => !game.hasLineOfSight(p.position, cellCoord));
+                if (!breaksLoS) continue;
+
+                if (distToTarget < bestScore) {
+                    bestScore = distToTarget;
+                    bestWaypoint = cellCoord;
+                }
+            }
+        }
+
+        return bestWaypoint;
+    }
+
+    /**
+     * Auxiliary ship AI: heal nearby damaged allied AI ships instead of attacking.
+     * Returns true if the auxiliary took its action, false if it should fall through to normal logic.
+     */
+    async processAIAuxiliaryTurn(aux, game, channel) {
+        const auxName = GameUtils.getAIDisplayName(aux);
+        const auxNums = game.coordToNumbers(aux.position);
+        if (!auxNums) return false;
+
+        const HEAL_RANGE = 3;      // cells
+        const HEAL_PCT   = 0.20;   // 20% max HP per turn
+
+        // Find nearby allied AI ships that need healing (not the aux itself, not sunk)
+        const healTargets = Array.from(game.enemies.values()).filter(ally => {
+            if (!ally.alive || ally.id === aux.id) return false;
+            if (ally.type === 'auxiliary') return false; // Auxiliaries don't heal each other
+            const maxHP = ally.stats?.health || ally.maxHealth || 100;
+            const curHP = ally.currentHealth ?? ally.hp ?? maxHP;
+            if (curHP >= maxHP) return false; // Not damaged
+            const dist = game.calculateDistance(aux.position, ally.position);
+            return dist <= HEAL_RANGE;
+        });
+
+        if (healTargets.length === 0) {
+            // No one nearby to heal — move toward nearest damaged ally
+            const needsHelp = Array.from(game.enemies.values()).filter(ally => {
+                if (!ally.alive || ally.id === aux.id || ally.type === 'auxiliary') return false;
+                const maxHP = ally.stats?.health || ally.maxHealth || 100;
+                const curHP = ally.currentHealth ?? ally.hp ?? maxHP;
+                return curHP < maxHP * 0.5; // Below 50% HP
+            });
+            if (needsHelp.length > 0) {
+                // Sort by HP% ascending (most critical first)
+                needsHelp.sort((a, b) => {
+                    const aHP = (a.currentHealth ?? a.hp ?? 0) / (a.stats?.health || a.maxHealth || 100);
+                    const bHP = (b.currentHealth ?? b.hp ?? 0) / (b.stats?.health || b.maxHealth || 100);
+                    return aHP - bHP;
+                });
+                const oldPos = aux.position;
+                const newPos = game.moveTowards(aux.position, needsHelp[0].position, aux.stats.speed);
+                if (newPos !== oldPos) {
+                    const oldCell = game.getMapCell(oldPos);
+                    if (oldCell) oldCell.occupant = null;
+                    aux.position = newPos;
+                    const nNums = game.coordToNumbers(newPos);
+                    aux.x = nNums.x; aux.y = nNums.y - 1;
+                    const newCell = game.getMapCell(newPos);
+                    if (newCell) newCell.occupant = 'ai';
+                    this.updateAIDirection(aux, oldPos, newPos);
+                    const moveMsg = `🔧 **${auxName}** repositioning to provide support...`;
+                    await channel.send(moveMsg);
+                    this.broadcastLogEntry(game.channelId, `🔧 ${auxName} repositioning`);
+                }
+            }
+            return true;
+        }
+
+        // Heal all allies in range (most damaged first)
+        healTargets.sort((a, b) => {
+            const aHP = (a.currentHealth ?? a.hp ?? 0) / (a.stats?.health || a.maxHealth || 100);
+            const bHP = (b.currentHealth ?? b.hp ?? 0) / (b.stats?.health || b.maxHealth || 100);
+            return aHP - bHP;
+        });
+
+        const healMessages = [];
+        for (const ally of healTargets) {
+            const maxHP  = ally.stats?.health || ally.maxHealth || 100;
+            const curHP  = ally.currentHealth ?? ally.hp ?? maxHP;
+            const amount = Math.round(maxHP * HEAL_PCT);
+            const newHP  = Math.min(maxHP, curHP + amount);
+            ally.currentHealth = newHP;
+            if (ally.hp !== undefined) ally.hp = newHP;
+            const hpPct = Math.round((newHP / maxHP) * 100);
+            const allyName = GameUtils.getAIDisplayName(ally);
+            healMessages.push(`**${allyName}** +${amount} HP *(${hpPct}% HP)*`);
+        }
+
+        const healMsg = `🔧 **${auxName}** provides emergency repairs: ${healMessages.join(', ')}`;
+        await channel.send(healMsg);
+        this.broadcastLogEntry(game.channelId, healMsg.replace(/\*\*/g, '').replace(/\*/g, ''));
+        return true;
+    }
+
     /** Update an AI's heading angle based on movement delta. */
     updateAIDirection(ai, oldPosition, newPosition) {
         if (!oldPosition || !newPosition || oldPosition === newPosition) return;
@@ -6544,6 +6709,9 @@ class NavalWarfareBot {
             }
         }
 
+        // Pre-compute AI auxiliary (support ship for retreat-to-healer behavior)
+        const aiAuxiliary = this.findAIAuxiliary(game);
+
         // Process regular AI
         for (const ai of aiEntities) {
             if (game.phase !== 'battle') return; // Battle may have ended mid-turn
@@ -6564,6 +6732,12 @@ class NavalWarfareBot {
                     const hpPct = curHP / maxHP;
                     if (hpPct < lowestHPPct) { lowestHPPct = hpPct; focusTarget = player; }
                 }
+            }
+
+            // Auxiliary ships: provide repairs to nearby allies instead of attacking
+            if (ai.type === 'auxiliary') {
+                await this.processAIAuxiliaryTurn(ai, game, channel);
+                continue;
             }
 
             // Carrier-specific logic (unchanged)
@@ -6594,27 +6768,50 @@ class NavalWarfareBot {
             const distToTarget = game.calculateDistance(ai.position, bestTarget.position);
 
             if (isRetreat) {
-                // ── Retreat: move away from nearest threat, fire if still in range ──
+                // ── Retreat: flee to auxiliary for repairs, or away from threat ──
                 const nearestThreat = GameUtils.findNearestPlayer(ai, game);
                 if (nearestThreat) {
-                    const retreatPos = this.getRetreatPosition(ai, nearestThreat, game);
-                    if (retreatPos) {
-                        const oldPos    = ai.position;
-                        const newPos    = game.moveTowards(ai.position, retreatPos, ai.stats.speed);
-                        const oldCell   = game.getMapCell(oldPos);
-                        if (oldCell) oldCell.occupant = null;
-                        ai.position     = newPos;
-                        const rNums     = game.coordToNumbers(newPos);
-                        ai.x = rNums.x; ai.y = rNums.y - 1;
-                        const newCell   = game.getMapCell(newPos);
-                        if (newCell) newCell.occupant = 'ai';
-                        this.updateAIDirection(ai, oldPos, newPos);
-                        const retreatMsg = `💨 **${aiName}** is retreating to **${newPos}**! *(${Math.round(aiHPPct * 100)}% HP — disengaging)*`;
-                        await channel.send(retreatMsg);
-                        this.broadcastLogEntry(game.channelId, `💨 ${aiName} retreating to ${newPos} (${Math.round(aiHPPct * 100)}% HP)`);
-                        const retreatQuote = AIPersonality.speak(ai, 'retreat', 0.80);
-                        if (retreatQuote) await channel.send(retreatQuote);
+                    let retreatDest  = null;
+                    let retreatMsg   = '';
+                    let nearAuxiliary = false;
+
+                    if (aiAuxiliary && aiAuxiliary.position) {
+                        const distToAux = game.calculateDistance(ai.position, aiAuxiliary.position);
+                        if (distToAux <= 3) {
+                            // Already adjacent to auxiliary — hold and await repairs
+                            nearAuxiliary = true;
+                            retreatMsg = `🔧 **${aiName}** holds position near support ship awaiting repairs! *(${Math.round(aiHPPct * 100)}% HP)*`;
+                        } else {
+                            // Retreat toward the auxiliary support ship
+                            retreatDest = aiAuxiliary.position;
+                            retreatMsg = `💨 **${aiName}** breaks off — heading to support ship for emergency repairs! *(${Math.round(aiHPPct * 100)}% HP)*`;
+                        }
+                    } else {
+                        // No auxiliary available — retreat away from threat
+                        retreatDest = this.getRetreatPosition(ai, nearestThreat, game);
+                        retreatMsg = `💨 **${aiName}** is retreating! *(${Math.round(aiHPPct * 100)}% HP — disengaging)*`;
                     }
+
+                    if (retreatDest && !nearAuxiliary) {
+                        const oldPos  = ai.position;
+                        const newPos  = game.moveTowards(ai.position, retreatDest, ai.stats.speed);
+                        if (newPos !== oldPos) {
+                            const oldCell = game.getMapCell(oldPos);
+                            if (oldCell) oldCell.occupant = null;
+                            ai.position   = newPos;
+                            const rNums   = game.coordToNumbers(newPos);
+                            ai.x = rNums.x; ai.y = rNums.y - 1;
+                            const newCell = game.getMapCell(newPos);
+                            if (newCell) newCell.occupant = 'ai';
+                            this.updateAIDirection(ai, oldPos, newPos);
+                        }
+                    }
+
+                    await channel.send(retreatMsg);
+                    this.broadcastLogEntry(game.channelId, retreatMsg.replace(/\*\*/g, '').replace(/\*/g, ''));
+                    const retreatQuote = AIPersonality.speak(ai, 'retreat', 0.80);
+                    if (retreatQuote) await channel.send(retreatQuote);
+
                     // Parting shot: fire at best target even while fleeing
                     const retreatDist = game.calculateDistance(ai.position, bestTarget.position);
                     if (retreatDist <= weaponRange) {
@@ -6637,7 +6834,17 @@ class NavalWarfareBot {
             } else {
                 // ── Out of range: advance ─────────────────────────────────────
                 const oldPos  = ai.position;
-                const newPos  = game.moveTowards(ai.position, bestTarget.position, ai.stats.speed);
+
+                // Island LoS cover: try to route through island-adjacent cells to
+                // stay out of player sight lines while closing the distance (60% chance).
+                let moveTarget = bestTarget.position;
+                let usingCover = false;
+                if (Math.random() < 0.60) {
+                    const waypoint = this.findIslandCoverWaypoint(ai, bestTarget, game);
+                    if (waypoint) { moveTarget = waypoint; usingCover = true; }
+                }
+
+                const newPos  = game.moveTowards(ai.position, moveTarget, ai.stats.speed);
                 this.updateAIDirection(ai, oldPos, newPos);
 
                 const oldCell = game.getMapCell(oldPos);
@@ -6650,7 +6857,9 @@ class NavalWarfareBot {
 
                 const moveDist = game.calculateDistance(oldPos, newPos);
                 let moveMsg = `🚢 **${aiName}** advanced to **${newPos}** (${moveDist.toFixed(1)} cells)`;
-                if (focusTarget && bestTarget.id === focusTarget.id && alivePlayers.length > 1) {
+                if (usingCover) {
+                    moveMsg += `, using island cover to close on **${targetName}**`;
+                } else if (focusTarget && bestTarget.id === focusTarget.id && alivePlayers.length > 1) {
                     moveMsg += `, converging on **${targetName}**`;
                 } else {
                     moveMsg += `, closing on **${targetName}**`;
@@ -17770,10 +17979,13 @@ For more detailed help, visit the documentation or ask a staff member!
             let tertiaryGuns = [];
             let torpedoes = [];
 
+            // Base accuracy lives on character stats, not per-weapon
+            const baseAcc = character.stats?.baseAccuracy || character.stats?.accuracy || 85;
+
             if (character.weapons && typeof character.weapons === 'object') {
                 for (const [weaponId, weapon] of Object.entries(character.weapons)) {
                     const weaponDisplay = weapon.name || weapon.caliber || 'Unknown';
-                    const weaponDetails = `  └ ${weapon.damage || 0} dmg | ${weapon.range || 0} range | ${weapon.accuracy || 0}% accuracy`;
+                    const weaponDetails = `  └ ${weapon.damage || 0} dmg | ${weapon.range || 0} range | ${baseAcc}% accuracy`;
 
                     if (weapon.type === 'main') {
                         mainGuns.push(`${weaponDisplay}\n${weaponDetails}`);
@@ -17826,9 +18038,11 @@ For more detailed help, visit the documentation or ask a staff member!
                 let aaText = '';
                 for (const aa of character.aaSystems) {
                     if (aa && aa.name) {
-                        const barrels = aa.barrels || 1;
+                        const barrels = aa.barrels || aa.mounts || 1;
+                        const rawAAcc = aa.accuracy || 0;
+                        const aaAcc = rawAAcc > 0 && rawAAcc <= 1 ? (rawAAcc * 100).toFixed(0) : Math.round(rawAAcc);
                         aaText += `**${barrels}x ${aa.name}**\n`;
-                        aaText += `  └ ${aa.damage || 0} dmg | ${aa.range || 0} range | ${aa.accuracy || 0}% accuracy\n`;
+                        aaText += `  └ ${aa.damage || 0} dmg | ${aa.range || 0} range | ${aaAcc}% accuracy\n`;
                     }
                 }
                 if (aaText) {
@@ -17843,20 +18057,19 @@ For more detailed help, visit the documentation or ask a staff member!
             // === AIRCRAFT ===
             let aircraftText = '';
 
-            // Check availableAircraft (Map)
-            if (character.availableAircraft && character.availableAircraft.size > 0) {
-                for (const [type, aircraft] of character.availableAircraft) {
-                    if (aircraft) {
+            // availableAircraft may be a Map or a plain object (after JSON serialization)
+            const availAircraft = character.availableAircraft;
+            const aircraftEntries = availAircraft instanceof Map
+                ? Array.from(availAircraft.entries())
+                : (availAircraft && typeof availAircraft === 'object' ? Object.entries(availAircraft) : []);
+
+            if (aircraftEntries.length > 0) {
+                for (const [type, aircraft] of aircraftEntries) {
+                    if (aircraft && typeof aircraft === 'object') {
                         aircraftText += `**${aircraft.name || type}** (${aircraft.count || 0} available)\n`;
-                        aircraftText += `  └ ${aircraft.damage || 0} dmg | ${aircraft.range || 0} range | ${aircraft.accuracy || 0}% acc | ${aircraft.health || 0} HP | ${aircraft.speed || 0} spd\n`;
-                    }
-                }
-            }
-            // Fallback to aircraft object
-            else if (character.aircraft && Object.keys(character.aircraft).length > 0) {
-                for (const [type, count] of Object.entries(character.aircraft)) {
-                    if (count > 0) {
-                        aircraftText += `**${type}:** ${count}\n`;
+                        aircraftText += `  └ ${aircraft.damage || 0} dmg | ${aircraft.range || 0} range | ${aircraft.health || 0} HP\n`;
+                    } else if (aircraft > 0) {
+                        aircraftText += `**${type}:** ${aircraft}\n`;
                     }
                 }
             }
@@ -17865,6 +18078,15 @@ For more detailed help, visit the documentation or ask a staff member!
                 embed.addFields({
                     name: '✈️ Aircraft Complement',
                     value: aircraftText,
+                    inline: false
+                });
+            }
+
+            // === RECON AIRCRAFT ===
+            if (character.reconAircraft) {
+                embed.addFields({
+                    name: '🛩️ Reconnaissance Aircraft',
+                    value: `**${character.reconAircraft.name}** (${character.reconAircraft.type})\n  └ Extends main battery range by +5 cells when launched`,
                     inline: false
                 });
             }
@@ -22182,18 +22404,30 @@ class NavalBattle {
     hasVisionOf(targetPos, side) {
         if (!targetPos || !this.map) return true;
 
+        // Weather-based spotting range (cells). Ships beyond this distance cannot be seen.
+        const WEATHER_SPOT_RANGE = { hurricane: 12, thunderstorm: 20, fog: 28, foggy: 28 };
+        const spotRange = WEATHER_SPOT_RANGE[this.weather] ?? null;
+
+        const withinSpotRange = (fromPos) => {
+            if (spotRange === null || !fromPos) return true;
+            const a = this.coordToNumbers(fromPos);
+            const b = this.coordToNumbers(targetPos);
+            if (!a || !b) return true;
+            return Math.hypot(b.x - a.x, b.y - a.y) <= spotRange;
+        };
+
         if (side === 'player') {
             for (const p of this.players.values()) {
-                if (p.alive && p.position && this.hasLineOfSight(p.position, targetPos)) return true;
+                if (p.alive && p.position && withinSpotRange(p.position) && this.hasLineOfSight(p.position, targetPos)) return true;
             }
             for (const aircraft of this.aircraft?.values() || []) {
                 if (aircraft.owner === 'player' && aircraft.alive && aircraft.position &&
-                    this.hasLineOfSight(aircraft.position, targetPos)) return true;
+                    withinSpotRange(aircraft.position) && this.hasLineOfSight(aircraft.position, targetPos)) return true;
             }
             return false;
         } else {
             for (const enemy of this.enemies.values()) {
-                if (enemy.alive && enemy.position && this.hasLineOfSight(enemy.position, targetPos)) return true;
+                if (enemy.alive && enemy.position && withinSpotRange(enemy.position) && this.hasLineOfSight(enemy.position, targetPos)) return true;
             }
             return false;
         }
