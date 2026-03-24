@@ -1,5 +1,5 @@
 .optional {
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 0.8em;
   font-weight: normal;
 }
@@ -7,7 +7,7 @@
 .input-readonly {
   opacity: 0.6;
   cursor: not-allowed;
-  background: #1a1c1f !important;
+  background: var(--surface-0) !important;
 }
 
 .wizard-overlay {
@@ -16,7 +16,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,23 +25,24 @@
 }
 
 .wizard-container {
-  background: #23272a;
-  border-radius: 8px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 800px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 .wizard-header {
   padding: 25px;
-  border-bottom: 1px solid #2c2f33;
+  border-bottom: 1px solid var(--border);
 }
 
 .wizard-header h2 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 20px 0;
   font-size: 24px;
 }
@@ -54,17 +55,17 @@
 .wizard-steps .step {
   flex: 1;
   padding: 10px;
-  background: #40444b;
+  background: var(--border);
   border-radius: 4px;
   text-align: center;
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .wizard-steps .step.active {
-  background: #5865F2;
+  background: var(--accent-gradient);
   color: white;
 }
 
@@ -81,13 +82,13 @@
 }
 
 .wizard-step h3 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 15px 0;
   font-size: 20px;
 }
 
 .wizard-step h4 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 15px 0 10px 0;
   font-size: 16px;
 }
@@ -99,7 +100,7 @@
 }
 
 .form-group label {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 14px;
 }
@@ -107,21 +108,26 @@
 .form-group input,
 .form-group select {
   padding: 10px;
-  background: #40444b;
-  border: 1px solid #202225;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
+}
+
+.form-group input::placeholder {
+  color: var(--text-muted);
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #5865F2;
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(0, 180, 255, 0.12);
 }
 
 .form-group small {
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -132,7 +138,7 @@
 }
 
 .armor-section {
-  background: #2f3136;
+  background: var(--surface-1);
   padding: 15px;
   border-radius: 6px;
 }
@@ -142,7 +148,7 @@
 }
 
 .calculated-stats {
-  background: #2f3136;
+  background: var(--surface-1);
   padding: 15px;
   border-radius: 6px;
 }
@@ -154,7 +160,7 @@
 }
 
 .stat-preview {
-  background: #40444b;
+  background: var(--surface-2);
   padding: 12px;
   border-radius: 4px;
   text-align: center;
@@ -162,21 +168,21 @@
 
 .stat-preview label {
   display: block;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-bottom: 5px;
 }
 
 .stat-preview span {
   display: block;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 20px;
   font-weight: 600;
 }
 
 .weapon-builder,
 .aa-builder {
-  background: #2f3136;
+  background: var(--surface-1);
   padding: 15px;
   border-radius: 6px;
 }
@@ -184,7 +190,7 @@
 .btn-add {
   width: 100%;
   padding: 10px;
-  background: #3ba55d;
+  background: var(--color-success);
   color: white;
   border: none;
   border-radius: 4px;
@@ -195,18 +201,19 @@
 }
 
 .btn-add:hover {
-  background: #2d7d46;
+  background: var(--color-success);
+  opacity: 0.85;
 }
 
 .weapons-list-preview,
 .aa-list-preview {
-  background: #2f3136;
+  background: var(--surface-1);
   padding: 15px;
   border-radius: 6px;
 }
 
 .empty-message {
-  color: #72767d;
+  color: var(--text-muted);
   text-align: center;
   padding: 20px;
   font-style: italic;
@@ -222,36 +229,36 @@
 
 .weapon-card-preview,
 .aa-card-preview {
-  background: #40444b;
+  background: var(--surface-2);
   padding: 12px;
   border-radius: 4px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-left: 3px solid #5865F2;
+  border-left: 3px solid var(--accent);
 }
 
 .aa-card-preview {
-  border-left-color: #faa61a;
+  border-left-color: var(--color-warning);
 }
 
 .weapon-card-preview strong,
 .aa-card-preview strong {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   display: block;
 }
 
 .weapon-meta,
 .aa-meta {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 12px;
   display: block;
   margin-top: 2px;
 }
 
 .btn-remove {
-  background: #ed4245;
+  background: var(--color-danger);
   color: white;
   border: none;
   border-radius: 50%;
@@ -266,7 +273,8 @@
 }
 
 .btn-remove:hover {
-  background: #c03537;
+  background: var(--color-danger);
+  opacity: 0.85;
 }
 
 /* Mount group builder */
@@ -280,16 +288,22 @@
 .mount-count-input {
   width: 60px;
   padding: 6px 8px;
-  background: #40444b;
-  border: 1px solid #72767d;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   text-align: center;
 }
 
+.mount-count-input:focus {
+  outline: none;
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(0, 180, 255, 0.12);
+}
+
 .mount-x {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 16px;
   font-weight: 700;
 }
@@ -297,17 +311,23 @@
 .mount-config-select {
   flex: 1;
   padding: 6px 8px;
-  background: #40444b;
-  border: 1px solid #72767d;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
+}
+
+.mount-config-select:focus {
+  outline: none;
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(0, 180, 255, 0.12);
 }
 
 .btn-add-mount {
   padding: 6px 12px;
-  background: #5865F2;
-  color: #fff;
+  background: var(--accent);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -316,7 +336,7 @@
   white-space: nowrap;
 }
 
-.btn-add-mount:hover { background: #4752c4; }
+.btn-add-mount:hover { background: var(--accent); opacity: 0.85; }
 
 .mount-groups-list {
   display: flex;
@@ -330,34 +350,34 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #40444b;
-  border: 1px solid #5865F2;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
   border-radius: 12px;
   padding: 3px 8px 3px 10px;
   font-size: 12px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .mount-group-tag button {
   background: none;
   border: none;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
   padding: 0 2px;
 }
 
-.mount-group-tag button:hover { color: #ed4245; }
+.mount-group-tag button:hover { color: var(--color-danger); }
 
 .mount-groups-total {
   width: 100%;
   font-size: 12px;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
-.mount-groups-total strong { color: #3ba55d; }
+.mount-groups-total strong { color: var(--color-success); }
 
 /* Weapon stats preview */
 .weapon-stats-preview {
@@ -365,44 +385,44 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 12px;
-  background: #1e2124;
+  background: var(--surface-0);
   border-radius: 4px;
-  border-left: 3px solid #3ba55d;
+  border-left: 3px solid var(--color-success);
   margin: 8px 0;
 }
 
 .weapon-stats-preview span {
-  color: #dcddde;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
 
 .weapon-stats-line {
   display: block;
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 11px;
   margin-top: 3px;
 }
 
 .info-box {
-  background: #2f3136;
+  background: var(--surface-1);
   padding: 15px;
   border-radius: 6px;
-  border-left: 3px solid #5865F2;
+  border-left: 3px solid var(--accent);
 }
 
 .info-box p {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin: 8px 0;
   font-size: 14px;
 }
 
 .info-box strong {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .note {
-  color: #72767d;
+  color: var(--text-muted);
   font-style: italic;
   font-size: 13px;
   margin-top: 15px;
@@ -410,7 +430,7 @@
 
 .wizard-footer {
   padding: 20px 25px;
-  border-top: 1px solid #2c2f33;
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -435,39 +455,41 @@
 }
 
 .btn-cancel {
-  background: #4f545c;
+  background: var(--surface-2);
   color: white;
 }
 
 .btn-cancel:hover {
-  background: #5d6269;
+  background: var(--surface-3);
 }
 
 .btn-prev {
-  background: #40444b;
+  background: var(--surface-2);
   color: white;
 }
 
 .btn-prev:hover {
-  background: #4f545c;
+  background: var(--surface-3);
 }
 
 .btn-next {
-  background: #5865F2;
+  background: var(--accent);
   color: white;
 }
 
 .btn-next:hover {
-  background: #4752C4;
+  background: var(--accent);
+  opacity: 0.85;
 }
 
 .btn-submit {
-  background: #3ba55d;
+  background: var(--color-success);
   color: white;
 }
 
 .btn-submit:hover {
-  background: #2d7d46;
+  background: var(--color-success);
+  opacity: 0.85;
 }
 
 @media (max-width: 768px) {
@@ -506,39 +528,44 @@
   width: 140px;
   flex-shrink: 0;
   font-weight: 600;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
 .aircraft-name-input {
   flex: 1;
   padding: 8px 12px;
-  background: #2f3136;
-  border: 1px solid #4f545c;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  color: #dcddde;
+  color: var(--text-primary);
   font-size: 0.95rem;
+}
+
+.aircraft-name-input::placeholder {
+  color: var(--text-muted);
 }
 
 .aircraft-name-input:focus {
   outline: none;
-  border-color: #5865f2;
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 3px rgba(0, 180, 255, 0.12);
 }
 
 .recon-aircraft-section {
   margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid #40444b;
+  border-top: 1px solid var(--border);
 }
 
 .recon-aircraft-section h4 {
   margin: 0 0 4px;
-  color: #dcddde;
+  color: var(--text-primary);
   font-size: 1rem;
 }
 
 .recon-aircraft-section .section-note {
   margin: 0 0 14px;
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
