@@ -50,7 +50,7 @@
 }
 
 .game-turn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent-gradient);
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.9rem;

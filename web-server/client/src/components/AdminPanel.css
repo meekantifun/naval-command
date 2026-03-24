@@ -7,13 +7,15 @@
 .admin-message {
   text-align: center;
   padding: 40px;
-  background: #2c2f33;
+  background: var(--surface-0);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .admin-message.error {
-  background: #a02828;
+  background: rgba(239,68,68,0.15);
+  color: var(--color-danger);
+  border: 1px solid rgba(239,68,68,0.3);
 }
 
 .admin-message ul {
@@ -25,7 +27,7 @@
 .admin-message button {
   margin-top: 20px;
   padding: 10px 20px;
-  background: #5865F2;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 4px;
@@ -34,7 +36,8 @@
 }
 
 .admin-message button:hover {
-  background: #4752C4;
+  background: var(--accent);
+  filter: brightness(0.85);
 }
 
 /* Guild Selector */
@@ -43,12 +46,12 @@
 }
 
 .guild-selector h2 {
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .guild-selector p {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin-bottom: 30px;
 }
 
@@ -60,7 +63,7 @@
 }
 
 .guild-card {
-  background: #2c2f33;
+  background: var(--surface-0);
   padding: 20px;
   border-radius: 8px;
   cursor: pointer;
@@ -71,7 +74,7 @@
 }
 
 .guild-card:hover {
-  background: #36393f;
+  background: var(--surface-2);
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
@@ -83,7 +86,7 @@
 }
 
 .guild-info h3 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
   font-size: 18px;
 }
@@ -94,7 +97,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: #2c2f33;
+  background: var(--surface-0);
   border-radius: 8px;
   margin-bottom: 20px;
 }
@@ -112,19 +115,19 @@
 }
 
 .server-info h2 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
   font-size: 24px;
 }
 
 .server-info p {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin: 5px 0 0 0;
 }
 
 .change-server-btn {
   padding: 10px 20px;
-  background: #5865F2;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 4px;
@@ -133,7 +136,8 @@
 }
 
 .change-server-btn:hover {
-  background: #4752C4;
+  background: var(--accent);
+  filter: brightness(0.85);
 }
 
 /* Tabs */
@@ -141,13 +145,13 @@
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
-  border-bottom: 2px solid #36393f;
+  border-bottom: 2px solid var(--surface-2);
 }
 
 .admin-tabs button {
   padding: 15px 30px;
   background: none;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   border: none;
   border-bottom: 3px solid transparent;
   cursor: pointer;
@@ -156,18 +160,18 @@
 }
 
 .admin-tabs button:hover {
-  color: #fff;
+  color: var(--text-primary);
   background: rgba(255,255,255,0.05);
 }
 
 .admin-tabs button.active {
-  color: #fff;
-  border-bottom-color: #5865F2;
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
 }
 
 /* Content */
 .admin-content {
-  background: #2c2f33;
+  background: var(--surface-0);
   padding: 30px;
   border-radius: 8px;
   min-height: 400px;

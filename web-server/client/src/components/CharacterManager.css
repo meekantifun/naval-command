@@ -5,13 +5,13 @@
 }
 
 .manager-section {
-  background: #23272a;
+  background: var(--surface-0);
   padding: 25px;
   border-radius: 8px;
 }
 
 .manager-section h3 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 20px 0;
   font-size: 20px;
 }
@@ -24,14 +24,14 @@
 }
 
 .section-desc {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 5px 0 0 0;
 }
 
 .btn-create-wizard {
   padding: 12px 24px;
-  background: #3ba55d;
+  background: var(--color-success);
   color: white;
   border: none;
   border-radius: 4px;
@@ -43,7 +43,8 @@
 }
 
 .btn-create-wizard:hover {
-  background: #2d7d46;
+  background: var(--color-success);
+  filter: brightness(0.85);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
@@ -61,7 +62,7 @@
 }
 
 .form-group label {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 14px;
 }
@@ -69,21 +70,21 @@
 .form-group input,
 .form-group select {
   padding: 10px;
-  background: #40444b;
-  border: 1px solid #202225;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-0);
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #5865F2;
+  border-color: var(--accent);
 }
 
 .form-group small {
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -101,7 +102,7 @@
 
 .btn-primary {
   padding: 12px 24px;
-  background: #5865F2;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 4px;
@@ -111,12 +112,13 @@
 }
 
 .btn-primary:hover {
-  background: #4752C4;
+  background: var(--accent);
+  filter: brightness(0.85);
 }
 
 .btn-secondary {
   padding: 12px 24px;
-  background: #4f545c;
+  background: var(--surface-3);
   color: white;
   border: none;
   border-radius: 4px;
@@ -125,13 +127,14 @@
 }
 
 .btn-secondary:hover {
-  background: #5d6269;
+  background: var(--surface-3);
+  filter: brightness(1.2);
 }
 
 .loading,
 .no-data {
   text-align: center;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   padding: 40px;
   font-size: 16px;
 }
@@ -143,7 +146,7 @@
 }
 
 .character-card {
-  background: #40444b;
+  background: var(--surface-2);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -166,7 +169,7 @@
   align-items: flex-start;
   padding: 15px;
   padding-bottom: 15px;
-  border-bottom: 1px solid #2c2f33;
+  border-bottom: 1px solid var(--surface-0);
   transition: background 0.15s;
 }
 
@@ -176,14 +179,14 @@
 }
 
 .character-header:hover {
-  background: #4a4e57;
+  background: var(--surface-3);
 }
 
 .card-toggle-arrow {
   display: inline-block;
   margin-left: 8px;
   font-size: 10px;
-  color: #99aab5;
+  color: var(--text-secondary);
   transition: transform 0.2s;
   vertical-align: middle;
 }
@@ -200,42 +203,42 @@
 }
 
 .character-title h4 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 5px 0;
   font-size: 20px;
 }
 
 .char-class {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin: 5px 0;
   font-size: 15px;
 }
 
 .character-info h4 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 5px 0;
   font-size: 18px;
 }
 
 .character-info p {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin: 3px 0;
   font-size: 14px;
 }
 
 .char-meta {
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .char-user {
-  color: #72767d;
+  color: var(--text-muted);
   font-size: 12px;
   font-family: monospace;
 }
 
 .badge-active {
-  background: #3ba55d;
+  background: var(--color-success);
   color: white;
   padding: 2px 8px;
   border-radius: 3px;
@@ -260,39 +263,42 @@
 }
 
 .btn-edit {
-  background: #5865F2;
+  background: var(--accent);
   color: white;
 }
 
 .btn-edit:hover {
-  background: #4752C4;
+  background: var(--accent);
+  filter: brightness(0.85);
 }
 
 .btn-delete {
-  background: #ed4245;
-  color: white;
+  background: rgba(239,68,68,0.15);
+  color: var(--color-danger);
+  border: 1px solid rgba(239,68,68,0.3);
 }
 
 .btn-delete:hover {
-  background: #c03537;
+  background: var(--color-danger);
+  color: white;
 }
 
 /* Character Detail Sections */
 .char-section {
-  background: #2f3136;
+  background: var(--surface-1);
   padding: 15px;
   border-radius: 6px;
 }
 
 .char-section h5 {
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
 }
 
 .char-section h6 {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin: 10px 0 8px 0;
   font-size: 14px;
   font-weight: 600;
@@ -310,18 +316,18 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #40444b;
+  background: var(--surface-2);
   border-radius: 4px;
 }
 
 .spec-item label {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
 
 .spec-item span {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -339,7 +345,7 @@
 }
 
 .stat-item label {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -347,7 +353,7 @@
 .stat-bar {
   position: relative;
   height: 28px;
-  background: #202225;
+  background: var(--surface-0);
   border-radius: 4px;
   overflow: hidden;
   display: flex;
@@ -364,25 +370,25 @@
 }
 
 .stat-fill.health {
-  background: linear-gradient(90deg, #ed4245, #c03537);
+  background: linear-gradient(90deg, var(--color-danger), var(--color-danger));
 }
 
 .stat-fill.armor {
-  background: linear-gradient(90deg, #5865F2, #4752C4);
+  background: var(--accent-gradient);
 }
 
 .stat-fill.speed {
-  background: linear-gradient(90deg, #3ba55d, #2d7d46);
+  background: linear-gradient(90deg, var(--color-success), var(--color-success));
 }
 
 .stat-fill.evasion {
-  background: linear-gradient(90deg, #faa61a, #f09819);
+  background: linear-gradient(90deg, var(--color-warning), var(--color-warning));
 }
 
 .stat-value {
   position: relative;
   z-index: 1;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 14px;
   padding-left: 10px;
@@ -396,10 +402,10 @@
 }
 
 .weapon-item {
-  background: #40444b;
+  background: var(--surface-2);
   padding: 12px;
   border-radius: 4px;
-  border-left: 3px solid #5865F2;
+  border-left: 3px solid var(--accent);
 }
 
 .weapon-header {
@@ -410,12 +416,12 @@
 }
 
 .weapon-header strong {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 15px;
 }
 
 .weapon-type {
-  background: #5865F2;
+  background: var(--accent);
   color: white;
   padding: 3px 8px;
   border-radius: 3px;
@@ -428,7 +434,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -440,7 +446,7 @@
 
 /* Aircraft Lists */
 .hangar-info {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   margin-bottom: 12px;
   font-size: 13px;
 }
@@ -460,15 +466,15 @@
 
 .aircraft-item,
 .squadron-item {
-  background: #40444b;
+  background: var(--surface-2);
   padding: 10px;
   border-radius: 4px;
-  border-left: 3px solid #3ba55d;
+  border-left: 3px solid var(--color-success);
 }
 
 .aircraft-item strong,
 .squadron-item strong {
-  color: #fff;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 6px;
   font-size: 14px;
@@ -477,7 +483,7 @@
 .aircraft-item span,
 .squadron-item span {
   display: block;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 12px;
   margin: 2px 0;
 }
@@ -490,14 +496,14 @@
 }
 
 .aa-item {
-  background: #40444b;
+  background: var(--surface-2);
   padding: 10px;
   border-radius: 4px;
-  border-left: 3px solid #faa61a;
+  border-left: 3px solid var(--color-warning);
 }
 
 .aa-item strong {
-  color: #fff;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 6px;
   font-size: 14px;
@@ -505,7 +511,7 @@
 
 .aa-item span {
   display: block;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 12px;
   margin: 2px 0;
 }
@@ -522,25 +528,25 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #40444b;
+  background: var(--surface-2);
   border-radius: 4px;
 }
 
 .progress-item label {
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
 
 .progress-item span {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 600;
 }
 
 /* GM Adjust Controls */
 .gm-adjust-section {
-  border-top: 1px solid #40444b;
+  border-top: 1px solid var(--border);
   margin-top: 8px;
 }
 
@@ -553,7 +559,7 @@
 
 .adjust-label {
   width: 60px;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
@@ -561,7 +567,7 @@
 
 .adjust-current {
   min-width: 70px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 700;
 }
@@ -569,10 +575,10 @@
 .adjust-input {
   width: 80px;
   padding: 4px 8px;
-  background: #40444b;
-  border: 1px solid #72767d;
+  background: var(--surface-2);
+  border: 1px solid var(--text-muted);
   border-radius: 4px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   text-align: center;
 }
@@ -589,18 +595,18 @@
 }
 
 .btn-adjust-add {
-  background: #3ba55d;
-  color: #fff;
+  background: var(--color-success);
+  color: var(--text-primary);
 }
 
-.btn-adjust-add:hover:not(:disabled) { background: #2d8a4e; }
+.btn-adjust-add:hover:not(:disabled) { background: var(--color-success); filter: brightness(0.85); }
 
 .btn-adjust-remove {
-  background: #ed4245;
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--text-primary);
 }
 
-.btn-adjust-remove:hover:not(:disabled) { background: #c93b3e; }
+.btn-adjust-remove:hover:not(:disabled) { background: var(--color-danger); filter: brightness(0.85); }
 
 .btn-adjust-add:disabled,
 .btn-adjust-remove:disabled {
@@ -615,5 +621,5 @@
   border-radius: 3px;
 }
 
-.adjust-flash.ok { color: #3ba55d; }
-.adjust-flash.err { color: #ed4245; }
+.adjust-flash.ok { color: var(--color-success); }
+.adjust-flash.err { color: var(--color-danger); }
