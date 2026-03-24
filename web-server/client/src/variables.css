@@ -1,0 +1,41 @@
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────── */
+  --surface-0:     #101e2e;                  /* sidebar bg, input bg */
+  --surface-1:     #162b3b;                  /* page background */
+  --surface-2:     rgba(255, 255, 255, 0.06); /* card default */
+  --surface-3:     rgba(255, 255, 255, 0.09); /* card hover */
+  --surface-glass: rgba(10, 18, 32, 0.88);   /* header / modals */
+
+  /* ── Accent ───────────────────────────────────────────────── */
+  --accent:          #1a6aff;
+  --accent-light:    #00b4ff;
+  --accent-gradient: linear-gradient(135deg, #1a6aff, #00b4ff);
+  --accent-subtle:   rgba(0, 180, 255, 0.12);
+  --brand-gradient:  linear-gradient(90deg, #4facfe, #00f2fe); /* logo only */
+
+  /* ── Borders ──────────────────────────────────────────────── */
+  --border:        rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(0, 180, 255, 0.25);
+
+  /* ── Text ─────────────────────────────────────────────────── */
+  --text-primary:   #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.60);
+  --text-muted:     rgba(255, 255, 255, 0.35);
+
+  /* ── Status Colors ────────────────────────────────────────── */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger:  #ef4444;
+  --color-special: #a78bfa;  /* GM / special events */
+
+  /* ── Border Radius ────────────────────────────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-pill: 999px;
+
+  /* ── Shadows ──────────────────────────────────────────────── */
+  --shadow-md:   0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 16px rgba(0, 180, 255, 0.15);
+}
