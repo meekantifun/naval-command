@@ -108,6 +108,38 @@ function App() {
     checkAuth();
   }, []);
 
+  // Browser back button support
+  useEffect(() => {
+    window.history.replaceState({ view: 'selector' }, '');
+    const handlePopState = (e) => {
+      const state = e.state || { view: 'selector' };
+      if (state.view === 'selector') {
+        setSelectedGuild(null);
+        setSelectedGame(null);
+      } else if (state.view === 'dashboard') {
+        setSelectedGuild(state.guild);
+        setSelectedGame(null);
+      } else if (state.view === 'game') {
+        setSelectedGuild(state.guild);
+        setSelectedGame(state.channelId);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleSelectGuild = (guild) => {
+    window.history.pushState({ view: 'dashboard', guild }, '');
+    setSelectedGuild(guild);
+  };
+
+  const handleSelectGame = (channelId) => {
+    window.history.pushState({ view: 'game', guild: selectedGuild, channelId }, '');
+    setSelectedGame(channelId);
+  };
+
+  const handleGoBack = () => window.history.back();
+
   const checkAuth = async () => {
     try {
       const response = await axios.get(`${API_URL}/auth/user`, { withCredentials: true });
@@ -126,6 +158,7 @@ function App() {
     setUser(null);
     setSelectedGuild(null);
     setSelectedGame(null);
+    window.history.replaceState({ view: 'selector' }, '');
   };
 
   if (loading) {
@@ -141,7 +174,7 @@ function App() {
   }
 
   if (selectedGame) {
-    return <GameView channelId={selectedGame} user={user} onBack={() => setSelectedGame(null)} onLogout={handleLogout} />;
+    return <GameView channelId={selectedGame} user={user} onBack={handleGoBack} onLogout={handleLogout} />;
   }
 
   if (!selectedGuild) {
@@ -154,12 +187,12 @@ function App() {
             <button onClick={handleLogout} className="btn btn-secondary">Logout</button>
           </div>
         </header>
-        <ServerSelector user={user} onSelectServer={setSelectedGuild} />
+        <ServerSelector user={user} onSelectServer={handleSelectGuild} />
       </div>
     );
   }
 
-  return <ServerDashboard user={user} guild={selectedGuild} onSelectGame={setSelectedGame} onChangeServer={() => setSelectedGuild(null)} />;
+  return <ServerDashboard user={user} guild={selectedGuild} onSelectGame={handleSelectGame} onChangeServer={handleGoBack} />;
 }
 
 export default App;
