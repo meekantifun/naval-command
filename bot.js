@@ -499,6 +499,10 @@ class NavalWarfareBot {
                     option.setName('timeout')
                         .setDescription('Time to wait for roleplay (e.g., 5m, 2h, 30s). Default: 5m')
                         .setRequired(false))
+                .addBooleanOption(option =>
+                    option.setName('aipause')
+                        .setDescription('When true, pause after AI turn so GM can narrate AI actions before player turns begin')
+                        .setRequired(false))
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('setlogchannel').setDescription('Set the channel for console logging')
                 .addChannelOption(option => option.setName('channel').setDescription('Channel to send logs to').setRequired(true))
@@ -5488,7 +5492,7 @@ class NavalWarfareBot {
             }
             
             // Only proceed to AI turn AFTER all player turns (including roleplay) are complete
-            
+
             // AI Turn
             await this.aiTurn(game, channel);
 
@@ -5497,6 +5501,12 @@ class NavalWarfareBot {
 
             // Guard: game may have been ended during the AI turn (e.g. via API/GM)
             if (game.phase !== 'battle') return;
+
+            // AI Pause: wait for GM to narrate AI actions before starting player turns
+            if (game.aiPause && game.roleplayMode) {
+                await this.waitForGMRoleplay(game, channel);
+                if (game.phase !== 'battle') return;
+            }
 
             // Process aircraft recovery
             const recoveryMessages = this.processAircraftRecovery(game);
@@ -6225,6 +6235,60 @@ class NavalWarfareBot {
         
         // Add the message listener
         this.client.on('messageCreate', messageListener);
+    }
+
+    /**
+     * After the AI turn, pause and wait for any GM message (narrating AI actions)
+     * before player turns begin. Resolves when the GM sends a message, types "skip",
+     * or the roleplay timeout expires.
+     */
+    waitForGMRoleplay(game, channel) {
+        return new Promise((resolve) => {
+            const timeoutMs = game.roleplayTimeout || 300000;
+            const timeoutFormatted = this.formatTimeout(timeoutMs);
+
+            // Find a GM/staff member to ping (use the game's GM id if available)
+            const gmPing = game.gmId ? `<@${game.gmId}>` : '@GM';
+
+            channel.send(
+                `🎙️ ${gmPing} — narrate the AI's actions! *(${timeoutFormatted} to respond, or type \`skip\` to continue)*`
+            );
+
+            let resolved = false;
+            const finish = () => {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(timer);
+                this.client.off('messageCreate', listener);
+                resolve();
+            };
+
+            // Timeout: auto-continue if GM doesn't respond
+            const timer = setTimeout(() => {
+                channel.send('⏰ AI narration time expired. Starting player turns...');
+                finish();
+            }, timeoutMs);
+
+            // Message listener: any staff message in this channel counts
+            const listener = (message) => {
+                if (message.channelId !== channel.id) return;
+                if (message.author.bot) return;
+                // Accept message from anyone with staff permission (GM)
+                const member = message.member;
+                if (!member || !this.hasStaffPermission(member)) return;
+
+                if (message.content.toLowerCase().trim() === 'skip') {
+                    channel.send('⏭️ AI narration skipped. Starting player turns...');
+                } else {
+                    // Small delay so players can read the narration
+                    setTimeout(finish, 2000);
+                    return;
+                }
+                finish();
+            };
+
+            this.client.on('messageCreate', listener);
+        });
     }
 
     cleanupPlayerTurn(player) {
@@ -19030,6 +19094,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
         const enabled = interaction.options.getBoolean('enabled');
         const timeoutString = interaction.options.getString('timeout');
+        const aiPause = interaction.options.getBoolean('aipause'); // null = unchanged
 
         // Parse timeout if provided, otherwise use default (5 minutes)
         let timeoutMs = 300000; // Default: 5 minutes
@@ -19054,28 +19119,31 @@ Use \`/stats\` during a battle to view your current ship statistics!
             // Set for active game
             game.roleplayMode = enabled;
             game.roleplayTimeout = timeoutMs;
+            if (aiPause !== null) game.aiPause = aiPause;
             console.log(`🎭 Set roleplay timeout for active game: ${timeoutMs}ms (${this.formatTimeout(timeoutMs)})`);
 
             const status = enabled ? 'enabled' : 'disabled';
             const timeoutDescription = enabled ? `\n⏱️ Timeout: ${this.formatTimeout(timeoutMs)}` : '';
+            const aiPauseDesc = game.aiPause ? '\n🎙️ AI Pause: ON — GM will narrate AI actions before player turns' : '';
             const description = enabled
-                ? `Players will wait for roleplay/story beats during battle.${timeoutDescription}`
+                ? `Players will wait for roleplay/story beats during battle.${timeoutDescription}${aiPauseDesc}`
                 : 'Battle will proceed at normal pace without roleplay pauses.';
 
             await interaction.reply({
                 content: `🎭 Roleplay mode ${status} for this game!\n${description}`
-                
             });
         } else {
             // Set global default for future games
             this.roleplayMode = enabled;
             this.roleplayTimeout = timeoutMs;
+            if (aiPause !== null) this.aiPause = aiPause;
             console.log(`🎭 Set global default roleplay timeout: ${timeoutMs}ms (${this.formatTimeout(timeoutMs)})`);
 
             const status = enabled ? 'enabled' : 'disabled';
             const timeoutDescription = enabled ? `\n⏱️ Default timeout: ${this.formatTimeout(timeoutMs)}` : '';
+            const aiPauseDesc = (aiPause ?? this.aiPause) ? '\n🎙️ AI Pause: ON — GM will narrate AI actions before player turns' : '';
             const description = enabled
-                ? `New games will wait for roleplay/story beats during battle.${timeoutDescription}`
+                ? `New games will wait for roleplay/story beats during battle.${timeoutDescription}${aiPauseDesc}`
                 : 'New games will proceed at normal pace without roleplay pauses.';
 
             await interaction.reply({
@@ -21451,6 +21519,7 @@ class NavalBattle {
         // Roleplay settings - inherit from bot's global settings
         this.roleplayMode = bot ? bot.roleplayMode : true;
         this.roleplayTimeout = bot ? bot.roleplayTimeout : 300000; // Default: 5 minutes
+        this.aiPause = bot ? (bot.aiPause ?? false) : false;
         console.log(`🎮 New game created with roleplay timeout: ${this.roleplayTimeout}ms (${this.roleplayTimeout / 60000} minutes)`);
     }
 
