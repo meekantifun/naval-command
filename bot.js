@@ -6546,34 +6546,67 @@ class NavalWarfareBot {
         });
 
         if (healTargets.length === 0) {
-            // No one nearby to heal — move toward nearest damaged ally
-            const needsHelp = Array.from(game.enemies.values()).filter(ally => {
-                if (!ally.alive || ally.id === aux.id || ally.type === 'auxiliary') return false;
-                const maxHP = ally.stats?.health || ally.maxHealth || 100;
-                const curHP = ally.currentHealth ?? ally.hp ?? maxHP;
-                return curHP < maxHP * 0.5; // Below 50% HP
-            });
-            if (needsHelp.length > 0) {
-                // Sort by HP% ascending (most critical first)
-                needsHelp.sort((a, b) => {
-                    const aHP = (a.currentHealth ?? a.hp ?? 0) / (a.stats?.health || a.maxHealth || 100);
-                    const bHP = (b.currentHealth ?? b.hp ?? 0) / (b.stats?.health || b.maxHealth || 100);
-                    return aHP - bHP;
+            // No one nearby to heal — prioritize self-preservation, then reposition toward damaged allies.
+            const DANGER_RANGE = 15; // cells — flee if any player is closer than this
+
+            // Find nearest spotted player
+            const alivePlayers = Array.from(game.players.values()).filter(p => p.alive && p.position);
+            let nearestPlayer = null;
+            let nearestDist = Infinity;
+            for (const p of alivePlayers) {
+                const d = game.calculateDistance(aux.position, p.position);
+                if (d < nearestDist) { nearestDist = d; nearestPlayer = p; }
+            }
+
+            if (nearestPlayer && nearestDist < DANGER_RANGE) {
+                // Players too close — evade using the same retreat vector logic
+                const evadeDest = this.getRetreatPosition(aux, nearestPlayer, game);
+                if (evadeDest) {
+                    const oldPos = aux.position;
+                    const newPos = game.moveTowards(aux.position, evadeDest, aux.stats.speed);
+                    if (newPos !== oldPos) {
+                        const oldCell = game.getMapCell(oldPos);
+                        if (oldCell) oldCell.occupant = null;
+                        aux.position = newPos;
+                        const nNums = game.coordToNumbers(newPos);
+                        aux.x = nNums.x; aux.y = nNums.y - 1;
+                        const newCell = game.getMapCell(newPos);
+                        if (newCell) newCell.occupant = 'ai';
+                        this.updateAIDirection(aux, oldPos, newPos);
+                        const evadeMsg = `🔧 **${auxName}** withdraws to safe distance to preserve support capability!`;
+                        await channel.send(evadeMsg);
+                        this.broadcastLogEntry(game.channelId, `🔧 ${auxName} withdrawing from players`);
+                    }
+                }
+            } else {
+                // Players are far enough — move toward the most critically damaged ally
+                const needsHelp = Array.from(game.enemies.values()).filter(ally => {
+                    if (!ally.alive || ally.id === aux.id || ally.type === 'auxiliary') return false;
+                    const maxHP = ally.stats?.health || ally.maxHealth || 100;
+                    const curHP = ally.currentHealth ?? ally.hp ?? maxHP;
+                    return curHP < maxHP * 0.5; // Below 50% HP
                 });
-                const oldPos = aux.position;
-                const newPos = game.moveTowards(aux.position, needsHelp[0].position, aux.stats.speed);
-                if (newPos !== oldPos) {
-                    const oldCell = game.getMapCell(oldPos);
-                    if (oldCell) oldCell.occupant = null;
-                    aux.position = newPos;
-                    const nNums = game.coordToNumbers(newPos);
-                    aux.x = nNums.x; aux.y = nNums.y - 1;
-                    const newCell = game.getMapCell(newPos);
-                    if (newCell) newCell.occupant = 'ai';
-                    this.updateAIDirection(aux, oldPos, newPos);
-                    const moveMsg = `🔧 **${auxName}** repositioning to provide support...`;
-                    await channel.send(moveMsg);
-                    this.broadcastLogEntry(game.channelId, `🔧 ${auxName} repositioning`);
+                if (needsHelp.length > 0) {
+                    needsHelp.sort((a, b) => {
+                        const aHP = (a.currentHealth ?? a.hp ?? 0) / (a.stats?.health || a.maxHealth || 100);
+                        const bHP = (b.currentHealth ?? b.hp ?? 0) / (b.stats?.health || b.maxHealth || 100);
+                        return aHP - bHP;
+                    });
+                    const oldPos = aux.position;
+                    const newPos = game.moveTowards(aux.position, needsHelp[0].position, aux.stats.speed);
+                    if (newPos !== oldPos) {
+                        const oldCell = game.getMapCell(oldPos);
+                        if (oldCell) oldCell.occupant = null;
+                        aux.position = newPos;
+                        const nNums = game.coordToNumbers(newPos);
+                        aux.x = nNums.x; aux.y = nNums.y - 1;
+                        const newCell = game.getMapCell(newPos);
+                        if (newCell) newCell.occupant = 'ai';
+                        this.updateAIDirection(aux, oldPos, newPos);
+                        const moveMsg = `🔧 **${auxName}** repositioning to provide support...`;
+                        await channel.send(moveMsg);
+                        this.broadcastLogEntry(game.channelId, `🔧 ${auxName} repositioning`);
+                    }
                 }
             }
             return true;
