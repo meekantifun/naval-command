@@ -472,7 +472,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/game/${channelId}/state`, { withCredentials: true });
+      const response = await axios.get(`${API_URL}/api/game/${channelId}/state?userId=${user.id}`, { withCredentials: true });
       setGameState(response.data);
     } catch (err) {
       setError('Failed to load game. Make sure the bot is running and you have access to this game.');
@@ -934,7 +934,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   if (!gameState) return null;
 
-  const userPlayers = gameState.players.filter(p => p.userId === user.id);
+  const userPlayers = gameState.players; // Show all allied ships, not just current user
 
   return (
     <div className="game-view">

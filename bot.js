@@ -6515,6 +6515,20 @@ class NavalWarfareBot {
     }
 
     /**
+     * Return a random ocean coordinate for an AI unit to wander toward.
+     * Reuses a persistent wanderTarget stored on the AI so it doesn't thrash.
+     */
+    getWanderPosition(ai, game) {
+        const aiNums = game.coordToNumbers(ai.position);
+        if (!aiNums) return ai.position;
+        const angle = Math.random() * Math.PI * 2;
+        const dist  = 8 + Math.floor(Math.random() * 10); // 8-17 cells
+        const tx = Math.max(0, Math.min(74, Math.round(aiNums.x + Math.cos(angle) * dist)));
+        const ty = Math.max(1, Math.min(75, Math.round(aiNums.y + Math.sin(angle) * dist)));
+        return game.generateExtendedCoordinate(tx, ty);
+    }
+
+    /**
      * Find the first alive AI auxiliary ship in the enemy fleet.
      */
     findAIAuxiliary(game) {
@@ -6809,6 +6823,14 @@ class NavalWarfareBot {
         // Pre-compute AI auxiliary (support ship for retreat-to-healer behavior)
         const aiAuxiliary = this.findAIAuxiliary(game);
 
+        // Update last-known positions for all players currently visible to any AI
+        if (!game.lastKnownPositions) game.lastKnownPositions = {};
+        for (const p of game.players.values()) {
+            if (p.alive && p.position && game.hasVisionOf(p.position, 'ai')) {
+                game.lastKnownPositions[p.id] = { position: p.position, x: p.x, y: p.y };
+            }
+        }
+
         // Process regular AI
         for (const ai of aiEntities) {
             if (game.phase !== 'battle') return; // Battle may have ended mid-turn
@@ -6858,7 +6880,65 @@ class NavalWarfareBot {
 
             // Choose best attack target (focus fire + wound priority)
             const bestTarget = GameUtils.findBestTarget(ai, game, focusTarget);
-            if (!bestTarget) continue;
+            if (!bestTarget) {
+                // No players currently visible — investigate last known position or wander
+                const knownEntries = Object.entries(game.lastKnownPositions || {});
+                if (knownEntries.length > 0) {
+                    // Move toward nearest last-known position
+                    let nearestKP = null;
+                    let nearestKPDist = Infinity;
+                    for (const [pid, kp] of knownEntries) {
+                        const d = game.calculateDistance(ai.position, kp.position);
+                        if (d < nearestKPDist) { nearestKPDist = d; nearestKP = { pid, ...kp }; }
+                    }
+                    if (nearestKP) {
+                        if (nearestKPDist <= ai.stats.speed + 1) {
+                            // Reached last-known position — no contact, clear it
+                            delete game.lastKnownPositions[nearestKP.pid];
+                            const searchMsg = `👁️ **${aiName}** searches last known contact at **${nearestKP.position}** — no enemy found. Resuming patrol.`;
+                            await channel.send(searchMsg);
+                            this.broadcastLogEntry(game.channelId, `👁️ ${aiName} lost contact at ${nearestKP.position}`);
+                        } else {
+                            const oldPos = ai.position;
+                            const newPos = game.moveTowards(ai.position, nearestKP.position, ai.stats.speed);
+                            if (newPos !== oldPos) {
+                                const oldCell = game.getMapCell(oldPos);
+                                if (oldCell) oldCell.occupant = null;
+                                ai.position = newPos;
+                                const aNums = game.coordToNumbers(newPos);
+                                ai.x = aNums.x; ai.y = aNums.y - 1;
+                                const newCell = game.getMapCell(newPos);
+                                if (newCell) newCell.occupant = 'ai';
+                                this.updateAIDirection(ai, oldPos, newPos);
+                            }
+                            const investMsg = `🔍 **${aiName}** moves to **${newPos}** — investigating last known contact...`;
+                            await channel.send(investMsg);
+                            this.broadcastLogEntry(game.channelId, `🔍 ${aiName} investigating ${nearestKP.position}`);
+                        }
+                    }
+                } else {
+                    // No intelligence at all — wander patrol
+                    if (!ai.wanderTarget || game.calculateDistance(ai.position, ai.wanderTarget) <= ai.stats.speed) {
+                        ai.wanderTarget = this.getWanderPosition(ai, game);
+                    }
+                    const oldPos = ai.position;
+                    const newPos = game.moveTowards(ai.position, ai.wanderTarget, ai.stats.speed);
+                    if (newPos !== oldPos) {
+                        const oldCell = game.getMapCell(oldPos);
+                        if (oldCell) oldCell.occupant = null;
+                        ai.position = newPos;
+                        const aNums = game.coordToNumbers(newPos);
+                        ai.x = aNums.x; ai.y = aNums.y - 1;
+                        const newCell = game.getMapCell(newPos);
+                        if (newCell) newCell.occupant = 'ai';
+                        this.updateAIDirection(ai, oldPos, newPos);
+                    }
+                    const wanderMsg = `🚢 **${aiName}** patrols to **${newPos}**...`;
+                    await channel.send(wanderMsg);
+                    this.broadcastLogEntry(game.channelId, `🚢 ${aiName} patrolling`);
+                }
+                continue;
+            }
 
             const targetName   = GameUtils.getPlayerDisplayName(bestTarget);
             const weaponRange  = ai.stats.range;
@@ -8554,6 +8634,16 @@ class NavalWarfareBot {
         const target  = game.players.get(targetId);
 
         if (!ai || !target) return interaction.reply({ content: '❌ AI or target not found.', flags: MessageFlags.Ephemeral });
+
+        const dist  = game.calculateDistance(ai.position, target.position);
+        const range = ai.stats?.range || 10;
+        if (dist > range) {
+            const aiName2 = GameUtils.getAIDisplayName(ai);
+            return interaction.reply({
+                content: `❌ Out of range! **${aiName2}** has range **${range}** cells but target is **${Math.round(dist)}** cells away.`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
 
         const result  = await this.executeAIAttack(ai, target, game, interaction.channel);
         await interaction.update({ content: `✅ Attack executed.`, components: [] });
@@ -19749,6 +19839,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
         app.get('/api/game/:channelId/state', authenticateAPIKey, (req, res) => {
             try {
                 const { channelId } = req.params;
+                const requestingUserId = req.query.userId || null;
                 const game = this.games.get(channelId);
 
                 if (!game) {
@@ -19756,6 +19847,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     if (ended) return res.json(ended);
                     return res.status(404).json({ error: 'Game not found' });
                 }
+
+                const requesterIsGM = requestingUserId && requestingUserId === game.gmId;
 
                 // Convert Maps to arrays
                 const playersArray = Array.from(game.players.values()).map(p => ({
@@ -19781,7 +19874,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => {
                     const sunk = e.sunk ?? !e.alive;
-                    const visible = sunk || game.hasVisionOf(e.position, 'player');
+                    const visible = sunk || requesterIsGM || game.hasVisionOf(e.position, 'player');
                     return {
                         id: e.id,
                         name: e.name || e.customName,
@@ -19857,6 +19950,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                             } catch (e) { /* skip */ }
                         }
                     }
+                    // Cache so names don't regenerate on subsequent calls
+                    game.infrastructureData = infrastructure;
                 }
                 infrastructure = infrastructure || [];
 
