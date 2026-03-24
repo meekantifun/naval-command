@@ -69,6 +69,11 @@
   color: white;
 }
 
+.wizard-steps .step.complete,
+.wizard-steps .step.completed {
+  background: var(--color-success);
+}
+
 .wizard-content {
   flex: 1;
   overflow-y: auto;
