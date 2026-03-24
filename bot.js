@@ -19924,7 +19924,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.actionsThisTurn++;
                 if (player.actionsThisTurn >= player.maxActions) {
                     player.actionPoints = 0;
-                    this.finalizePlayerTurn(player);
+                    this.endPlayerTurn(player);
                 }
 
                 // Broadcast update to web clients
@@ -20036,7 +20036,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.actionsThisTurn++;
                 if (player.actionsThisTurn >= player.maxActions) {
                     player.actionPoints = 0;
-                    this.finalizePlayerTurn(player);
+                    this.endPlayerTurn(player);
                 }
 
                 // Broadcast update to web clients
@@ -20109,7 +20109,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.actionsThisTurn++;
                 if (player.actionsThisTurn >= player.maxActions) {
                     player.actionPoints = 0;
-                    this.finalizePlayerTurn(player);
+                    this.endPlayerTurn(player);
                 }
 
                 // Broadcast update to web clients
@@ -20257,7 +20257,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
                 if (player.actionsThisTurn >= player.maxActions) {
                     player.actionPoints = 0;
-                    this.finalizePlayerTurn(player);
+                    this.endPlayerTurn(player);
                 }
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
@@ -20287,7 +20287,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
                 player.actionsThisTurn = player.maxActions;
                 player.actionPoints = 0;
-                this.finalizePlayerTurn(player);
+                this.endPlayerTurn(player);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
                 // Announce to Discord and sync map display (fire-and-forget)
