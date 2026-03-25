@@ -209,7 +209,7 @@ app.get('/api/games', ensureAuthenticated, async (req, res) => {
 
 app.get('/api/game/:channelId/state', ensureAuthenticated, async (req, res) => {
   try {
-    const response = await botAPI.get(`/api/game/${req.params.channelId}/state`);
+    const response = await botAPI.get(`/api/game/${req.params.channelId}/state`, { params: { userId: req.user.id } });
     res.json(response.data);
   } catch (error) {
     console.error('Error fetching game state:', error.message);

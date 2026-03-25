@@ -12271,8 +12271,12 @@ class NavalWarfareBot {
                 capturedInfra.push(entry);
             }
             console.log(`🏗️ Loaded ${capturedInfra.length} custom infrastructure items from map`);
+        } else if (game.infrastructureData) {
+            // Names already established — reuse them, only rebuild mines from current state
+            const nonMines = game.infrastructureData.filter(e => e.type !== 'mine');
+            capturedInfra.push(...nonMines);
         } else {
-            // Procedural map — generate infrastructure from island groups
+            // Procedural map — generate infrastructure from island groups (first time only)
             const islandGroupsForInfra = this.identifyIslandGroups(game, mapSize);
             for (const islandGroup of islandGroupsForInfra) {
                 if (islandGroup.length < 3) continue;
@@ -12301,7 +12305,7 @@ class NavalWarfareBot {
                 }
             }
         }
-        // Add mines
+        // Add mines from current game state
         if (game.mines) {
             for (const mineCoord of game.mines) {
                 try {
@@ -19848,7 +19852,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(404).json({ error: 'Game not found' });
                 }
 
-                const requesterIsGM = requestingUserId && requestingUserId === game.gmId;
+                const requesterIsGM = requestingUserId && requestingUserId === game.gmId && game.gmActive !== false;
 
                 // Convert Maps to arrays
                 const playersArray = Array.from(game.players.values()).map(p => ({
