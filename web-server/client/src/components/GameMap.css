@@ -133,11 +133,10 @@
 .wx-rainy .wx-rain {
   inset: -50%;
   opacity: 1;
-  /* Primary streaks: 2px wide, clearly visible */
   background-image: repeating-linear-gradient(
     170deg,
     transparent 0px, transparent 5px,
-    rgba(215, 235, 255, 0.55) 5px, rgba(215, 235, 255, 0.55) 7px
+    rgba(215, 235, 255, 0.28) 5px, rgba(215, 235, 255, 0.28) 7px
   );
   background-size: 28px 85px;
   animation: wx-rain-fall 0.28s linear infinite;
@@ -150,7 +149,7 @@
   background-image: repeating-linear-gradient(
     172deg,
     transparent 0px, transparent 9px,
-    rgba(195, 220, 255, 0.28) 9px, rgba(195, 220, 255, 0.28) 10px
+    rgba(195, 220, 255, 0.14) 9px, rgba(195, 220, 255, 0.14) 10px
   );
   background-size: 40px 110px;
   animation: wx-rain-fall-slow 0.55s linear infinite;
@@ -171,8 +170,8 @@
   position: absolute;
   width: 130%; height: 55%; top: 5%; left: -15%;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(210,225,240,0.30) 0%, transparent 70%);
-  filter: blur(28px);
+  background: radial-gradient(ellipse at center, rgba(210,225,240,0.62) 0%, transparent 70%);
+  filter: blur(22px);
   animation: wx-fog-a 14s ease-in-out infinite alternate;
 }
 .wx-foggy .wx-fog::after {
@@ -180,9 +179,13 @@
   position: absolute;
   width: 115%; height: 50%; top: 42%; right: -10%;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(200,220,235,0.26) 0%, transparent 70%);
-  filter: blur(32px);
+  background: radial-gradient(ellipse at center, rgba(200,220,235,0.52) 0%, transparent 70%);
+  filter: blur(26px);
   animation: wx-fog-b 19s ease-in-out infinite alternate;
+}
+.wx-foggy .wx-tint {
+  opacity: 1;
+  background: rgba(200, 215, 230, 0.10);
 }
 
 /* ══ THUNDERSTORM ═══════════════════════════════════ */
@@ -227,24 +230,72 @@
 
 /* ══ HURRICANE ══════════════════════════════════════ */
 .wx-hurricane .wx-rain {
-  inset: -30%;
-  opacity: 0.85;
+  inset: -50%;
+  opacity: 1;
   background-image: repeating-linear-gradient(
-    155deg,
+    158deg,
     transparent 0px, transparent 2px,
-    rgba(160, 200, 255, 0.22) 2px, rgba(160, 200, 255, 0.22) 4px
+    rgba(175, 210, 255, 0.28) 2px, rgba(175, 210, 255, 0.28) 5px
   );
-  background-size: 18px 45px;
-  animation: wx-rain-fall 0.17s linear infinite;
+  background-size: 14px 40px;
+  animation: wx-rain-fall 0.14s linear infinite;
+}
+.wx-hurricane .wx-rain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    162deg,
+    transparent 0px, transparent 5px,
+    rgba(155, 200, 255, 0.14) 5px, rgba(155, 200, 255, 0.14) 7px
+  );
+  background-size: 22px 60px;
+  animation: wx-rain-fall-slow 0.28s linear infinite;
+}
+.wx-hurricane .wx-fog { opacity: 1; }
+.wx-hurricane .wx-fog::before {
+  content: '';
+  position: absolute;
+  width: 140%; height: 70%; top: -5%; left: -20%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(180,200,220,0.22) 0%, transparent 70%);
+  filter: blur(20px);
+  animation: wx-fog-a 7s ease-in-out infinite alternate;
+}
+.wx-hurricane .wx-fog::after {
+  content: '';
+  position: absolute;
+  width: 130%; height: 65%; top: 38%; right: -15%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(160,185,210,0.18) 0%, transparent 70%);
+  filter: blur(24px);
+  animation: wx-fog-b 9s ease-in-out infinite alternate;
+}
+@keyframes wx-lightning-hurricane-flash {
+  0%, 78%   { opacity: 0;    }
+  79%       { opacity: 0.50; }
+  80%       { opacity: 0;    }
+  81%       { opacity: 0.25; }
+  82%       { opacity: 0;    }
+  83%       { opacity: 0.15; }
+  84%, 100% { opacity: 0;    }
+}
+.wx-hurricane .wx-lightning {
+  background: rgba(220, 235, 255, 1);
+  animation: wx-lightning-hurricane-flash 3.2s linear infinite;
+}
+.wx-hurricane .wx-tint {
+  opacity: 1;
+  background: rgba(5, 15, 40, 0.10);
 }
 @keyframes wx-gust-pulse {
-  0%, 100% { opacity: 0.7; }
-  50%      { opacity: 1.0; }
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.65; }
 }
 .wx-hurricane .wx-vignette {
   opacity: 1;
-  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.38) 100%);
-  animation: wx-gust-pulse 2.8s ease-in-out infinite;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.30) 100%);
+  animation: wx-gust-pulse 2.2s ease-in-out infinite;
 }
 
 .game-map-canvas {
