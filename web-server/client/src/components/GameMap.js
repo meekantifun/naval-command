@@ -887,7 +887,7 @@ function useWeatherAudio(weather, muted) {
 
     const srcs = [];
 
-    // Pink-noise buffer (4 s, looping)
+    // Pink-noise buffer (4 s, looping) — Voss-McCartney algorithm
     const bufLen = ctx.sampleRate * 4;
     const pinkBuf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
     const pd = pinkBuf.getChannelData(0);
@@ -915,53 +915,103 @@ function useWeatherAudio(weather, muted) {
     };
 
     if (weather === 'rainy') {
-      master.gain.value = 0.11;
-      // Main rain patter: centred in 1–4kHz where rain sounds most natural
-      layer('bandpass', 1500, 0.8, 1.0);  // splatter / patter body
-      layer('bandpass', 3500, 1.2, 0.6);  // drop-impact sparkle
-      layer('lowpass',   550, 0.4, 0.25); // ambient low wash
-      // Gentle LFO to break up the static feel (simulates gusts)
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine'; lfo.frequency.value = 0.12;
-      const lfoG = ctx.createGain(); lfoG.gain.value = 0.028;
-      lfo.connect(lfoG); lfoG.connect(master.gain);
-      lfo.start(); srcs.push(lfo);
+      master.gain.value = 0.13;
+      layer('bandpass', 1800, 0.7, 1.0);  // rain patter body
+      layer('bandpass', 3800, 1.0, 0.5);  // drop sparkle / high end
+      layer('lowpass',   480, 0.4, 0.30); // ambient low wash
+      // Dual LFO: slow swell (gusts) + faster flutter (drops on surface)
+      const lfo1 = ctx.createOscillator();
+      lfo1.type = 'sine'; lfo1.frequency.value = 0.08;
+      const lg1 = ctx.createGain(); lg1.gain.value = 0.03;
+      lfo1.connect(lg1); lg1.connect(master.gain); lfo1.start(); srcs.push(lfo1);
+      const lfo2 = ctx.createOscillator();
+      lfo2.type = 'sine'; lfo2.frequency.value = 0.38;
+      const lg2 = ctx.createGain(); lg2.gain.value = 0.012;
+      lfo2.connect(lg2); lg2.connect(master.gain); lfo2.start(); srcs.push(lfo2);
+
     } else if (weather === 'foggy') {
-      master.gain.value = 0.07;
-      layer('lowpass',   350, 0.8, 0.8);
-      layer('bandpass',  700, 1.5, 0.3);
+      master.gain.value = 0.05;
+      layer('lowpass', 300, 0.6, 0.6);  // muffled ambient hum
+      // Periodic foghorn: low sawtooth (~150 Hz) shaped like a real horn blast
+      let foghornStopped = false;
+      const blastFoghorn = () => {
+        if (foghornStopped || ctx.state === 'closed') return;
+        const t = ctx.currentTime;
+        const osc  = ctx.createOscillator();
+        osc.type = 'sawtooth'; osc.frequency.value = 148 + Math.random() * 14;
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'sine'; osc2.frequency.value = osc.frequency.value * 2;
+        const g2 = ctx.createGain(); g2.gain.value = 0.22;
+        const lp  = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 400;
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.20, t + 0.5);  // slow attack
+        env.gain.setValueAtTime(0.20, t + 1.9);
+        env.gain.linearRampToValueAtTime(0, t + 2.7);     // tail off
+        osc.connect(lp); osc2.connect(g2); g2.connect(lp); lp.connect(env); env.connect(master);
+        osc.start(t); osc.stop(t + 3);
+        osc2.start(t); osc2.stop(t + 3);
+        setTimeout(blastFoghorn, 11000 + Math.random() * 14000);
+      };
+      blastFoghorn();
+      srcs.push({ stop: () => { foghornStopped = true; }, disconnect: () => {} });
+
     } else if (weather === 'thunderstorm') {
-      master.gain.value = 0.12;
-      layer('highpass', 5500, 0.4, 1.5);
-      layer('lowpass',   250, 0.5, 0.5);
+      master.gain.value = 0.14;
+      layer('highpass', 4500, 0.35, 1.4);  // heavy rain hiss
+      layer('lowpass',   220, 0.5,  0.4);  // wind rumble
+      layer('bandpass', 1200, 0.7,  0.6);  // mid-frequency rain body
+      // Wind gust LFO
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine'; lfo.frequency.value = 0.18;
+      const lg = ctx.createGain(); lg.gain.value = 0.025;
+      lfo.connect(lg); lg.connect(master.gain); lfo.start(); srcs.push(lfo);
+      // Noise-based thunder: crack (broadband burst) + deep rumble (pink noise through sub-100Hz LP)
       let stopped = false;
       const boom = () => {
         if (stopped || ctx.state === 'closed') return;
-        const osc = ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.value = 45 + Math.random() * 30;
-        const env = ctx.createGain();
-        env.gain.setValueAtTime(0, ctx.currentTime);
-        env.gain.linearRampToValueAtTime(0.7, ctx.currentTime + 0.08);
-        env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.2);
-        const lp = ctx.createBiquadFilter();
-        lp.type = 'lowpass'; lp.frequency.value = 160;
-        osc.connect(lp); lp.connect(env); env.connect(master);
-        osc.start(); osc.stop(ctx.currentTime + 2.2);
-        setTimeout(boom, 5000 + Math.random() * 12000);
+        const crackLen = Math.floor(ctx.sampleRate * 0.12);
+        const crackBuf = ctx.createBuffer(1, crackLen, ctx.sampleRate);
+        const cd = crackBuf.getChannelData(0);
+        for (let i = 0; i < crackLen; i++) cd[i] = Math.random() * 2 - 1;
+        const crack = ctx.createBufferSource(); crack.buffer = crackBuf;
+        const crackFilt = ctx.createBiquadFilter();
+        crackFilt.type = 'bandpass'; crackFilt.frequency.value = 700; crackFilt.Q.value = 0.4;
+        const crackEnv = ctx.createGain();
+        crackEnv.gain.setValueAtTime(1.4, ctx.currentTime);
+        crackEnv.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+        crack.connect(crackFilt); crackFilt.connect(crackEnv); crackEnv.connect(master);
+        crack.start();
+        const rumble = ctx.createBufferSource(); rumble.buffer = pinkBuf; rumble.loop = true;
+        const rumbleFilt = ctx.createBiquadFilter();
+        rumbleFilt.type = 'lowpass'; rumbleFilt.frequency.value = 105;
+        const rumbleEnv = ctx.createGain();
+        rumbleEnv.gain.setValueAtTime(0, ctx.currentTime);
+        rumbleEnv.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 0.06);
+        rumbleEnv.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.2);
+        rumble.connect(rumbleFilt); rumbleFilt.connect(rumbleEnv); rumbleEnv.connect(master);
+        rumble.start(); rumble.stop(ctx.currentTime + 3.2);
+        setTimeout(boom, 4000 + Math.random() * 10000);
       };
-      setTimeout(boom, 1500 + Math.random() * 3000);
+      setTimeout(boom, 1000 + Math.random() * 3000);
       srcs.push({ stop: () => { stopped = true; }, disconnect: () => {} });
+
     } else if (weather === 'hurricane') {
-      master.gain.value = 0.14;
-      layer('bandpass', 900, 0.4, 1.2);
-      layer('bandpass', 300, 0.5, 0.8);
-      layer('highpass', 7000, 0.3, 1.0);
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine'; lfo.frequency.value = 0.2;
-      const lfoG = ctx.createGain(); lfoG.gain.value = 0.04;
-      lfo.connect(lfoG); lfoG.connect(master.gain);
-      lfo.start(); srcs.push(lfo);
+      master.gain.value = 0.08;
+      let cancelled = false;
+      fetch('/sounds/hurricane.mp3')
+        .then(r => r.arrayBuffer())
+        .then(ab => ctx.decodeAudioData(ab))
+        .then(decoded => {
+          if (cancelled || ctx.state === 'closed') return;
+          const src = ctx.createBufferSource();
+          src.buffer = decoded; src.loop = true;
+          src.connect(master); src.start();
+          srcs.push(src);
+        })
+        .catch(() => {});
+      srcs.push({ stop: () => { cancelled = true; }, disconnect: () => {} });
     }
 
     cleanupRef.current = () => {
@@ -976,11 +1026,211 @@ function useWeatherAudio(weather, muted) {
   }, []);
 }
 
+// ── Weather visuals hook (canvas particle system) ─────────────────────────────
+function useWeatherVisuals(weather, canvasRef) {
+  const animRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const c = canvas.getContext('2d');
+
+    if (!weather || weather === 'clear') {
+      c.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    const syncSize = () => {
+      const p = canvas.parentElement;
+      if (!p) return;
+      canvas.width  = p.offsetWidth  || 800;
+      canvas.height = p.offsetHeight || 600;
+    };
+    syncSize();
+    const ro = new ResizeObserver(syncSize);
+    ro.observe(canvas.parentElement);
+
+    // ── Rain particles ──────────────────────────────────────────────────────
+    const RAIN_CFG = {
+      rainy:        { count: 180, speed: 9,  angle: 12, len: 14, op: 0.30, windVar: 0.4 },
+      thunderstorm: { count: 280, speed: 17, angle: 17, len: 20, op: 0.40, windVar: 1.8 },
+      hurricane:    { count: 420, speed: 26, angle: 33, len: 26, op: 0.36, windVar: 5.0 },
+    };
+    const rainCfg = RAIN_CFG[weather];
+    const drops = rainCfg
+      ? Array.from({ length: rainCfg.count }, () => ({
+          x:     Math.random() * (canvas.width  * 1.4) - canvas.width  * 0.2,
+          y:     Math.random() * (canvas.height * 1.2) - canvas.height * 0.1,
+          speed: rainCfg.speed * (0.65 + Math.random() * 0.7),
+          len:   rainCfg.len   * (0.55 + Math.random() * 0.9),
+          op:    rainCfg.op    * (0.40 + Math.random() * 1.0),
+        }))
+      : [];
+
+    // ── Fog patches ─────────────────────────────────────────────────────────
+    const FOG_CFG = {
+      foggy:     { count: 10, op: 0.52, drift: 0.00012 },
+      hurricane: { count:  6, op: 0.28, drift: 0.00035 },
+    };
+    const fogCfg = FOG_CFG[weather];
+    const fogPatches = fogCfg
+      ? Array.from({ length: fogCfg.count }, () => ({
+          cx:     Math.random(),
+          cy:     Math.random(),
+          rx:     0.32 + Math.random() * 0.38,
+          ry:     0.22 + Math.random() * 0.26,
+          op:     fogCfg.op * (0.6 + Math.random() * 0.8),
+          vx:     (Math.random() - 0.5) * fogCfg.drift * 2,
+          vy:     (Math.random() - 0.5) * fogCfg.drift,
+          phase:  Math.random() * Math.PI * 2,
+          period: 10 + Math.random() * 20,
+        }))
+      : [];
+
+    // ── Lightning bolts (thunderstorm / hurricane) ───────────────────────────
+    let bolt = null;
+    let lastBoltTime = 0;
+    let nextBoltDelay = weather === 'hurricane'
+      ? 2500 + Math.random() * 4000
+      : 4000 + Math.random() * 11000;
+
+    const spawnBolt = (W, H) => {
+      let cx = W * (0.15 + Math.random() * 0.7);
+      const pts = [{ x: cx, y: 0 }];
+      for (let i = 1; i <= 10; i++) {
+        cx += (Math.random() - 0.5) * 70;
+        pts.push({ x: Math.max(10, Math.min(W - 10, cx)), y: H * i / 10 });
+      }
+      bolt = { pts, born: performance.now(), life: 90, flash: true };
+    };
+
+    let lastFrame = performance.now();
+
+    const draw = (now) => {
+      const dt = Math.min(now - lastFrame, 50);
+      lastFrame = now;
+      const t = (now - (lastFrame - dt + dt)) / 1000;  // seconds
+      const W = canvas.width;
+      const H = canvas.height;
+      c.clearRect(0, 0, W, H);
+
+      // ── Fog ──────────────────────────────────────────────────────────────
+      for (const p of fogPatches) {
+        const elapsed = (now - (lastFrame - dt + dt)) / 1000 + p.phase;
+        const wobX = Math.sin(elapsed / p.period * Math.PI * 2) * W * 0.08;
+        const wobY = Math.cos(elapsed / p.period * Math.PI)     * H * 0.05;
+        const px = p.cx * W + wobX;
+        const py = p.cy * H + wobY;
+        const rx = p.rx * W;
+        const ry = p.ry * H;
+        const r  = Math.max(rx, ry);
+        const grd = c.createRadialGradient(px, py, 0, px, py, r);
+        grd.addColorStop(0,    `rgba(212,226,242,${p.op})`);
+        grd.addColorStop(0.45, `rgba(207,222,238,${p.op * 0.55})`);
+        grd.addColorStop(1,    `rgba(212,226,242,0)`);
+        c.save();
+        c.translate(px, py);
+        c.scale(rx / r, ry / r);
+        c.beginPath();
+        c.arc(0, 0, r, 0, Math.PI * 2);
+        c.fillStyle = grd;
+        c.fill();
+        c.restore();
+        p.cx += p.vx * dt;
+        p.cy += p.vy * dt;
+        if (p.cx > 1.3)  p.cx = -0.3;
+        if (p.cx < -0.3) p.cx = 1.3;
+        if (p.cy > 1.2)  p.cy = -0.2;
+        if (p.cy < -0.2) p.cy = 1.2;
+      }
+
+      // ── Rain ─────────────────────────────────────────────────────────────
+      if (drops.length && rainCfg) {
+        const rad = rainCfg.angle * Math.PI / 180;
+        const adx = Math.sin(rad);
+        const ady = Math.cos(rad);
+        c.lineCap = 'round';
+        c.lineWidth = 1;
+        for (const d of drops) {
+          c.globalAlpha = Math.min(1, d.op);
+          c.strokeStyle = 'rgba(210,232,255,1)';
+          c.beginPath();
+          c.moveTo(d.x, d.y);
+          c.lineTo(d.x - adx * d.len, d.y - ady * d.len);
+          c.stroke();
+          const s = d.speed * dt / 16;
+          d.x += adx * s + (Math.random() - 0.5) * rainCfg.windVar;
+          d.y += ady * s;
+          if (d.y > H + 30) { d.y = -d.len - 10; d.x = Math.random() * (W * 1.4) - W * 0.2; }
+          if (d.x >  W + 120) d.x -= W + 240;
+          if (d.x < -120)     d.x += W + 240;
+        }
+        c.globalAlpha = 1;
+      }
+
+      // ── Lightning flash + bolt ────────────────────────────────────────────
+      if (bolt) {
+        const age = now - bolt.born;
+        // Brief white-out flash synced with the bolt
+        if (bolt.flash && age < 110) {
+          c.fillStyle = `rgba(220,238,255,${0.28 * (1 - age / 110)})`;
+          c.fillRect(0, 0, W, H);
+        } else {
+          bolt.flash = false;
+        }
+        // Jagged bolt line
+        if (age < bolt.life) {
+          const a = 1 - age / bolt.life;
+          c.save();
+          c.shadowBlur  = 20;
+          c.shadowColor = `rgba(180,210,255,${a * 0.85})`;
+          c.strokeStyle = `rgba(235,248,255,${a})`;
+          c.lineWidth   = 2;
+          c.beginPath();
+          c.moveTo(bolt.pts[0].x, bolt.pts[0].y);
+          for (const p of bolt.pts.slice(1)) c.lineTo(p.x, p.y);
+          c.stroke();
+          c.shadowBlur  = 4;
+          c.strokeStyle = `rgba(255,255,255,${a * 0.75})`;
+          c.lineWidth   = 0.8;
+          c.stroke();
+          c.restore();
+        } else {
+          bolt = null;
+        }
+      }
+
+      // Schedule next bolt
+      if (weather === 'thunderstorm' || weather === 'hurricane') {
+        if (now - lastBoltTime > nextBoltDelay) {
+          spawnBolt(W, H);
+          lastBoltTime = now;
+          nextBoltDelay = weather === 'hurricane'
+            ? 2500 + Math.random() * 4000
+            : 4000 + Math.random() * 11000;
+        }
+      }
+
+      animRef.current = requestAnimationFrame(draw);
+    };
+
+    animRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      ro.disconnect();
+      c.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [weather]); // eslint-disable-line
+}
+
 function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null, isGM = false, moveHighlights = [], attackHighlights = [] }) {
   const canvasRef = useRef(null);
+  const weatherCanvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
   const [soundMuted, setSoundMuted] = useState(false);
   useWeatherAudio(gameState?.weather, soundMuted);
+  useWeatherVisuals(gameState?.weather, weatherCanvasRef);
   // mineImg is loaded via iconsRef below; keep this null so the fallback never draws
   const mineImg = null;
 
@@ -1040,9 +1290,24 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     (gameState?.players || []).filter(p => p.x != null),
   [gameState]);
 
-  const allEnemies = useMemo(() =>
-    (gameState?.enemies || []).filter(e => e.x != null && (e.visible || e.sunk || isGM)),
-  [gameState, isGM]);
+  // How far (in cells) a ship can spot enemies in bad weather.
+  // GM bypasses this entirely. Sunk enemies are always visible.
+  const WEATHER_SPOT_RANGE = { hurricane: 12, thunderstorm: 20, fog: 28, foggy: 28 };
+
+  const allEnemies = useMemo(() => {
+    const spotRange = WEATHER_SPOT_RANGE[gameState?.weather];
+    const friendlies = (gameState?.players || []).filter(p => p.x != null);
+    return (gameState?.enemies || []).filter(e => {
+      if (e.x == null) return false;
+      if (e.sunk) return true;
+      if (isGM) return true;
+      if (!e.visible) return false;
+      if (spotRange != null && friendlies.length > 0) {
+        return friendlies.some(p => Math.hypot(e.x - p.x, e.y - p.y) <= spotRange);
+      }
+      return true;
+    });
+  }, [gameState, isGM]);
 
   const terrainMap = useMemo(() => {
     const tm = new Map();
@@ -1369,6 +1634,40 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     for (const p of allPlayers.filter(p => !p.sunk && p.userId !== myUserId)) drawUnit(p, false);
     for (const p of allPlayers.filter(p => !p.sunk && p.userId === myUserId)) drawUnit(p, false);
 
+    // ── Weather visibility fog ──────────────────────────────────────────────
+    // Draws a gray fog over the whole map, with soft clear circles around
+    // each friendly ship up to the current spotting range.
+    const weatherFogRange = WEATHER_SPOT_RANGE[gameState?.weather];
+    if (weatherFogRange != null && !isGM) {
+      const fogCanvas = document.createElement('canvas');
+      fogCanvas.width  = canvasW;
+      fogCanvas.height = canvasH;
+      const fctx = fogCanvas.getContext('2d');
+
+      // Fill the fog layer
+      fctx.fillStyle = 'rgba(50, 55, 65, 0.72)';
+      fctx.fillRect(0, 0, canvasW, canvasH);
+
+      // Punch soft holes around each living friendly ship
+      fctx.globalCompositeOperation = 'destination-out';
+      for (const p of allPlayers) {
+        if (p.x == null || p.sunk) continue;
+        const cx = MARGIN + p.x * CELL + CELL / 2;
+        const cy = MARGIN + p.y * CELL + CELL / 2;
+        const outerR = weatherFogRange * CELL;
+        const innerR = outerR * 0.55; // crisp center fades to fog at edge
+        const grad = fctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+        grad.addColorStop(0, 'rgba(0,0,0,1)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        fctx.fillStyle = grad;
+        fctx.beginPath();
+        fctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+        fctx.fill();
+      }
+
+      ctx.drawImage(fogCanvas, 0, 0);
+    }
+
     // Hover highlight
     if (hoveredCell) {
       const { x, y } = hoveredCell;
@@ -1386,7 +1685,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, moveSet, attackSet, allPlayers, allEnemies, myUserId, iconsLoaded]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, moveSet, attackSet, allPlayers, allEnemies, myUserId, iconsLoaded, isGM, gameState]);
 
   // Always keep ref current so the animation loop never has a stale drawMap
   drawMapFnRef.current = drawMap;
@@ -1494,9 +1793,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
         />
         {gameState?.weather && gameState.weather !== 'clear' && (
           <div className={`weather-overlay wx-${gameState.weather}`}>
-            <div className="wx-rain" />
-            <div className="wx-fog" />
-            <div className="wx-lightning" />
+            <canvas className="wx-canvas" ref={weatherCanvasRef} />
             <div className="wx-tint" />
             <div className="wx-vignette" />
           </div>
