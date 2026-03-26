@@ -15,49 +15,59 @@ One new field on the game object:
 
 ```js
 game.pendingWeather = {
-  condition: 'thunderstorm',   // target weather value
-  turnsUntil: 3,               // countdown; 0 = apply this turn
+  condition: 'thunderstorm',   // target weather value (final state)
+  turnsUntil: 3,               // countdown; apply final state when this reaches 0
   eventName: 'Sudden Storm',   // display name (null for GM-set)
-  isGMSet: false               // true when a GM initiated it
+  isGMSet: false,              // true when a GM initiated it
+  originWeather: 'clear'       // game.weather at the time pendingWeather was created
+                               // used to determine the correct ramp for 'clear' targets
 }
 ```
 
 - `null` when no change is pending.
 - Only one pending change at a time. A newer GM command overwrites any existing pending change (random or GM). A new random roll does NOT overwrite an existing pending change.
+- `originWeather` is captured at the moment `pendingWeather` is created and never mutated thereafter, even as `game.weather` changes during ramp steps.
 
 ---
 
 ## Weather Progression Chains
 
-Each target weather type has a fixed ramp-up sequence. Intermediate states are anchored to the end of the countdown, not the beginning — so the chain always "lands" correctly regardless of how far out the event is scheduled.
+Each target weather type has a fixed ramp-up sequence. Intermediate states are anchored to the end of the countdown. The formula for step `i` (0-indexed from the front of the chain) in a chain of length N is:
 
-| Target | Progression |
-|---|---|
-| `hurricane` | rainy → thunderstorm → hurricane |
-| `thunderstorm` | rainy → thunderstorm |
-| `rainy` | rainy |
-| `foggy` | foggy |
-| `clear` | rainy → clear *(if prior weather was thunderstorm or hurricane)*, otherwise just clear |
+```
+step[i] fires when turnsUntil === (N - 1 - i)
+```
 
-**Mapping rule:** For a chain of length N, each intermediate step fires at `turnsUntil = N - 1 - stepIndex`. Steps earlier than the chain length are forecast-only (no weather change yet).
+If `turnsUntil` at scheduling time is less than `N - 1` (i.e. the countdown is shorter than the chain), the earliest steps are never fired — only the steps whose `turnsUntil` trigger value fits within the scheduled window are applied.
 
-**Example — hurricane in 4 turns** (chain length 3):
-
-| turnsUntil | Weather change | Message |
+| Target | Chain (in order) | Chain length N |
 |---|---|---|
-| 4 | none | forecast only |
-| 3 | → rainy | "Seas are building…" + forecast |
-| 2 | → thunderstorm | "Storm intensifying…" + forecast |
-| 1 | none | "Hurricane imminent…" + forecast |
-| 0 | → hurricane | "Hurricane has arrived!" |
+| `hurricane` | rainy → thunderstorm → hurricane | 3 |
+| `thunderstorm` | rainy → thunderstorm | 2 |
+| `rainy` | rainy | 1 |
+| `foggy` | foggy | 1 |
+| `clear` (from thunderstorm/hurricane) | rainy → clear | 2 |
+| `clear` (from rainy/foggy/clear) | clear | 1 |
 
-**Example — hurricane in 2 turns** (chain truncated, skip earliest step):
+The `clear` ramp variant is selected using `originWeather` (captured at scheduling time), not the current `game.weather`, which may have already been mutated by ramp steps.
 
-| turnsUntil | Weather change | Message |
+**Example — hurricane in 4 turns** (N=3, turnsUntil starts at 4):
+
+| turnsUntil | Weather change | Ramp trigger |
 |---|---|---|
-| 2 | → thunderstorm | "Storm intensifying…" + forecast |
-| 1 | none | "Hurricane imminent…" + forecast |
-| 0 | → hurricane | "Hurricane has arrived!" |
+| 4 | none | no step maps to turnsUntil=4 |
+| 3 | none | no step maps to turnsUntil=3 |
+| 2 | → rainy | step[0]: N-1-0 = 2 |
+| 1 | → thunderstorm | step[1]: N-1-1 = 1 |
+| 0 | → hurricane | step[2]: N-1-2 = 0 |
+
+**Example — hurricane in 2 turns** (N=3, turnsUntil starts at 2; step[0]=rainy maps to turnsUntil=2):
+
+| turnsUntil | Weather change | Ramp trigger |
+|---|---|---|
+| 2 | → rainy | step[0]: maps to turnsUntil=2 |
+| 1 | → thunderstorm | step[1]: maps to turnsUntil=1 |
+| 0 | → hurricane | step[2]: maps to turnsUntil=0 |
 
 ---
 
@@ -79,21 +89,58 @@ Each turn while `pendingWeather` is active, `processWeatherEvents()` emits a for
 ⚠️ Brace for hurricane conditions — visibility drops to 5 cells, aircraft operations suspended
 ```
 
-When an intermediate weather state is applied (e.g. clear → rainy during a hurricane ramp), an additional brief line is prepended:
+When an intermediate ramp step changes `game.weather`, a brief additional line is prepended:
 ```
 🌧️ Seas are building — weather deteriorating to rainy.
 ```
 
-Flavor text varies by target weather and current ramp stage so repeated messages don't feel identical.
+Flavor text varies by target weather and current ramp stage. The specific strings are delegated to the implementer, with the requirement of **at least 2 distinct flavor lines per target/stage combination** to avoid identical repeated messages.
 
 ---
 
 ## Random Event Scheduling
 
-`processWeatherEvents()` already has a 6% per-turn random roll. Change:
+`processWeatherEvents()` has an existing 6% per-turn random roll. Change:
 
-- On a successful roll, **do not apply weather immediately**. Instead, set `game.pendingWeather` with `turnsUntil` = random integer between 2 and 4.
-- If `game.pendingWeather` is already set (from a prior random roll), skip the new roll. GMs may still override.
+- On a successful roll, do **not** apply weather immediately. Instead set `game.pendingWeather` with `turnsUntil` = random integer between 2 and 4.
+- If `game.pendingWeather` is already set, skip the random roll. GMs may still override.
+
+---
+
+## Relationship to `activeWeatherEvent`
+
+The existing `game.activeWeatherEvent` system tracks the **duration** of an ongoing weather event (how many turns until it expires and weather reverts). It is **preserved**:
+
+- When `pendingWeather.turnsUntil` reaches 0 and the final weather is applied, set `game.activeWeatherEvent` as today's code does (with `turnsRemaining = event.duration`).
+- For GM-set weather with `turnsDelay > 0`, do not set `activeWeatherEvent` (GM changes have no auto-revert).
+- The existing `activeWeatherEvent` countdown/expiry logic in `processWeatherEvents()` runs **after** the `pendingWeather` block.
+- If `activeWeatherEvent` expires and tries to change `game.weather` while a `pendingWeather` ramp is in flight, the ramp continues uninterrupted. The expiry change applies normally to `game.weather` but `pendingWeather` will overwrite it on its own schedule.
+
+---
+
+## Execution Order in `processWeatherEvents()`
+
+```
+1. Random roll — if no pendingWeather, 6% chance to schedule (2–4 turns out).
+
+2. Process pendingWeather — if game.pendingWeather exists:
+   a. Look up the ramp chain for pendingWeather.condition.
+   b. Find which step (if any) maps to the current turnsUntil value.
+      - If a step maps: update game.weather to that step's intermediate value,
+        set game.weatherChangedThisTurn = true, emit intermediate-change line.
+   c. Check if turnsUntil === 0:
+      - YES: apply pendingWeather.condition as the final game.weather,
+             set game.weatherChangedThisTurn = true,
+             set game.activeWeatherEvent if this was a random event,
+             emit arrival message, set game.pendingWeather = null.
+      - NO:  emit forecast message, then decrement turnsUntil.
+
+3. Process activeWeatherEvent expiry (existing logic, unchanged).
+
+4. Set game.weatherChangedThisTurn (existing logic, unchanged).
+```
+
+Note: the turnsUntil === 0 check happens **before** decrement. Decrement only occurs when turnsUntil > 0.
 
 ---
 
@@ -107,14 +154,16 @@ Add an optional `turns` integer option (min 0, max 10, default 0):
 /weather condition:hurricane turns:3
 ```
 
-- `turns:0` — instant apply, identical to current behavior (no forecast).
-- `turns:1+` — sets `game.pendingWeather`, announces forecast.
+- `turns:0` — instant apply. Calls `game.weather = condition` then `updateGameDisplay()` immediately. Behavior identical to today.
+- `turns:1+` — sets `game.pendingWeather`, announces a forecast. Does **not** call `updateGameDisplay()` (no visual change yet).
+
+The `updateGameDisplay()` call must be preserved on the `turns:0` path when refactoring `setWeather()`.
 
 ### Web Dashboard
 
 - Add a numeric "Turns delay" input (default 0) alongside the existing weather buttons.
 - When delay > 0, POST to the weather endpoint with `turnsDelay` in the body.
-- Show a small status indicator when a pending change is active: `🌀 Hurricane in 2 turns`.
+- Show a small status indicator in the **GM weather controls panel** when a pending change is active: `🌀 Hurricane in 2 turns`. This indicator is **GM-only** (visible only within the GM controls section). It disappears when `pendingWeather` becomes null.
 
 ### Overriding
 
@@ -122,26 +171,14 @@ A GM command always replaces any active `pendingWeather` (cancels the old foreca
 
 ---
 
-## Implementation Integration
+## Battle End
 
-All logic lives inside `processWeatherEvents()` in `bot.js`. Execution order each turn:
-
-1. **Random roll** — if no pending weather, 6% chance to schedule one (2–4 turns out).
-2. **Process pending** — if `game.pendingWeather` exists:
-   a. Determine intermediate weather step for this `turnsUntil` value; apply if mapped.
-   b. Emit forecast message (flavor + mechanical warning).
-   c. Decrement `turnsUntil`.
-   d. If `turnsUntil` was 0: apply final weather, clear `game.pendingWeather`, emit arrival message.
-3. Set `game.weatherChangedThisTurn` if weather changed (existing logic, unchanged).
-
-`setWeather()` in `bot.js` and the web API endpoint (`POST /api/game/:channelId/weather`) both gain a `turnsDelay` parameter. When `turnsDelay === 0`, behavior is unchanged. When `turnsDelay > 0`, they populate `game.pendingWeather` instead of `game.weather`.
-
-No changes to `battleManager.js` or the main turn loop.
+When a battle ends, `game.pendingWeather` does not require explicit cleanup. The game object is removed from `this.games` on battle end and `processWeatherEvents()` is never called during teardown. No stale forecast messages will fire.
 
 ---
 
 ## Scope Boundary
 
 - No stacking of multiple pending weather changes.
-- No player-visible forecast UI on the web map (Discord messages and web event log only).
+- No player-visible forecast UI on the web map (Discord messages and web event log only; the pending indicator is GM-only).
 - No persistence of `pendingWeather` across bot restarts (consistent with existing game state behavior).
