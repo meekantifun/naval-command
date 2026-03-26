@@ -460,6 +460,9 @@ class NavalWarfareBot {
                 .addStringOption(option => option.setName('condition').setDescription('Weather condition').setRequired(true)
                     .addChoices({name: 'Clear', value: 'clear'}, {name: 'Rainy', value: 'rainy'}, {name: 'Foggy', value: 'foggy'},
                                {name: 'Thunderstorm', value: 'thunderstorm'}, {name: 'Hurricane', value: 'hurricane'}))
+                .addIntegerOption(option => option.setName('turns')
+                    .setDescription('Turns until weather takes effect (0 = instant, default 0)')
+                    .setMinValue(0).setMaxValue(10).setRequired(false))
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('spawn').setDescription('[GM] Spawn AI units during battle')
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -18553,7 +18556,6 @@ Use \`/stats\` during a battle to view your current ship statistics!
     }
 
     async setWeather(interaction) {
-        // Check staff permissions
         if (!this.hasStaffPermission(interaction.member)) {
             return interaction.reply({
                 content: '❌ You need staff permissions to set weather.\n\n' +
@@ -18570,36 +18572,64 @@ Use \`/stats\` during a battle to view your current ship statistics!
         }
 
         const condition = interaction.options.getString('condition');
-        const oldWeather = game.weather;
-        game.weather = condition;
+        const turnsDelay = interaction.options.getInteger('turns') ?? 0;
 
-        // Build weather change message
-        let weatherMessage = `🌤️ Weather changed from ${oldWeather.charAt(0).toUpperCase() + oldWeather.slice(1)} to ${condition.charAt(0).toUpperCase() + condition.slice(1)}!`;
+        if (turnsDelay === 0) {
+            // Instant apply — original behavior preserved exactly.
+            const oldWeather = game.weather;
+            game.weather = condition;
+            game.pendingWeather = null; // cancel any pending forecast
 
-        // Add visibility warning for reduced visibility weather
-        if (condition === 'hurricane') {
-            weatherMessage += `\n⚠️ **Severe conditions reduce visibility to 5 cells!** Enemy forces outside this range are hidden.`;
-        } else if (condition === 'thunderstorm') {
-            weatherMessage += `\n⚠️ **Heavy clouds reduce visibility to 10 cells!** Enemy forces outside this range are hidden.`;
-        } else if (condition === 'fog') {
-            weatherMessage += `\n⚠️ **Fog reduces visibility to 15 cells!** Enemy forces outside this range are hidden.`;
-        } else if (oldWeather === 'thunderstorm' || oldWeather === 'hurricane' || oldWeather === 'fog') {
-            weatherMessage += `\n✨ **Visibility restored!** All enemy forces are now visible.`;
-        }
+            // Note: the existing code checks 'fog' but the valid value is 'foggy' — left as-is
+            // to preserve existing behavior. The 'foggy' visibility branch never fires.
+            let weatherMessage = `🌤️ Weather changed from ${oldWeather.charAt(0).toUpperCase() + oldWeather.slice(1)} to ${condition.charAt(0).toUpperCase() + condition.slice(1)}!`;
+            if (condition === 'hurricane') {
+                weatherMessage += `\n⚠️ **Severe conditions reduce visibility to 5 cells!** Enemy forces outside this range are hidden.`;
+            } else if (condition === 'thunderstorm') {
+                weatherMessage += `\n⚠️ **Heavy clouds reduce visibility to 10 cells!** Enemy forces outside this range are hidden.`;
+            } else if (condition === 'fog') {
+                weatherMessage += `\n⚠️ **Fog reduces visibility to 15 cells!** Enemy forces outside this range are hidden.`;
+            } else if (oldWeather === 'thunderstorm' || oldWeather === 'hurricane' || oldWeather === 'fog') {
+                weatherMessage += `\n✨ **Visibility restored!** All enemy forces are now visible.`;
+            }
 
-        await interaction.reply({
-            content: weatherMessage
-        });
-        
-        // Update the map immediately to show new weather
-        try {
-            await this.updateGameDisplay(game, interaction.channel);
-        } catch (error) {
-            console.error('❌ Error updating map after weather change:', error);
-            await interaction.followUp({ 
-                content: '⚠️ Weather changed successfully, but map update failed. Map will update on next turn.',
-                flags: MessageFlags.Ephemeral 
+            await interaction.reply({ content: weatherMessage });
+
+            // updateGameDisplay() must be preserved on the turns:0 path
+            try {
+                await this.updateGameDisplay(game, interaction.channel);
+            } catch (error) {
+                console.error('❌ Error updating map after weather change:', error);
+                await interaction.followUp({
+                    content: '⚠️ Weather changed successfully, but map update failed. Map will update on next turn.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+        } else {
+            // Scheduled — populate pendingWeather (overrides any existing pending change)
+            game.pendingWeather = {
+                condition,
+                turnsUntil: turnsDelay,
+                eventName: null,
+                isGMSet: true,
+                originWeather: game.weather,
+            };
+
+            const conditionLabel = condition.charAt(0).toUpperCase() + condition.slice(1);
+            const effectDescs = {
+                hurricane:    'visibility 5 cells, aircraft ops suspended',
+                thunderstorm: 'visibility 10 cells, accuracy -20%',
+                rainy:        'mild accuracy penalty',
+                foggy:        'visibility 15 cells',
+                clear:        'full visibility restored',
+            };
+            await interaction.reply({
+                content:
+                    `📡 **FLEET WEATHER FORECAST** — ${conditionLabel} in **${turnsDelay}** turn${turnsDelay !== 1 ? 's' : ''}\n` +
+                    `*"Fleet meteorology has issued an official weather advisory."*\n` +
+                    `⚠️ Incoming: **${condition}** — ${effectDescs[condition] || ''}`
             });
+            // No updateGameDisplay() call here — no visual change until weather actually shifts
         }
     }
 
