@@ -17507,63 +17507,203 @@ class NavalWarfareBot {
     processWeatherEvents(game) {
         const messages = [];
         let weatherChanged = false;
-        
-        // Check for new weather events (6% per turn — roughly one event per ~17 turns)
-        if (Math.random() < 0.06) {
+
+        // Flavor text per target weather and ramp stage.
+        // Index matches the chain position (0 = first intermediate, last = arrival).
+        // Each entry has >=2 variants alternated by turn parity.
+        const FORECAST_FLAVOR = {
+            hurricane: [
+                // stage 0 — building toward rainy
+                [
+                    'Swells are building on the horizon. Barometric pressure dropping sharply.',
+                    'Heavy squalls reported across the operational area. Sea state deteriorating.',
+                ],
+                // stage 1 — building toward thunderstorm
+                [
+                    'Wind speeds increasing rapidly. All aircraft operations advised to suspend.',
+                    'Lightning observed across the fleet position. Storm intensifying ahead of schedule.',
+                ],
+                // arrival
+                [
+                    'Category-force winds have arrived. All hands brace for impact.',
+                    'Hurricane conditions are now in full effect. Seek shelter immediately.',
+                ],
+            ],
+            thunderstorm: [
+                // stage 0 — building toward rainy
+                [
+                    'Dark clouds massing to the northeast. Rain squalls inbound.',
+                    'Fleet meteorology warns of deteriorating conditions within the hour.',
+                ],
+                // arrival
+                [
+                    'Thunderstorm has arrived. Lightning strikes reducing visibility.',
+                    'Heavy storm overhead. Accuracy and visibility significantly impaired.',
+                ],
+            ],
+            rainy: [
+                // arrival (single-step chain — no intermediate)
+                [
+                    'Rain bands moving in from the south. Expect reduced visibility.',
+                    'Steady rainfall beginning across the operational area.',
+                ],
+            ],
+            foggy: [
+                // arrival (single-step chain — no intermediate)
+                [
+                    'A dense fog bank is rolling in from the sea.',
+                    'Visibility dropping rapidly. Fog blanketing the operational area.',
+                ],
+            ],
+            clear: [
+                // arrival
+                [
+                    'Skies are clearing. Visibility improving across the fleet.',
+                    'Weather system passing. Conditions returning to normal.',
+                ],
+            ],
+            clear_heavy: [
+                // stage 0 — rainy intermediate while clearing from a major storm
+                [
+                    'The storm is weakening. Rain continues but conditions improving.',
+                    'Wind speeds dropping. Fleet meteorology reports the worst has passed.',
+                ],
+                // arrival
+                [
+                    'Storm has fully cleared. Clear skies and full visibility restored.',
+                    'All-clear issued. Operational conditions have returned to normal.',
+                ],
+            ],
+        };
+
+        const WEATHER_EFFECTS = {
+            hurricane:    'visibility 5 cells, aircraft ops suspended, accuracy severely reduced',
+            thunderstorm: 'visibility 10 cells, accuracy -20%',
+            rainy:        'mild accuracy penalty, no visibility reduction',
+            foggy:        'visibility 15 cells',
+            clear:        'full visibility restored',
+        };
+
+        // ── 1. RANDOM SCHEDULING ─────────────────────────────────────────────────
+        // Only schedule if no pending change is already in flight.
+        if (!game.pendingWeather && Math.random() < 0.06) {
             const availableEvents = Array.from(this.weatherEvents.values());
             if (availableEvents.length > 0) {
                 const event = availableEvents[Math.floor(Math.random() * availableEvents.length)];
-                
-                const oldWeather = game.weather;
-                
-                game.activeWeatherEvent = {
-                    ...event,
-                    turnsRemaining: event.duration
+                const targetCondition = event.weatherChange || 'clear';
+                const turnsUntil = 2 + Math.floor(Math.random() * 3); // 2, 3, or 4
+                game.pendingWeather = {
+                    condition: targetCondition,
+                    turnsUntil,
+                    eventName: event.name,
+                    isGMSet: false,
+                    originWeather: game.weather,
+                    _event: event, // retained to set activeWeatherEvent on arrival
                 };
-                
-                // Update weather based on the event
-                if (event.name === 'Sudden Storm') {
-                    game.weather = 'thunderstorm';
-                    weatherChanged = true;
-                }
-                // Add other weather events that change conditions here
-                
-                if (weatherChanged) {
-                    messages.push(`🌩️ Weather Event: ${event.name} - ${event.description}`);
-                    messages.push(`🌤️ Weather changed from ${oldWeather} to ${game.weather}!`);
-                } else {
-                    messages.push(`🌩️ Weather Event: ${event.name} - ${event.description}`);
-                }
             }
         }
-        
-        // Process active weather event
+
+        // ── 2. PROCESS PENDING WEATHER ────────────────────────────────────────────
+        if (game.pendingWeather) {
+            const pw = game.pendingWeather;
+
+            // Resolve which chain to use (clear has two variants based on origin)
+            const chainKey = (pw.condition === 'clear' &&
+                              (pw.originWeather === 'thunderstorm' || pw.originWeather === 'hurricane'))
+                ? 'clear_heavy'
+                : pw.condition;
+            const chain = NavalBattle.WEATHER_CHAINS[chainKey] || [pw.condition];
+            const N = chain.length;
+
+            // (a) Apply intermediate ramp step if this turnsUntil maps to one.
+            // Intermediate steps are indices 0 to N-2; step[i] fires at turnsUntil = N-1-i.
+            for (let i = 0; i < N - 1; i++) {
+                if (pw.turnsUntil === (N - 1 - i)) {
+                    const intermediateWeather = chain[i];
+                    game.weather = intermediateWeather;
+                    weatherChanged = true;
+                    const intEmoji = { rainy: '🌧️', thunderstorm: '⛈️', foggy: '🌫️', clear: '🌤️', hurricane: '🌀' }[intermediateWeather] || '🌦️';
+                    messages.push(`${intEmoji} **Conditions deteriorating** — weather shifting to **${intermediateWeather}** ahead of incoming ${pw.condition}.`);
+                    break;
+                }
+            }
+
+            // (b) Check arrival BEFORE decrement.
+            if (pw.turnsUntil === 0) {
+                game.weather = pw.condition;
+                weatherChanged = true; // ensures section 4 flags the map update
+
+                // Set activeWeatherEvent for random events (handles auto-revert duration)
+                if (!pw.isGMSet && pw._event) {
+                    game.activeWeatherEvent = {
+                        ...pw._event,
+                        turnsRemaining: pw._event.duration,
+                    };
+                }
+
+                // Arrival flavor — last index in the flavor array
+                const arrivalFlavor = FORECAST_FLAVOR[chainKey];
+                const arrivalLines = arrivalFlavor?.[N - 1] || arrivalFlavor?.[arrivalFlavor.length - 1];
+                const arrivalText = arrivalLines?.[game.turnNumber % arrivalLines.length] || '';
+                const arrivalEmoji = { rainy: '🌧️', thunderstorm: '⛈️', foggy: '🌫️', clear: '🌤️', hurricane: '🌀' }[pw.condition] || '🌦️';
+                messages.push(`${arrivalEmoji} **${pw.condition.toUpperCase()} — weather has arrived!**\n*"${arrivalText}"*`);
+
+                game.pendingWeather = null;
+
+            } else {
+                // (c) Emit forecast message, then decrement.
+
+                const headerEmoji = pw.isGMSet ? '📡' : '🌦️';
+                const headerLabel = pw.isGMSet ? 'FLEET WEATHER FORECAST' : 'WEATHER FORECAST';
+                const conditionLabel = pw.condition.charAt(0).toUpperCase() + pw.condition.slice(1);
+
+                // Determine flavor stage: how far into the ramp chain we are.
+                // Formula: stageIndex = clamp(N - 1 - turnsUntil, 0, N-1)
+                // This maps "no steps fired yet" → 0 and "last intermediate fired" → N-2.
+                const stageIndex = Math.max(0, Math.min(N - 1, N - 1 - pw.turnsUntil));
+                const flavorOptions = FORECAST_FLAVOR[chainKey]?.[stageIndex];
+                const flavorLine = flavorOptions?.[game.turnNumber % flavorOptions.length] || '';
+                const effectDesc = WEATHER_EFFECTS[pw.condition] || '';
+
+                messages.push(
+                    `${headerEmoji} **${headerLabel}** — ${conditionLabel} in **${pw.turnsUntil}** turn${pw.turnsUntil !== 1 ? 's' : ''}\n` +
+                    `*"${flavorLine}"*\n` +
+                    `⚠️ Incoming: **${pw.condition}** — ${effectDesc}`
+                );
+
+                pw.turnsUntil--;
+            }
+        }
+
+        // ── 3. ACTIVE WEATHER EVENT EXPIRY (existing logic, unchanged) ─────────────
+        // Note: if a new activeWeatherEvent was just set in block (b), this block will
+        // decrement it on its very first turn. This is a pre-existing behavior consistent
+        // with the original code's pattern — the event's `duration` accounts for this.
         if (game.activeWeatherEvent) {
             game.activeWeatherEvent.turnsRemaining--;
-            
+
             if (game.activeWeatherEvent.turnsRemaining <= 0) {
                 const oldWeather = game.weather;
-                
-                // Restore weather to normal when event ends
+
                 if (game.activeWeatherEvent.name === 'Sudden Storm') {
                     game.weather = 'clear';
                     weatherChanged = true;
                 }
-                
+
                 if (weatherChanged) {
                     messages.push(`🌤️ Weather event "${game.activeWeatherEvent.name}" has ended.`);
                     messages.push(`🌤️ Weather cleared from ${oldWeather} to ${game.weather}!`);
                 } else {
                     messages.push(`🌤️ Weather event "${game.activeWeatherEvent.name}" has ended.`);
                 }
-                
+
                 game.activeWeatherEvent = null;
             }
         }
-        
-        // Store if weather changed for map update
+
+        // ── 4. FLAG WEATHER CHANGE FOR MAP UPDATE ────────────────────────────────
         game.weatherChangedThisTurn = weatherChanged;
-        
+
         return messages;
     }
 
