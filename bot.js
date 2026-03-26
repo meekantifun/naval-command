@@ -17643,7 +17643,7 @@ class NavalWarfareBot {
 
                 // Arrival flavor — last index in the flavor array
                 const arrivalFlavor = FORECAST_FLAVOR[chainKey];
-                const arrivalLines = arrivalFlavor?.[N - 1] || arrivalFlavor?.[arrivalFlavor.length - 1];
+                const arrivalLines = arrivalFlavor?.[N - 1];
                 const arrivalText = arrivalLines?.[game.turnNumber % arrivalLines.length] || '';
                 const arrivalEmoji = { rainy: '🌧️', thunderstorm: '⛈️', foggy: '🌫️', clear: '🌤️', hurricane: '🌀' }[pw.condition] || '🌦️';
                 messages.push(`${arrivalEmoji} **${pw.condition.toUpperCase()} — weather has arrived!**\n*"${arrivalText}"*`);
