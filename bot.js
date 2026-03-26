@@ -20150,6 +20150,12 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     currentTurn: game.turnNumber || game.currentTurn,
                     phase: game.phase,
                     weather: game.weather,
+                    // pendingWeather is GM-only — do not expose to players
+                    pendingWeather: requesterIsGM && game.pendingWeather ? {
+                        condition: game.pendingWeather.condition,
+                        turnsUntil: game.pendingWeather.turnsUntil,
+                        isGMSet: game.pendingWeather.isGMSet,
+                    } : null,
                     missionType: game.missionType || game.currentObjective?.type,
                     missionObjective: game.missionObjective || game.currentObjective,
                     players: playersArray,
@@ -20682,20 +20688,46 @@ Use \`/stats\` during a battle to view your current ship statistics!
         app.post('/api/game/:channelId/weather', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
-                const { userId, condition } = req.body;
+                const { userId, condition, turnsDelay = 0 } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 if (!game.gmIds?.includes(userId)) return res.status(403).json({ error: 'Not the GM' });
                 const valid = ['clear', 'rainy', 'foggy', 'thunderstorm', 'hurricane'];
                 if (!valid.includes(condition)) return res.status(400).json({ error: 'Invalid weather condition' });
-                game.weather = condition;
-                await this.broadcastGameUpdate(channelId);
-                game.addGMLog(`Set weather to ${condition}`);
-                res.json({ success: true });
-                // Announce to Discord without revealing GM involvement
-                this.client.channels.fetch(channelId)
-                    .then(ch => { if (ch) ch.send({ content: `🌦️ Weather conditions have shifted to **${condition}**.` }); })
-                    .catch(() => {});
+
+                if (turnsDelay === 0) {
+                    // Instant apply — original behavior
+                    game.weather = condition;
+                    game.pendingWeather = null;
+                    await this.broadcastGameUpdate(channelId);
+                    game.addGMLog(`Set weather to ${condition}`);
+                    res.json({ success: true });
+                    this.client.channels.fetch(channelId)
+                        .then(ch => { if (ch) ch.send({ content: `🌦️ Weather conditions have shifted to **${condition}**.` }); })
+                        .catch(() => {});
+                } else {
+                    // Scheduled
+                    game.pendingWeather = {
+                        condition,
+                        turnsUntil: turnsDelay,
+                        eventName: null,
+                        isGMSet: true,
+                        originWeather: game.weather,
+                    };
+                    game.addGMLog(`Scheduled weather change to ${condition} in ${turnsDelay} turns`);
+                    await this.broadcastGameUpdate(channelId);
+                    res.json({ success: true });
+                    const condLabel = condition.charAt(0).toUpperCase() + condition.slice(1);
+                    this.client.channels.fetch(channelId)
+                        .then(ch => {
+                            if (ch) ch.send({
+                                content:
+                                    `📡 **FLEET WEATHER FORECAST** — ${condLabel} in **${turnsDelay}** turn${turnsDelay !== 1 ? 's' : ''}\n` +
+                                    `*"Fleet meteorology has issued an official weather advisory."*`
+                            });
+                        })
+                        .catch(() => {});
+                }
             } catch (error) {
                 console.error('Error changing weather:', error);
                 res.status(500).json({ error: 'Internal server error' });
