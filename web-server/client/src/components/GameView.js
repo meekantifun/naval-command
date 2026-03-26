@@ -177,6 +177,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [startingBattle, setStartingBattle] = useState(false);
   const [endingTurn, setEndingTurn] = useState(false);
   const [gmWeather, setGmWeather] = useState('clear');
+  const [gmWeatherDelay, setGmWeatherDelay] = useState(0);
   const [gmEnemyType, setGmEnemyType] = useState('destroyer');
   const [gmBossKey, setGmBossKey] = useState('siren_boss_observer_alpha');
   const [gmSpawnMode, setGmSpawnMode] = useState(false);
@@ -455,7 +456,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const myPlayer = useMemo(() =>
     gameState?.players?.find(p => p.userId === user.id), [gameState, user.id]);
 
-  const isGM = gameState?.gmId === user.id && gameState?.gmActive !== false;
+  const isGM = gameState?.gmIds?.includes(user.id) ?? false;
   const needsSpawn = myPlayer && myPlayer.x == null && gameState?.phase === 'joining';
 
   const setupWebSocket = () => {
@@ -560,10 +561,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
-  const handleWeather = async (condition) => {
+  const handleWeather = async (condition, delay = 0) => {
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/weather`,
-        { condition },
+        { condition, turnsDelay: delay },
         { withCredentials: true }
       );
     } catch (err) {
@@ -992,22 +993,17 @@ function GameView({ channelId, user, onBack, onLogout }) {
                 )}
               </div>
 
-              {gameState?.gmId === user.id && (
-                <div className="sidebar-section">
-                  <button
-                    className={`btn btn-gm-toggle ${gameState?.gmActive !== false ? 'gm-active' : 'gm-inactive'}`}
-                    onClick={handleGMToggle}
-                    title={gameState?.gmActive !== false ? 'Click to play as a regular player' : 'Click to re-enable GM powers'}
-                  >
-                    {gameState?.gmActive !== false ? '🎮 Playing as GM — Click to drop GM powers' : '🔓 Restore GM Powers'}
-                  </button>
-                </div>
-              )}
-
-              {isGM && (
+              {(isGM || gameState?.gmId === user.id) && (
                 <div className="sidebar-section">
                   <h3>⚙️ GM Controls</h3>
-                  {(() => {
+                  <button
+                    className={`btn btn-gm-toggle ${isGM ? 'gm-active' : 'gm-inactive'}`}
+                    onClick={handleGMToggle}
+                    title={isGM ? 'Click to drop your GM permissions' : 'Click to restore your GM permissions'}
+                  >
+                    {isGM ? '🎮 Drop GM Powers' : '🔓 Restore GM Powers'}
+                  </button>
+                  {isGM && (() => {
                     const unspawned = gameState.players.filter(p => p.x == null);
                     const canStart = gameState.players.length > 0 && unspawned.length === 0;
                     return (
@@ -1176,10 +1172,18 @@ function GameView({ channelId, user, onBack, onLogout }) {
           </div>
 
           {/* GM Controls */}
-          {isGM && (
+          {(isGM || gameState?.gmId === user.id) && (
             <div className="sidebar-section gm-controls">
               <h3>⚙️ GM Controls</h3>
+              <button
+                className={`btn btn-gm-toggle ${isGM ? 'gm-active' : 'gm-inactive'}`}
+                onClick={handleGMToggle}
+                title={isGM ? 'Click to drop your GM permissions' : 'Click to restore your GM permissions'}
+              >
+                {isGM ? '🎮 Drop GM Powers' : '🔓 Restore GM Powers'}
+              </button>
 
+              {isGM && <>
               {/* Weather */}
               <div className="gm-row">
                 <select value={gmWeather} onChange={e => setGmWeather(e.target.value)}>
@@ -1189,8 +1193,32 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   <option value="thunderstorm">Thunderstorm</option>
                   <option value="hurricane">Hurricane</option>
                 </select>
-                <button onClick={() => handleWeather(gmWeather)}>Set Weather</button>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={gmWeatherDelay}
+                  onChange={e => setGmWeatherDelay(Number(e.target.value))}
+                  title="Turns delay (0 = instant)"
+                  style={{ width: '48px', textAlign: 'center' }}
+                />
+                <button onClick={() => handleWeather(gmWeather, gmWeatherDelay)}>
+                  {gmWeatherDelay > 0 ? `Schedule (${gmWeatherDelay}t)` : 'Set Weather'}
+                </button>
               </div>
+              {gameState?.pendingWeather && (
+                <div className="gm-row" style={{ opacity: 0.8, fontSize: '0.85em' }}>
+                  {{
+                    clear: '☀️', rainy: '🌧️', foggy: '🌫️',
+                    thunderstorm: '⛈️', hurricane: '🌀'
+                  }[gameState.pendingWeather.condition] || '🌦️'}
+                  {' '}
+                  <em>
+                    {gameState.pendingWeather.condition.charAt(0).toUpperCase() +
+                     gameState.pendingWeather.condition.slice(1)} in {gameState.pendingWeather.turnsUntil} turn{gameState.pendingWeather.turnsUntil !== 1 ? 's' : ''}
+                  </em>
+                </div>
+              )}
 
               {/* Spawn Enemy */}
               <div className="gm-row">
@@ -1320,6 +1348,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   </div>
                 )
               }
+              </>}
             </div>
           )}
 
