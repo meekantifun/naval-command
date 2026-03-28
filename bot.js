@@ -3288,6 +3288,7 @@ class NavalWarfareBot {
             
             // Add player to game
             let joinSuccess = false;
+            character.characterAlias = characterName;
             if (isOPFOR) {
                 joinSuccess = game.addOPFORPlayer(interaction.user.id, character, shipClass, interaction.member);
             } else {
@@ -3351,7 +3352,8 @@ class NavalWarfareBot {
             
             // CHECK FOR OPFOR ROLE
             const isOPFOR = this.hasOPFORRole(interaction.member);
-            
+            character.characterAlias = characterName;
+
             if (isOPFOR) {
                 // Join as enemy player
                 if (game.addOPFORPlayer(interaction.user.id, character, shipClass, interaction.member)) {
@@ -3904,6 +3906,7 @@ class NavalWarfareBot {
             // Get ship class and check OPFOR
             const shipClass = activeCharacter.shipClass || this.getPlayerShipClass(interaction.member);
             const isOPFOR = this.hasOPFORRole(interaction.member);
+            activeCharacter.characterAlias = selectionData.characterName;
 
             if (isOPFOR) {
                 // Join as OPFOR
@@ -5648,6 +5651,7 @@ class NavalWarfareBot {
                 mvp: mvpCandidate ? {
                     userId: mvpCandidate.playerId,
                     username: mvpCandidate.username,
+                    characterAlias: mvpCandidate.characterAlias || mvpCandidate.username,
                     avatarURL: mvpAvatarURL,
                     score: Math.round(mvpCandidate.score),
                     stats: {
@@ -5730,6 +5734,15 @@ class NavalWarfareBot {
             player.actionPoints = player.shipClass.includes('Carrier') ? 3 : 2;
             player.actionsThisTurn = 0;
             player.weaponsFiredThisTurn = new Set();
+
+            // Reset action points for this player's deployed aircraft
+            if (game.aircraft) {
+                for (const aircraft of game.aircraft.values()) {
+                    if (aircraft.carrierID === player.id && aircraft.alive) {
+                        aircraft.actionPoints = player.maxActions ?? player.actionPoints ?? 2;
+                    }
+                }
+            }
 
             // Initialize timer reset tracking
             player.timerResets = 0;
@@ -8444,25 +8457,29 @@ class NavalWarfareBot {
         if (!player.reconAircraft) {
             return interaction.reply({ content: '❌ No reconnaissance aircraft configured.', flags: MessageFlags.Ephemeral });
         }
-        if (player.reconUsed) {
-            return interaction.reply({ content: '❌ Reconnaissance aircraft has already been launched this battle.', flags: MessageFlags.Ephemeral });
+        if (player.reconActive) {
+            return interaction.reply({ content: '❌ Reconnaissance aircraft is already airborne.', flags: MessageFlags.Ephemeral });
+        }
+        if ((player.reconCooldown ?? 0) > 0) {
+            return interaction.reply({ content: `❌ Reconnaissance aircraft on cooldown (${player.reconCooldown} turns remaining).`, flags: MessageFlags.Ephemeral });
         }
         if (player.actionPoints < 1) {
             return interaction.reply({ content: '❌ Not enough Action Points!', flags: MessageFlags.Ephemeral });
         }
 
         player.reconActive = true;
-        player.reconUsed = true;
+        player.reconTurnsRemaining = 5;
+        player.reconCooldown = 0;
         player.actionPoints -= 1;
 
         const reconName = player.reconAircraft.name || 'Reconnaissance Aircraft';
         const reconType = player.reconAircraft.type || 'floatplane';
         const displayName = player.displayName || player.username;
 
-        await interaction.reply({ content: `🛩️ **${reconName}** launched! Main battery range extended by +5 cells for the rest of the battle.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `🛩️ **${reconName}** launched! Main battery range extended by +5 cells for 5 turns.`, flags: MessageFlags.Ephemeral });
 
         if (game.textChannel) {
-            game.textChannel.send(`🛩️ **${displayName}** has launched their **${reconName}** (${reconType}) for aerial reconnaissance, extending their main battery range!`);
+            game.textChannel.send(`🛩️ **${displayName}** has launched their **${reconName}** (${reconType}) for aerial reconnaissance — patrolling a 4-cell radius and extending main battery range!`);
         }
     }
 
@@ -12763,7 +12780,71 @@ class NavalWarfareBot {
 
                 console.log(`📏 Using full SVG for Sharp fallback: ${svgContent.length} characters`);
 
+                // SVG <image> elements don't render in librsvg — composite icons separately
+                const GRID_X = 60, GRID_Y = 60;
+                const ICON_SIZE = 18;
+
+                function resolveIconPath(shipClass, isAlive, isEnemy) {
+                    const lc = (shipClass || '').toLowerCase();
+                    const file =
+                        lc.includes('carrier')    ? 'carrier.png'    :
+                        lc.includes('battleship') ? 'battleship.png' :
+                        lc.includes('cruiser')    ? 'cruiser.png'    :
+                        lc.includes('destroyer')  ? 'destroyer.png'  :
+                        lc.includes('submarine')  ? 'submarine.png'  :
+                                                    'auxiliary.png';
+                    const folder = isEnemy
+                        ? (isAlive ? './icons/enemy'       : './icons/sunk_enemy')
+                        : (isAlive ? './icons/ally'         : './icons/sunk_player');
+                    return path.resolve(path.join(folder, file));
+                }
+
+                const composites = [];
+
+                async function addIconComposite(position, shipClass, isAlive, isEnemy) {
+                    try {
+                        const coords = GameUtils.parseCoordinate(position);
+                        if (!coords) return;
+                        const cx = Math.round(GRID_X + coords.x * cellSize + cellSize / 2);
+                        const cy = Math.round(GRID_Y + (coords.y - 1) * cellSize + cellSize / 2);
+                        const left = cx - Math.floor(ICON_SIZE / 2);
+                        const top  = cy - Math.floor(ICON_SIZE / 2);
+                        const iconPath = resolveIconPath(shipClass, isAlive, isEnemy);
+                        if (!fs.existsSync(iconPath)) return;
+                        const iconBuf = await sharp(iconPath).resize(ICON_SIZE, ICON_SIZE).toBuffer();
+                        composites.push({ input: iconBuf, left, top });
+                    } catch (e) { /* skip unplaceable ships */ }
+                }
+
+                for (const player of game.players.values()) {
+                    if (player.position) {
+                        await addIconComposite(player.position, player.shipClass, player.alive, false);
+                    }
+                    // Recon plane icon — placed at the north point of the patrol circle
+                    if (player.reconActive && player.position) {
+                        try {
+                            const coords = GameUtils.parseCoordinate(player.position);
+                            if (coords) {
+                                const reconIconPath = path.resolve('./icons/aircraft/ally/recon.png');
+                                if (fs.existsSync(reconIconPath)) {
+                                    const rx = Math.round(GRID_X + coords.x * cellSize + cellSize / 2);
+                                    const ry = Math.round(GRID_Y + (coords.y - 1 - 4) * cellSize + cellSize / 2);
+                                    const iconBuf = await sharp(reconIconPath).resize(ICON_SIZE, ICON_SIZE).toBuffer();
+                                    composites.push({ input: iconBuf, left: rx - Math.floor(ICON_SIZE / 2), top: ry - Math.floor(ICON_SIZE / 2) });
+                                }
+                            }
+                        } catch (e) { /* skip */ }
+                    }
+                }
+                for (const enemy of game.enemies.values()) {
+                    const sunk = enemy.sunk ?? !enemy.alive;
+                    if (enemy.position && (sunk || game.hasVisionOf(enemy.position, 'player'))) {
+                        await addIconComposite(enemy.position, enemy.shipClass, enemy.alive, true);
+                    }
+                }
+
                 const image = await sharp(Buffer.from(svgContent))
+                    .composite(composites)
                     .png({ quality: 90, compressionLevel: 6 })
                     .toBuffer();
 
@@ -12780,7 +12861,7 @@ class NavalWarfareBot {
                 if (!game.mapFiles) game.mapFiles = [];
                 game.mapFiles.push(filepath);
 
-                console.log('✅ Sharp fallback completed');
+                console.log(`✅ Sharp fallback completed (${composites.length} icons composited)`);
                 return filepath;
 
             } catch (fallbackError) {
@@ -13988,11 +14069,16 @@ class NavalWarfareBot {
         const PANEL_HEADER = 40; // height for title + top padding
         const PANEL_PAD = 10; // bottom padding
 
+        // Only show enemies that players can see (player view — no GM leakage)
+        const visibleEnemies = Array.from(game.enemies.values()).filter(e =>
+            e.position && ((e.sunk ?? !e.alive) || game.hasVisionOf(e.position, 'player'))
+        );
+
         // Pre-calculate panel heights so rects are emitted with correct dimensions
         const playerPanelY = 60;
         const playerPanelH = PANEL_HEADER + game.players.size * ENTRY_H + PANEL_PAD;
         const enemyPanelY = playerPanelY + playerPanelH + 20;
-        const enemyPanelH = PANEL_HEADER + game.enemies.size * ENTRY_H + PANEL_PAD;
+        const enemyPanelH = PANEL_HEADER + visibleEnemies.length * ENTRY_H + PANEL_PAD;
 
         svg += `<g class="map-text">`;
 
@@ -14005,7 +14091,7 @@ class NavalWarfareBot {
             const shipName = (player.characterAlias || player.name || player.shipClass || 'Ship').substring(0, 15);
 
             // Ship class icon
-            const iconPath = this.getShipClassIcon(player.shipClass);
+            const iconPath = this.getShipClassIcon(player.shipClass, player.alive);
             if (iconPath) {
                 svg += `<rect x="${panelX + 4}" y="${yPos - 9}" width="18" height="18" fill="#dbeafe" stroke="#93c5fd" stroke-width="1" rx="3"/>`;
                 svg += `<image x="${panelX + 5}" y="${yPos - 8}" width="16" height="16" href="${iconPath}"/>`;
@@ -14039,7 +14125,7 @@ class NavalWarfareBot {
         svg += `<text x="${panelX + 10}" y="${enemyPanelY + 20}" font-size="14" font-weight="bold" fill="#991b1b">Enemy Forces</text>`;
 
         yPos = enemyPanelY + PANEL_HEADER;
-        for (const enemy of game.enemies.values()) {
+        for (const enemy of visibleEnemies) {
             const enemyDisplayName = (enemy.customName || enemy.name || enemy.shipClass || 'Enemy').substring(0, 15);
 
             // Enemy icon
@@ -14318,7 +14404,7 @@ class NavalWarfareBot {
         let imagePath;
 
         // Choose folder based on player status
-        const iconFolder = isAlive ? path.resolve('./icons/class') : path.resolve('./icons/sunk_player');
+        const iconFolder = isAlive ? path.resolve('./icons/ally') : path.resolve('./icons/sunk_player');
 
         // Map ship classes to icon files in the appropriate folder
         if (lowerClass.includes('battleship') || lowerClass.includes('bb')) {
@@ -14340,10 +14426,7 @@ class NavalWarfareBot {
 
         try {
             if (fs.existsSync(imagePath)) {
-                const imageBuffer = fs.readFileSync(imagePath);
-                const base64Image = imageBuffer.toString('base64');
-                const mimeType = 'image/png';
-                return `data:${mimeType};base64,${base64Image}`;
+                return `file://${imagePath}`;
             }
         } catch (error) {
             console.log(`Error loading ship class icon ${imagePath}:`, error);
@@ -14381,10 +14464,7 @@ class NavalWarfareBot {
 
         try {
             if (fs.existsSync(imagePath)) {
-                const imageBuffer = fs.readFileSync(imagePath);
-                const base64Image = imageBuffer.toString('base64');
-                const mimeType = 'image/png';
-                return `data:${mimeType};base64,${base64Image}`;
+                return `file://${imagePath}`;
             }
         } catch (error) {
             console.log(`Error loading enemy class icon ${imagePath}:`, error);
@@ -17615,7 +17695,7 @@ class NavalWarfareBot {
                               (pw.originWeather === 'thunderstorm' || pw.originWeather === 'hurricane'))
                 ? 'clear_heavy'
                 : pw.condition;
-            const chain = NavalBattle.WEATHER_CHAINS[chainKey] || [pw.condition];
+            const chain = NavalWarfareBot.WEATHER_CHAINS[chainKey] || [pw.condition];
             const N = chain.length;
 
             // (a) Apply intermediate ramp step if this turnsUntil maps to one.
@@ -17771,7 +17851,52 @@ class NavalWarfareBot {
     }
 
     processAircraftRecovery(game) {
-        return [];
+        const messages = [];
+        if (!game.aircraft) return messages;
+
+        for (const [id, aircraft] of game.aircraft.entries()) {
+            if (!aircraft.alive || aircraft.mission !== 'returning') continue;
+
+            const carrier = game.players.get(aircraft.carrierID) || game.enemies.get(aircraft.carrierID);
+            if (!carrier || !carrier.position) continue;
+
+            const dist = game.calculateDistance(aircraft.position, carrier.position);
+            const carrierName = carrier.characterAlias || carrier.displayName || carrier.shipClass || 'carrier';
+
+            if (dist <= 1) {
+                // Land the aircraft and restore hangar space
+                const squadronSize = aircraft.squadronSize ?? 1;
+                if (carrier.hangar !== undefined) carrier.hangar += squadronSize;
+                game.aircraft.delete(id);
+                messages.push(`🛬 **${aircraft.name}** has landed back on **${carrierName}**! (+${squadronSize} hangar space restored)`);
+            } else {
+                // Move toward carrier at full speed — no AP cost
+                this.moveAircraftToward(aircraft, carrier.position, game, 0);
+                messages.push(`↩️ **${aircraft.name}** is returning to **${carrierName}**...`);
+            }
+        }
+        return messages;
+    }
+
+    processReconAircraft(game) {
+        const messages = [];
+        for (const player of game.players.values()) {
+            if (!player.reconAircraft) continue;
+
+            if (player.reconActive) {
+                player.reconTurnsRemaining = (player.reconTurnsRemaining ?? 1) - 1;
+                if (player.reconTurnsRemaining <= 0) {
+                    player.reconActive = false;
+                    player.reconCooldown = 3;
+                    const reconName = player.reconAircraft.name || 'Reconnaissance Aircraft';
+                    const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                    messages.push(`🛬 **${reconName}** from **${pName}** has landed — range bonus removed. (${player.reconCooldown}-turn cooldown before relaunch)`);
+                }
+            } else if ((player.reconCooldown ?? 0) > 0) {
+                player.reconCooldown--;
+            }
+        }
+        return messages;
     }
 
     async showItemSelection(interaction, player, game) {
@@ -19715,11 +19840,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
     getPlayerDisplayName(player) {
         const classAbbr = GameUtils.getShipClassAbbreviation(player.shipClass);
-        const playerName = player.displayName || player.username || 'Unknown Player';
-        
+        const playerName = player.characterAlias || player.displayName || player.username || 'Unknown Player';
+
         // Remove any existing class tags from the name
         const cleanName = playerName.replace(/^\{[A-Z]+\}\s*/, '').replace(/^\[[A-Z]+\]\s*/, '');
-        
+
         return `[${classAbbr}] ${cleanName}`;
     }
 
@@ -20056,7 +20181,24 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     maxActions: p.maxActions ?? p.actionPoints ?? 2,
                     damageControlCooldown: p.damageControlCooldown ?? 0,
                     bleeding: p.bleeding ?? false,
-                    stats: p.stats
+                    stats: p.stats,
+                    reconAircraft: p.reconAircraft || null,
+                    reconActive: p.reconActive ?? false,
+                    reconTurnsRemaining: p.reconTurnsRemaining ?? 0,
+                    reconCooldown: p.reconCooldown ?? 0,
+                    hangar: p.hangar ?? 0,
+                    hasAllWeatherAircraft: (() => {
+                        const pd = this.getGuildPlayerData(game.guildId, p.userId || p.id);
+                        return (pd?.inventory?.get('all_weather_aircraft') ?? 0) > 0;
+                    })(),
+                    hasFighterRockets: (() => {
+                        const pd = this.getGuildPlayerData(game.guildId, p.userId || p.id);
+                        return (pd?.inventory?.get('fighter_rockets') ?? 0) > 0;
+                    })(),
+                    hasApBombs: (() => {
+                        const pd = this.getGuildPlayerData(game.guildId, p.userId || p.id);
+                        return (pd?.inventory?.get('ap_bombs') ?? 0) > 0;
+                    })()
                 }));
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => {
@@ -20142,6 +20284,35 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
                 infrastructure = infrastructure || [];
 
+                // Deployed aircraft (fighters, bombers — not recon, which is tracked per-player)
+                const aircraftArray = game.aircraft
+                    ? Array.from(game.aircraft.values())
+                        .filter(a => a.alive && a.position && a.type !== 'recon')
+                        .map(a => {
+                            let ax = null, ay = null;
+                            try {
+                                const nums = game.coordToNumbers(a.position);
+                                ax = nums.x; ay = nums.y - 1;
+                            } catch (_) {}
+                            return {
+                                id: a.id,
+                                type: a.type,
+                                name: a.name,
+                                carrierID: a.carrierID,
+                                owner: a.owner,
+                                x: ax,
+                                y: ay,
+                                health: a.currentHealth ?? 100,
+                                maxHealth: a.maxHealth ?? 100,
+                                squadronSize: a.squadronSize ?? 12,
+                                fuel: a.fuel ?? 0,
+                                ammo: a.ammo ?? 0,
+                                actionPoints: a.actionPoints ?? 0,
+                            };
+                        })
+                        .filter(a => a.x != null)
+                    : [];
+
                 // Return game state
                 res.json({
                     channelId,
@@ -20160,6 +20331,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     missionObjective: game.missionObjective || game.currentObjective,
                     players: playersArray,
                     enemies: enemiesArray,
+                    aircraft: aircraftArray,
                     terrain,
                     infrastructure,
                     turnOrder: game.turnOrder,
@@ -20278,9 +20450,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.y = y;
                 player.position = game.generateExtendedCoordinate(x, y + 1); // keep Discord position string in sync
                 player.actionsThisTurn++;
-                if (player.actionsThisTurn >= player.maxActions) {
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) {
                     player.actionPoints = 0;
-                    this.endPlayerTurn(player);
                 }
 
                 // Broadcast update to web clients
@@ -20298,15 +20470,18 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 });
 
                 // Announce to Discord and sync map display (fire-and-forget)
+                // endPlayerTurn fires AFTER the move message so roleplay prompt follows the action
                 this.client.channels.fetch(channelId)
                     .then(ch => {
                         if (!ch) return;
                         const pName = player.characterAlias || player.displayName || player.username || 'A player';
                         const dist = Math.round(cellsMoved);
-                        ch.send({ content: `🚢 **${pName}** moved ${oldCoord || '?'} → **${player.position}**${dist > 0 ? ` (${dist} cell${dist !== 1 ? 's' : ''})` : ''}` });
+                        ch.send({ content: `🚢 **${pName}** moved ${oldCoord || '?'} → **${player.position}**${dist > 0 ? ` (${dist} cell${dist !== 1 ? 's' : ''})` : ''}` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
                         this.updateGameDisplay(game, ch);
                     })
-                    .catch(() => {});
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (error) {
                 console.error('Error moving player:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -20390,9 +20565,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Record weapon fired this turn
                 player.weaponsFiredThisTurn.add(weaponType);
                 player.actionsThisTurn++;
-                if (player.actionsThisTurn >= player.maxActions) {
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) {
                     player.actionPoints = 0;
-                    this.endPlayerTurn(player);
                 }
 
                 // Broadcast update to web clients
@@ -20404,6 +20579,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 });
 
                 // Announce to Discord and sync map display (fire-and-forget)
+                // endPlayerTurn fires AFTER the attack message so roleplay prompt follows the action
                 this.client.channels.fetch(channelId)
                     .then(ch => {
                         if (!ch) return;
@@ -20412,10 +20588,14 @@ Use \`/stats\` during a battle to view your current ship statistics!
                             const pName = player.characterAlias || player.displayName || player.username || 'A player';
                             const tName = target.characterAlias || target.displayName || target.customName || target.username || 'target';
                             const msg = attackResult.message || (attackResult.messages || []).join(' ');
-                            ch.send({ content: `**${pName}** → **${tName}**: ${msg}` });
+                            ch.send({ content: `**${pName}** → **${tName}**: ${msg}` })
+                                .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                                .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                        } else if (needsEndTurn) {
+                            this.endPlayerTurn(player);
                         }
                     })
-                    .catch(() => {});
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (error) {
                 console.error('Error attacking:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -20533,14 +20713,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     user: { username: username }
                 };
 
+                character.characterAlias = resolvedName;
                 const success = game.addPlayer(userId, character, shipClass, mockMember);
                 if (!success) {
                     return res.status(400).json({ error: 'Failed to join game' });
                 }
-
-                // Set characterAlias so the web UI can display the character name
-                const joinedPlayer = game.players.get(userId);
-                if (joinedPlayer) joinedPlayer.characterAlias = resolvedName;
 
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true, characterName: resolvedName });
@@ -20611,23 +20788,432 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.damageControlCooldown = 8;
                 player.actionsThisTurn++;
                 player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
-                if (player.actionsThisTurn >= player.maxActions) {
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) {
                     player.actionPoints = 0;
-                    this.endPlayerTurn(player);
                 }
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
                 // Announce to Discord and sync map display (fire-and-forget)
+                // endPlayerTurn fires AFTER the action message so roleplay prompt follows the action
                 this.client.channels.fetch(channelId)
                     .then(ch => {
                         if (!ch) return;
                         this.updateGameDisplay(game, ch);
                         const pName = player.characterAlias || player.displayName || player.username || 'A player';
-                        ch.send({ content: `🔧 **${pName}** performed damage control — all status effects cleared.` });
+                        ch.send({ content: `🔧 **${pName}** performed damage control — all status effects cleared.` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
                     })
-                    .catch(() => {});
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (error) {
                 console.error('Error performing damage control:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Launch recon aircraft (non-CV players with a configured reconAircraft)
+        app.post('/api/game/:channelId/launch-recon', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.sunk ?? !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
+                if (!player.reconAircraft) return res.status(400).json({ error: 'No recon aircraft configured' });
+                if (player.reconActive) return res.status(400).json({ error: 'Recon aircraft is already airborne' });
+                if ((player.reconCooldown ?? 0) > 0) return res.status(400).json({ error: `Recon aircraft on cooldown (${player.reconCooldown} turns remaining)` });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+
+                player.reconActive = true;
+                player.reconTurnsRemaining = 5;
+                player.reconCooldown = 0;
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+
+                const reconName = player.reconAircraft.name || 'Reconnaissance Aircraft';
+                const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        this.updateGameDisplay(game, ch);
+                        ch.send({ content: `🛩️ **${pName}** launched **${reconName}** — patrolling 4-cell radius, main battery +5 range for 5 turns!` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error launching recon aircraft:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Launch carrier aircraft squadron (web UI)
+        app.post('/api/game/:channelId/launch-aircraft', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aircraftType } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.sunk ?? !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
+                if (!player.shipClass?.includes('Carrier')) return res.status(400).json({ error: 'Only carriers can launch aircraft' });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+
+                if (game.weather === 'hurricane') {
+                    const pd = this.getGuildPlayerData(game.guildId, userId);
+                    if ((pd?.inventory?.get('all_weather_aircraft') ?? 0) <= 0) {
+                        return res.status(400).json({ error: 'Cannot launch aircraft in hurricane conditions! Requires All-Weather Aircraft.' });
+                    }
+                }
+
+                const validTypes = ['fighter', 'dive_bomber', 'torpedo_bomber'];
+                if (!validTypes.includes(aircraftType)) return res.status(400).json({ error: 'Invalid aircraft type' });
+
+                const squadronSize = this.carrierSystem.getSquadronSize(player.shipClass);
+                if ((player.hangar ?? 0) < squadronSize) {
+                    return res.status(400).json({ error: `Not enough hangar space! Need ${squadronSize}, have ${player.hangar ?? 0}` });
+                }
+
+                if (!game.aircraft) game.aircraft = new Map();
+
+                // Pick a random ocean cell within 1-square radius of the carrier
+                const spawnPosition = (() => {
+                    const origin = game.coordToNumbers(player.position);
+                    const candidates = [];
+                    const mapSize = 75;
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            const nx = origin.x + dx;
+                            const ny = origin.y + dy; // y is 1-indexed
+                            if (nx < 0 || nx >= mapSize || ny < 1 || ny > mapSize) continue;
+                            const col = nx < 26
+                                ? String.fromCharCode(65 + nx)
+                                : String.fromCharCode(65 + Math.floor((nx - 26) / 26)) + String.fromCharCode(65 + (nx - 26) % 26);
+                            const coord = `${col}${ny}`;
+                            const cell = game.map?.get(coord);
+                            if (!cell || cell.type === 'ocean') candidates.push(coord);
+                        }
+                    }
+                    if (candidates.length === 0) return player.position;
+                    return candidates[Math.floor(Math.random() * candidates.length)];
+                })();
+
+                const pd = this.getGuildPlayerData(game.guildId, userId);
+                const equipment = {};
+                if (aircraftType === 'fighter' && (pd?.inventory?.get('fighter_rockets') ?? 0) > 0) {
+                    equipment.hasRockets = true;
+                }
+                if (aircraftType === 'dive_bomber' && (pd?.inventory?.get('ap_bombs') ?? 0) > 0) {
+                    equipment.bombType = 'ap';
+                }
+
+                const aircraft = this.carrierSystem.createAircraftSquadron(
+                    aircraftType,
+                    squadronSize,
+                    spawnPosition,
+                    'player',
+                    player.id,
+                    equipment
+                );
+                if (!aircraft) return res.status(500).json({ error: 'Failed to create aircraft squadron' });
+                aircraft.actionPoints = player.maxActions ?? player.actionPoints ?? 2;
+
+                game.aircraft.set(aircraft.id, aircraft);
+                player.hangar -= squadronSize;
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true, aircraftId: aircraft.id });
+
+                const pName = player.characterAlias || player.displayName || player.username || 'A player';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        this.updateGameDisplay(game, ch);
+                        ch.send({ content: `✈️ **${pName}** launched **${aircraft.name}** from **${player.shipClass}**!\n` +
+                                           `✈️ Hangar: ${player.hangar} aircraft remaining` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error launching aircraft:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Move a deployed aircraft squadron to a new position
+        app.post('/api/game/:channelId/move-aircraft', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aircraftId, x, y } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (!game.aircraft) return res.status(404).json({ error: 'No aircraft in game' });
+
+                const aircraft = game.aircraft.get(aircraftId);
+                if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
+                if (!aircraft.alive) return res.status(400).json({ error: 'Aircraft is destroyed' });
+                if (aircraft.carrierID !== userId) return res.status(403).json({ error: 'Not your aircraft' });
+                if (aircraft.mission === 'returning') return res.status(400).json({ error: 'Squadron is returning to carrier and cannot be redirected' });
+                if ((aircraft.actionPoints ?? 0) <= 0) return res.status(400).json({ error: 'No action points remaining' });
+
+                const RANGES = { fighter: 10, dive_bomber: 8, torpedo_bomber: 5 };
+                const range = RANGES[aircraft.type] || 8;
+                let currentX = null, currentY = null;
+                try {
+                    const nums = game.coordToNumbers(aircraft.position);
+                    currentX = nums.x; currentY = nums.y - 1;
+                } catch (e) {
+                    return res.status(400).json({ error: 'Invalid aircraft position' });
+                }
+                const dist = Math.sqrt((x - currentX) ** 2 + (y - currentY) ** 2);
+                if (dist > range) return res.status(400).json({ error: `Target out of range (max ${range} cells)` });
+
+                const newCoord = game.generateExtendedCoordinate(x, y + 1);
+                aircraft.position = newCoord;
+                aircraft.actionPoints = Math.max(0, (aircraft.actionPoints ?? 0) - 1);
+
+                const player = game.players.get(userId);
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+
+                const pName = player?.characterAlias || player?.username || 'A player';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        ch.send({ content: `✈️ **${aircraft.name}** moved to **${newCoord}** (${pName})` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error moving aircraft:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Attack with a deployed aircraft squadron
+        app.post('/api/game/:channelId/attack-aircraft', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aircraftId, targetId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (!game.aircraft) return res.status(404).json({ error: 'No aircraft in game' });
+
+                const aircraft = game.aircraft.get(aircraftId);
+                if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
+                if (!aircraft.alive) return res.status(400).json({ error: 'Aircraft is destroyed' });
+                if (aircraft.carrierID !== userId) return res.status(403).json({ error: 'Not your aircraft' });
+                if ((aircraft.ammo ?? 0) <= 0) return res.status(400).json({ error: 'No ammo remaining' });
+                if ((aircraft.actionPoints ?? 0) <= 0) return res.status(400).json({ error: 'No action points remaining' });
+
+                // Resolve target — check enemy ships first, then enemy aircraft
+                let target = game.enemies.get(targetId);
+                let targetIsAircraft = false;
+                if (!target) {
+                    target = game.aircraft?.get(targetId);
+                    targetIsAircraft = true;
+                }
+                if (!target) return res.status(404).json({ error: 'Target not found' });
+                if (target.sunk ?? !target.alive) return res.status(400).json({ error: 'Target already destroyed' });
+
+                // Validate aircraft can attack this target type
+                if (aircraft.type === 'fighter' && !targetIsAircraft && !aircraft.depthCharges && !aircraft.hasRockets) {
+                    return res.status(400).json({ error: 'Fighters can only attack aircraft (or submarines with depth charges)' });
+                }
+                if (aircraft.type === 'torpedo_bomber' && targetIsAircraft) {
+                    return res.status(400).json({ error: 'Torpedo bombers cannot attack aircraft' });
+                }
+
+                // Check attack range
+                const RANGES = { fighter: 10, dive_bomber: 8, torpedo_bomber: 5 };
+                const range = RANGES[aircraft.type] || 8;
+                let ax = null, ay = null;
+                try {
+                    const nums = game.coordToNumbers(aircraft.position);
+                    ax = nums.x; ay = nums.y - 1;
+                } catch (e) {
+                    return res.status(400).json({ error: 'Invalid aircraft position' });
+                }
+                const tx = target.x ?? (targetIsAircraft ? (() => { try { const n = game.coordToNumbers(target.position); return n.x; } catch(_){} return null; })() : null);
+                const ty = target.y ?? (targetIsAircraft ? (() => { try { const n = game.coordToNumbers(target.position); return n.y - 1; } catch(_){} return null; })() : null);
+                if (tx == null || ty == null) return res.status(400).json({ error: 'Target position unknown' });
+                const dist = Math.sqrt((tx - ax) ** 2 + (ty - ay) ** 2);
+                if (dist > range) return res.status(400).json({ error: 'Target out of attack range' });
+
+                // Accuracy roll
+                const accuracy = aircraft.stats?.accuracy ?? 75;
+                const hit = Math.random() * 100 < accuracy;
+
+                let damage = 0;
+                let sank = false;
+                if (hit) {
+                    damage = this.carrierSystem.calculateAircraftDamage(aircraft, target);
+                    const currentHp = target.health ?? target.currentHealth ?? 0;
+                    const newHp = Math.max(0, currentHp - damage);
+                    target.health = newHp;
+                    if (target.currentHealth !== undefined) target.currentHealth = newHp;
+                    if (newHp <= 0) {
+                        target.alive = false;
+                        target.sunk = true;
+                        sank = true;
+                    }
+                }
+
+                aircraft.ammo = Math.max(0, (aircraft.ammo ?? 0) - 1);
+                aircraft.actionPoints = Math.max(0, (aircraft.actionPoints ?? 0) - 1);
+
+                const player = game.players.get(userId);
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                // Reactive AA: every enemy ship with an AA system that has this aircraft in range fires back
+                const aaReactions = [];
+                if (aircraft.alive) {
+                    for (const enemy of game.enemies.values()) {
+                        if (!enemy.alive || !enemy.aaSystem || enemy.aaSystem.ammo <= 0) continue;
+                        const aaDistToAircraft = game.calculateDistance(enemy.position, aircraft.position);
+                        if (aaDistToAircraft <= enemy.aaSystem.range) {
+                            const aaEntity = { entity: enemy, type: 'enemy', aaSystems: [enemy.aaSystem] };
+                            const aaResult = await this.executeAAAttack(
+                                aaEntity,
+                                [{ aircraft, distance: aaDistToAircraft }],
+                                game,
+                                enemy.aaSystem
+                            );
+                            if (aaResult.message) aaReactions.push(aaResult.message);
+                        }
+                    }
+                }
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true, hit, damage, sank });
+
+                const pName = player?.characterAlias || player?.username || 'A player';
+                const targetName = target.customName || target.name || target.shipClass || 'target';
+                const resultMsg = hit
+                    ? `💥 **${aircraft.name}** hits **${targetName}** for **${damage}** damage!${sank ? ' 🚢💥 **SUNK!**' : ''}`
+                    : `🎯 **${aircraft.name}** misses **${targetName}**!`;
+                this.client.channels.fetch(channelId)
+                    .then(async ch => {
+                        if (!ch) return;
+                        await ch.send({ content: `✈️ ${pName}: ${resultMsg}` });
+                        for (const msg of aaReactions) await ch.send(msg);
+                        if (needsEndTurn) this.endPlayerTurn(player);
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error aircraft attack:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Recall a squadron back to carrier (costs 1 AP, aircraft auto-returns over subsequent turns)
+        app.post('/api/game/:channelId/recall-aircraft', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aircraftId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (!game.aircraft) return res.status(404).json({ error: 'No aircraft in game' });
+
+                const aircraft = game.aircraft.get(aircraftId);
+                if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
+                if (!aircraft.alive) return res.status(400).json({ error: 'Aircraft is destroyed' });
+                if (aircraft.carrierID !== userId) return res.status(403).json({ error: 'Not your aircraft' });
+                if (aircraft.mission === 'returning') return res.status(400).json({ error: 'Already returning to carrier' });
+
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+
+                aircraft.mission = 'returning';
+                aircraft.actionPoints = 0; // Cannot be manually moved while returning
+
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+
+                const pName = player.characterAlias || player.username || 'A player';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        ch.send({ content: `↩️ **${pName}** recalled **${aircraft.name}** — returning to carrier` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error recalling aircraft:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Land a squadron immediately on the carrier (costs 1 AP, must be within 3 cells)
+        app.post('/api/game/:channelId/land-aircraft', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, aircraftId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                if (!game.aircraft) return res.status(404).json({ error: 'No aircraft in game' });
+
+                const aircraft = game.aircraft.get(aircraftId);
+                if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
+                if (!aircraft.alive) return res.status(400).json({ error: 'Aircraft is destroyed' });
+                if (aircraft.carrierID !== userId) return res.status(403).json({ error: 'Not your aircraft' });
+
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+
+                const dist = game.calculateDistance(aircraft.position, player.position);
+                if (dist > 3) return res.status(400).json({ error: 'Aircraft must be within 3 cells of carrier to land' });
+
+                const squadronSize = aircraft.squadronSize ?? 1;
+                const acName = aircraft.name;
+                if (player.hangar !== undefined) player.hangar += squadronSize;
+                game.aircraft.delete(aircraftId);
+
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+
+                const pName = player.characterAlias || player.username || 'A player';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        ch.send({ content: `🛬 **${pName}** landed **${acName}** back on the carrier! (+${squadronSize} hangar space restored)` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error landing aircraft:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
@@ -20643,18 +21229,20 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
                 player.actionsThisTurn = player.maxActions;
                 player.actionPoints = 0;
-                this.endPlayerTurn(player);
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
                 // Announce to Discord and sync map display (fire-and-forget)
+                // endPlayerTurn fires AFTER the action message so roleplay prompt follows the action
                 this.client.channels.fetch(channelId)
                     .then(ch => {
                         if (!ch) return;
                         this.updateGameDisplay(game, ch);
                         const pName = player.characterAlias || player.displayName || player.username || 'A player';
-                        ch.send({ content: `⏰ **${pName}** ended their turn.` });
+                        ch.send({ content: `⏰ **${pName}** ended their turn.` })
+                            .then(() => this.endPlayerTurn(player))
+                            .catch(() => this.endPlayerTurn(player));
                     })
-                    .catch(() => {});
+                    .catch(() => this.endPlayerTurn(player));
             } catch (error) {
                 console.error('Error ending turn:', error);
                 res.status(500).json({ error: 'Internal server error' });
@@ -21942,7 +22530,8 @@ class NavalBattle {
             aaSystem: null,
             reconAircraft: playerData.reconAircraft || null,
             reconActive: false,
-            reconUsed: false
+            reconTurnsRemaining: 0,
+            reconCooldown: 0
         };
 
         this.players.set(userId, player);
@@ -21950,7 +22539,7 @@ class NavalBattle {
         const storedPlayer = this.players.get(userId);
 
         // Initialize MVP tracking for this player
-        this.initializeMVPTracking(userId, player.username);
+        this.initializeMVPTracking(userId, player.username, player.characterAlias || player.displayName);
 
         // Update status when player joins
         if (global.navalBot && global.navalBot.statusManager) {
@@ -22839,13 +23428,24 @@ class NavalBattle {
             return Math.hypot(b.x - a.x, b.y - a.y) <= spotRange;
         };
 
+        // Aircraft use tighter spotting ranges in bad weather
+        const AIRCRAFT_SPOT_RANGE = { hurricane: 5, thunderstorm: 3, fog: 10, foggy: 10 };
+        const acSpotRange = AIRCRAFT_SPOT_RANGE[this.weather] ?? null;
+        const withinAircraftSpotRange = (fromPos) => {
+            if (acSpotRange === null || !fromPos) return true;
+            const a = this.coordToNumbers(fromPos);
+            const b = this.coordToNumbers(targetPos);
+            if (!a || !b) return true;
+            return Math.hypot(b.x - a.x, b.y - a.y) <= acSpotRange;
+        };
+
         if (side === 'player') {
             for (const p of this.players.values()) {
                 if (p.alive && p.position && withinSpotRange(p.position) && this.hasLineOfSight(p.position, targetPos)) return true;
             }
             for (const aircraft of this.aircraft?.values() || []) {
                 if (aircraft.owner === 'player' && aircraft.alive && aircraft.position &&
-                    withinSpotRange(aircraft.position) && this.hasLineOfSight(aircraft.position, targetPos)) return true;
+                    withinAircraftSpotRange(aircraft.position) && this.hasLineOfSight(aircraft.position, targetPos)) return true;
             }
             return false;
         } else {
@@ -23069,7 +23669,7 @@ class NavalBattle {
 // ║                                   MVP SYSTEM                                ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-    initializeMVPTracking(playerId, username) {
+    initializeMVPTracking(playerId, username, characterAlias) {
         // Ensure mvpStats is initialized
         if (!this.mvpStats) {
             this.mvpStats = new Map();
@@ -23079,6 +23679,7 @@ class NavalBattle {
             this.mvpStats.set(playerId, {
                 playerId: playerId,
                 username: username,
+                characterAlias: characterAlias || username,
                 damageDealt: 0,
                 damageReceived: 0,
                 kills: 0,
@@ -23310,7 +23911,7 @@ class NavalBattle {
             // Create MVP announcement embed
             const mvpEmbed = new EmbedBuilder()
                 .setTitle('👑 MATCH MVP 👑')
-                .setDescription(`**${mvpCandidate.username}** dominated the battlefield!`)
+                .setDescription(`**${mvpCandidate.characterAlias || mvpCandidate.username}** dominated the battlefield!`)
                 .setColor(0xFFD700)
                 .addFields(
                     { name: '⚔️ Total Damage Dealt', value: mvpStats.damageDealt.toString(), inline: true },
@@ -23342,7 +23943,7 @@ class NavalBattle {
         } catch (error) {
             console.error('Error announcing MVP:', error);
             // Fallback simple message
-            await channel.send(`👑 **MVP: ${mvpCandidate.username}** with ${mvpCandidate.score} points! (Earned 2x rewards)`);
+            await channel.send(`👑 **MVP: ${mvpCandidate.characterAlias || mvpCandidate.username}** with ${mvpCandidate.score} points! (Earned 2x rewards)`);
         }
     }
 }
