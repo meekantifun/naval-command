@@ -21972,6 +21972,22 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // GET /api/player/battle-status — check if a player is currently in an active game
+        app.get('/api/player/battle-status', authenticateAPIKey, (req, res) => {
+            const { guildId, userId } = req.query;
+            if (!guildId || !userId) {
+                return res.status(400).json({ error: 'guildId and userId are required' });
+            }
+            let inBattle = false;
+            for (const game of this.games.values()) {
+                if (game.guildId === guildId && game.players.has(userId)) {
+                    inBattle = true;
+                    break;
+                }
+            }
+            res.json({ inBattle });
+        });
+
         // ==================== ADMIN PANEL ENDPOINTS ====================
 
         // Get bot's guilds (for filtering mutual servers)
