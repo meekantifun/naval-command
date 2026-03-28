@@ -563,6 +563,59 @@ function CharacterManager({ guildId, user }) {
                   </div>
                 )}
 
+                {/* Upgrades */}
+                {(() => {
+                  const inv = char.inventory || {};
+                  const ownedEquipment = Object.entries(inv).filter(([id]) => id in EQUIPMENT_META && inv[id] > 0);
+                  if (ownedEquipment.length === 0) return null;
+                  const activeUpgrades = char.activeUpgrades || [];
+                  const inBattle = battleStatuses[char.userId]?.inBattle ?? false;
+                  const hasActiveLocked = inBattle && activeUpgrades.some(id => id in EQUIPMENT_META);
+                  return (
+                    <div className="char-section">
+                      <h5>⚙️ Upgrades ({ownedEquipment.length})</h5>
+                      <div className="upgrades-list">
+                        {ownedEquipment.map(([itemId]) => {
+                          const meta = EQUIPMENT_META[itemId];
+                          const isActive = activeUpgrades.includes(itemId);
+                          const key = `${char.userId}:${char.name}:${itemId}`;
+                          const isPending = pendingUpgrades.has(key);
+                          const isDisabled = inBattle || isPending;
+                          return (
+                            <div key={itemId} className="upgrade-row">
+                              <span className="upgrade-emoji">{meta.emoji}</span>
+                              <div className="upgrade-info">
+                                <div className="upgrade-name">{meta.name}</div>
+                                <div className="upgrade-desc">{meta.description}</div>
+                              </div>
+                              <div className="toggle-wrap">
+                                <label className="toggle-switch">
+                                  <input
+                                    type="checkbox"
+                                    checked={isActive}
+                                    disabled={isDisabled}
+                                    onChange={() => handleToggleUpgrade(char, itemId, !isActive)}
+                                  />
+                                  <span className="toggle-slider" />
+                                </label>
+                                <span className={`toggle-label${isActive ? ' active' : ''}`}>
+                                  {isPending ? '…' : isActive ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+                              {inBattle && <span className="lock-badge">🔒 In battle</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {hasActiveLocked && (
+                        <p className="upgrades-battle-note">
+                          Active upgrades are locked for the duration of the battle.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Experience & Progress */}
                 {(char.level || char.battles || char.victories) && (
                   <div className="char-section">
