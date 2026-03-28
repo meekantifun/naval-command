@@ -22127,6 +22127,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     const characters = Object.entries(userData.characters || {}).map(([name, data]) => ({
                         name,
                         ...data,
+                        activeUpgrades: data.activeUpgrades ?? [],
                         userId,
                         isActive: userData.activeCharacter === name
                     }));
@@ -22141,6 +22142,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                                 allCharacters.push({
                                     name,
                                     ...data,
+                                    activeUpgrades: data.activeUpgrades ?? [],
                                     userId: uid,
                                     isActive: udata.activeCharacter === name
                                 });
