@@ -515,7 +515,7 @@ app.get('/api/player/battle-status', ensureAuthenticated, async (req, res) => {
 
 app.patch('/api/player/active-upgrades', ensureAuthenticated, async (req, res) => {
   try {
-    const r = await botAPI.patch('/api/player/active-upgrades', req.body);
+    const r = await botAPI.patch('/api/player/active-upgrades', { ...req.body, userId: req.user.id });
     res.json(r.data);
   } catch (error) {
     res.status(error.response?.status || 500).json({ error: error.response?.data?.error || error.message || 'Failed to update upgrade' });
