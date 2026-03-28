@@ -336,6 +336,76 @@ app.post('/api/game/:channelId/damage-control', ensureAuthenticated, async (req,
   }
 });
 
+app.post('/api/game/:channelId/launch-recon', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/launch-recon`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to launch aircraft' });
+  }
+});
+
+app.post('/api/game/:channelId/launch-aircraft', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/launch-aircraft`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to launch aircraft' });
+  }
+});
+
+app.post('/api/game/:channelId/move-aircraft', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/move-aircraft`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to move aircraft' });
+  }
+});
+
+app.post('/api/game/:channelId/attack-aircraft', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/attack-aircraft`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to attack with aircraft' });
+  }
+});
+
+app.post('/api/game/:channelId/recall-aircraft', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/recall-aircraft`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to recall aircraft' });
+  }
+});
+
+app.post('/api/game/:channelId/land-aircraft', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/land-aircraft`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to land aircraft' });
+  }
+});
+
+app.post('/api/game/:channelId/use-air-support', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/use-air-support`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to call air support' });
+  }
+});
+
 app.post('/api/game/:channelId/end-turn', ensureAuthenticated, async (req, res) => {
   try {
     const r = await botAPI.post(`/api/game/${req.params.channelId}/end-turn`,
@@ -420,6 +490,17 @@ app.post('/api/game/:channelId/start-battle', ensureAuthenticated, async (req, r
   } catch (error) {
     console.error('[start-battle proxy]', error.message, 'status:', error.response?.status, 'data:', JSON.stringify(error.response?.data));
     res.status(error.response?.status || 500).json({ error: error.response?.data?.error || error.message || 'Failed to start battle' });
+  }
+});
+
+app.post('/api/game/:channelId/use-item', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/use-item`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    console.error('[use-item proxy]', error.message, 'status:', error.response?.status, 'data:', JSON.stringify(error.response?.data));
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || error.message || 'Failed to use item' });
   }
 });
 
@@ -684,9 +765,9 @@ app.get('/api/bot-invite', (req, res) => {
   res.json({ url });
 });
 
-// Serve shop icons static files
-app.use('/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
-app.use('/currency-icons', express.static(path.join(__dirname, '../../public/currency-icons')));
+// Serve shop icons static files (under /api/ so nginx proxies them to Express)
+app.use('/api/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
+app.use('/api/currency-icons', express.static(path.join(__dirname, '../../public/currency-icons')));
 
 // ── Admin Shop Item Proxy Routes ─────────────────────────────────────────────
 
@@ -729,7 +810,7 @@ app.delete('/api/admin/shop/items/:guildId/:itemId', ensureAuthenticated, async 
 app.post('/api/admin/shop/icon/:itemId', ensureAuthenticated, uploadIcon.single('icon'), async (req, res) => {
   try {
     const ext = path.extname(req.file.originalname);
-    const iconUrl = `/shop-icons/${req.params.itemId}${ext}`;
+    const iconUrl = `/api/shop-icons/${req.params.itemId}${ext}`;
     await botAPI.post(`/api/admin/shop/icon/${req.params.itemId}`, { iconUrl, guildId: req.body.guildId });
     res.json({ iconUrl });
   } catch (error) {
@@ -761,7 +842,7 @@ app.post('/api/admin/guild-config/:guildId', ensureAuthenticated, async (req, re
 app.post('/api/admin/guild-config/:guildId/currency-icon', ensureAuthenticated, uploadCurrencyIcon.single('icon'), async (req, res) => {
   try {
     const ext = path.extname(req.file.originalname);
-    const iconUrl = `/currency-icons/${req.params.guildId}${ext}`;
+    const iconUrl = `/api/currency-icons/${req.params.guildId}${ext}`;
     await botAPI.post(`/api/admin/guild-config/${req.params.guildId}/currency-icon`, { iconUrl });
     res.json({ iconUrl });
   } catch (error) {
