@@ -345,8 +345,10 @@ class CarrierSystem {
             } else if (target.shipClass?.includes('Submarine') && aircraft.depthCharges) {
                 // Depth charges vs submarines
                 baseDamage *= 0.6; // Moderate damage vs subs
+            } else if (aircraft.hasRockets) {
+                // Rocket fighters vs ships — normal fighter base damage (~61% of dive bomber, no modifier)
             } else {
-                // Fighters can't attack ships without depth charges
+                // Fighters can't attack ships without depth charges or rockets
                 return 0;
             }
         } else if (aircraft.type === 'dive_bomber') {
@@ -355,13 +357,15 @@ class CarrierSystem {
             } else if (target.shipClass) {
                 // Ship targeting with bomb types
                 if (aircraft.bombType === 'ap') {
-                    // AP bombs - good vs heavy ships
-                    if (target.shipClass.includes('Heavy Cruiser') || 
-                        target.shipClass.includes('Battleship') || 
-                        target.shipClass.includes('Carrier')) {
+                    // AP bombs — strict equality to avoid substring false matches (e.g. 'Light Aircraft Carrier' ≠ 'Aircraft Carrier')
+                    if (target.shipClass === 'Battleship' ||
+                        target.shipClass === 'Heavy Cruiser' ||
+                        target.shipClass === 'Aircraft Carrier') {
                         baseDamage *= 1.3; // +30% vs heavy ships
-                    } else if (target.shipClass.includes('Destroyer') || 
-                               target.shipClass.includes('Submarine')) {
+                    } else if (target.shipClass === 'Destroyer' ||
+                               target.shipClass === 'Submarine' ||
+                               target.shipClass === 'Light Cruiser' ||
+                               target.shipClass === 'Light Aircraft Carrier') {
                         baseDamage *= 0.4; // -60% vs light ships
                     }
                 } else if (aircraft.bombType === 'he') {
