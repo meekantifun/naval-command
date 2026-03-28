@@ -958,44 +958,20 @@ function useWeatherAudio(weather, muted) {
       srcs.push({ stop: () => { foghornStopped = true; }, disconnect: () => {} });
 
     } else if (weather === 'thunderstorm') {
-      master.gain.value = 0.14;
-      layer('highpass', 4500, 0.35, 1.4);  // heavy rain hiss
-      layer('lowpass',   220, 0.5,  0.4);  // wind rumble
-      layer('bandpass', 1200, 0.7,  0.6);  // mid-frequency rain body
-      // Wind gust LFO
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine'; lfo.frequency.value = 0.18;
-      const lg = ctx.createGain(); lg.gain.value = 0.025;
-      lfo.connect(lg); lg.connect(master.gain); lfo.start(); srcs.push(lfo);
-      // Noise-based thunder: crack (broadband burst) + deep rumble (pink noise through sub-100Hz LP)
-      let stopped = false;
-      const boom = () => {
-        if (stopped || ctx.state === 'closed') return;
-        const crackLen = Math.floor(ctx.sampleRate * 0.12);
-        const crackBuf = ctx.createBuffer(1, crackLen, ctx.sampleRate);
-        const cd = crackBuf.getChannelData(0);
-        for (let i = 0; i < crackLen; i++) cd[i] = Math.random() * 2 - 1;
-        const crack = ctx.createBufferSource(); crack.buffer = crackBuf;
-        const crackFilt = ctx.createBiquadFilter();
-        crackFilt.type = 'bandpass'; crackFilt.frequency.value = 700; crackFilt.Q.value = 0.4;
-        const crackEnv = ctx.createGain();
-        crackEnv.gain.setValueAtTime(1.4, ctx.currentTime);
-        crackEnv.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
-        crack.connect(crackFilt); crackFilt.connect(crackEnv); crackEnv.connect(master);
-        crack.start();
-        const rumble = ctx.createBufferSource(); rumble.buffer = pinkBuf; rumble.loop = true;
-        const rumbleFilt = ctx.createBiquadFilter();
-        rumbleFilt.type = 'lowpass'; rumbleFilt.frequency.value = 105;
-        const rumbleEnv = ctx.createGain();
-        rumbleEnv.gain.setValueAtTime(0, ctx.currentTime);
-        rumbleEnv.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 0.06);
-        rumbleEnv.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.2);
-        rumble.connect(rumbleFilt); rumbleFilt.connect(rumbleEnv); rumbleEnv.connect(master);
-        rumble.start(); rumble.stop(ctx.currentTime + 3.2);
-        setTimeout(boom, 4000 + Math.random() * 10000);
-      };
-      setTimeout(boom, 1000 + Math.random() * 3000);
-      srcs.push({ stop: () => { stopped = true; }, disconnect: () => {} });
+      master.gain.value = 0.8;
+      let cancelled = false;
+      fetch('/sounds/thunderstorm.mp3')
+        .then(r => r.arrayBuffer())
+        .then(ab => ctx.decodeAudioData(ab))
+        .then(decoded => {
+          if (cancelled || ctx.state === 'closed') return;
+          const src = ctx.createBufferSource();
+          src.buffer = decoded; src.loop = true;
+          src.connect(master); src.start();
+          srcs.push(src);
+        })
+        .catch(() => {});
+      srcs.push({ stop: () => { cancelled = true; }, disconnect: () => {} });
 
     } else if (weather === 'hurricane') {
       master.gain.value = 0.08;
@@ -1224,7 +1200,7 @@ function useWeatherVisuals(weather, canvasRef) {
   }, [weather]); // eslint-disable-line
 }
 
-function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null, isGM = false, moveHighlights = [], attackHighlights = [] }) {
+function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], myUserId = null, isGM = false, moveHighlights = [], attackHighlights = [], reconPlayers = [], aircraft = [] }) {
   const canvasRef = useRef(null);
   const weatherCanvasRef = useRef(null);
   const [hoveredCell, setHoveredCell] = useState(null);
@@ -1251,7 +1227,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
 
   useEffect(() => {
     const toLoad = [];
-    for (const set of ['class', 'enemy', 'sunk_player', 'sunk_enemy']) {
+    for (const set of ['player', 'ally', 'enemy', 'sunk_player', 'sunk_enemy']) {
       for (const type of ['destroyer', 'battleship', 'carrier', 'cruiser', 'submarine', 'auxiliary']) {
         toLoad.push([`${set}/${type}`, `/icons/${set}/${type}.png`]);
       }
@@ -1259,11 +1235,18 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     toLoad.push(['fire',  '/icons/Fire.png']);
     toLoad.push(['flood', '/icons/Flood.png']);
     toLoad.push(['mine',  '/icons/mine.png']);
+    for (const set of ['player', 'ally', 'enemy']) {
+      for (const atype of ['recon', 'fighter', 'dive_bomber', 'torpedo_bomber',
+                           'fighter_rockets', 'dive_bomber_AP']) {
+        const bust = set === 'player' ? '?v=3' : '';
+        toLoad.push([`aircraft/${set}/${atype}`, `/icons/aircraft/${set}/${atype}.png${bust}`]);
+      }
+    }
     let remaining = toLoad.length;
     for (const [key, src] of toLoad) {
       const img = new Image();
       img.onload = () => { iconsRef.current[key] = img; if (--remaining === 0) setIconsLoaded(true); };
-      img.onerror = () => {                              if (--remaining === 0) setIconsLoaded(true); };
+      img.onerror = () => { if (--remaining === 0) setIconsLoaded(true); };
       img.src = src;
     }
   }, []);
@@ -1331,6 +1314,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const icons = iconsRef.current;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Ocean background
@@ -1340,9 +1324,25 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     // Terrain
     for (const cell of terrainMap.values()) {
       const { x, y, type } = cell;
-      // Mines are rendered via the infrastructure icon system (GM-only).
-      // Skip the minefield terrain color so the green square never shows.
+      // Mines: skip the terrain background (no green square).
+      // For GM, draw the mine icon directly here.
       if (type === 'minefield') continue;
+      if (type === 'mine') {
+        if (isGM) {
+          const mineImg = iconsRef.current['mine'] || null;
+          const mpx = MARGIN + x * CELL;
+          const mpy = MARGIN + y * CELL;
+          if (mineImg) {
+            ctx.drawImage(mineImg, mpx, mpy, CELL, CELL);
+          } else {
+            ctx.fillStyle = '#7c3aed';
+            ctx.beginPath();
+            ctx.arc(mpx + CELL / 2, mpy + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        continue;
+      }
       const colors = TERRAIN_COLORS[type] || TERRAIN_COLORS.island;
       const px = MARGIN + x * CELL;
       const py = MARGIN + y * CELL;
@@ -1458,6 +1458,65 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.restore();
     }
 
+    // Recon patrol circles — dashed cyan circle + rotating recon plane icon
+    if (reconPlayers.length > 0) {
+      const t = Date.now() / 1000;
+      const pulse = 0.5 + 0.5 * Math.sin(t * (Math.PI * 2 / 2.0));
+      const glowAlpha = 0.4 + 0.4 * pulse;
+      const orbitAngle = t * (Math.PI * 2 / 45); // one full orbit every 45 seconds
+
+      // Draw patrol circles
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = `rgba(100, 220, 255, ${glowAlpha})`;
+      ctx.shadowColor = `rgba(100, 220, 255, ${glowAlpha})`;
+      ctx.shadowBlur = 6 + 4 * pulse;
+      for (const rp of reconPlayers) {
+        const cx = MARGIN + rp.x * CELL + CELL / 2;
+        const cy = MARGIN + rp.y * CELL + CELL / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4 * CELL, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // Draw rotating recon plane icon on the circle
+      const RECON_SIZE = Math.round(CELL * 1.1);
+      for (const rp of reconPlayers) {
+        const iconKey = rp.userId === myUserId ? 'aircraft/player/recon' : 'aircraft/ally/recon';
+        const img = icons[iconKey];
+        if (!img) continue;
+        const cx = MARGIN + rp.x * CELL + CELL / 2;
+        const cy = MARGIN + rp.y * CELL + CELL / 2;
+        const ix = cx + 4 * CELL * Math.cos(orbitAngle);
+        const iy = cy + 4 * CELL * Math.sin(orbitAngle);
+        ctx.drawImage(img, ix - RECON_SIZE / 2, iy - RECON_SIZE / 2, RECON_SIZE, RECON_SIZE);
+      }
+    }
+
+    // ── Deployed aircraft (fighters, bombers) ──────────────────────────────
+    if (aircraft.length > 0) {
+      const AC_MAX = Math.round(CELL * 1.1);
+      for (const ac of aircraft) {
+        const set = ac.owner === 'enemy'  ? 'enemy'
+                  : ac.carrierID === myUserId ? 'player'
+                  : 'ally';
+        const iconType = (ac.type === 'fighter' && ac.hasRockets)            ? 'fighter_rockets'
+                       : (ac.type === 'dive_bomber' && ac.bombType === 'ap') ? 'dive_bomber_AP'
+                       : ac.type;
+        const img = icons[`aircraft/${set}/${iconType}`];
+        if (!img) continue;
+        const scale = Math.min(AC_MAX / img.naturalWidth, AC_MAX / img.naturalHeight);
+        const dw = img.naturalWidth * scale;
+        const dh = img.naturalHeight * scale;
+        const px = MARGIN + ac.x * CELL + CELL / 2 - dw / 2;
+        const py = MARGIN + ac.y * CELL + CELL / 2 - dh / 2;
+        ctx.drawImage(img, px, py, dw, dh);
+      }
+    }
+
     // Grid lines
     ctx.strokeStyle = 'rgba(226,232,240,0.30)';
     ctx.lineWidth = 0.5;
@@ -1571,7 +1630,6 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     }
 
     // ── Draw units ──────────────────────────────────────────────────────────
-    const icons = iconsRef.current;
     const OVR = Math.round(CELL * 0.40); // overlay icon size (~6px at CELL=16)
 
     function drawUnit(unit, isEnemy) {
@@ -1583,7 +1641,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       const type  = getShipType(unit.shipClass);
       const iconSet = sunk
         ? (isEnemy ? 'sunk_enemy' : 'sunk_player')
-        : (isEnemy ? 'enemy' : 'class');
+        : (isEnemy ? 'enemy' : (unit.userId === myUserId ? 'player' : 'ally'));
       const img   = icons[`${iconSet}/${type}`];
       const angle = (rotationsRef.current[isEnemy ? `e_${unit.id}` : `p_${unit.userId}`]) ?? 0;
 
@@ -1645,17 +1703,19 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       const fctx = fogCanvas.getContext('2d');
 
       // Fill the fog layer
-      fctx.fillStyle = 'rgba(50, 55, 65, 0.72)';
+      fctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
       fctx.fillRect(0, 0, canvasW, canvasH);
 
       // Punch soft holes around each living friendly ship
+      const AIRCRAFT_SPOT_RANGE = { hurricane: 5, thunderstorm: 3, fog: 10, foggy: 10 };
+      const acFogRange = AIRCRAFT_SPOT_RANGE[gameState?.weather];
       fctx.globalCompositeOperation = 'destination-out';
       for (const p of allPlayers) {
         if (p.x == null || p.sunk) continue;
         const cx = MARGIN + p.x * CELL + CELL / 2;
         const cy = MARGIN + p.y * CELL + CELL / 2;
         const outerR = weatherFogRange * CELL;
-        const innerR = outerR * 0.55; // crisp center fades to fog at edge
+        const innerR = outerR * 0.80; // sharp edge: most of range is fully clear
         const grad = fctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
         grad.addColorStop(0, 'rgba(0,0,0,1)');
         grad.addColorStop(1, 'rgba(0,0,0,0)');
@@ -1663,6 +1723,24 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
         fctx.beginPath();
         fctx.arc(cx, cy, outerR, 0, Math.PI * 2);
         fctx.fill();
+      }
+
+      // Punch holes around friendly aircraft (smaller weather-specific range)
+      if (acFogRange != null) {
+        for (const ac of aircraft) {
+          if (ac.owner === 'enemy' || ac.x == null || !ac.alive) continue;
+          const cx = MARGIN + ac.x * CELL + CELL / 2;
+          const cy = MARGIN + ac.y * CELL + CELL / 2;
+          const outerR = acFogRange * CELL;
+          const innerR = outerR * 0.80;
+          const grad = fctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+          grad.addColorStop(0, 'rgba(0,0,0,1)');
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          fctx.fillStyle = grad;
+          fctx.beginPath();
+          fctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+          fctx.fill();
+        }
       }
 
       ctx.drawImage(fogCanvas, 0, 0);
@@ -1685,7 +1763,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
       ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, CELL - 2, CELL - 2);
     }
-  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, moveSet, attackSet, allPlayers, allEnemies, myUserId, iconsLoaded, isGM, gameState]);
+  }, [terrainMap, infrastructure, hoveredCell, selectedCell, mapSize, spawnSet, moveSet, attackSet, allPlayers, allEnemies, myUserId, iconsLoaded, isGM, gameState, reconPlayers, aircraft]);
 
   // Always keep ref current so the animation loop never has a stale drawMap
   drawMapFnRef.current = drawMap;
@@ -1696,7 +1774,7 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
   }, [drawMap, gameState]);
 
   // Animation loop — runs whenever there are pulsing highlights (spawn zones, move range, or attack range)
-  const hasAnimatedHighlights = spawnZoneCoords.length > 0 || moveHighlights.length > 0 || attackHighlights.length > 0;
+  const hasAnimatedHighlights = spawnZoneCoords.length > 0 || moveHighlights.length > 0 || attackHighlights.length > 0 || reconPlayers.length > 0;
   useEffect(() => {
     if (!hasAnimatedHighlights) {
       cancelAnimationFrame(animFrameRef.current);
@@ -1752,12 +1830,6 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
           <span className="terrain-chip island">Island</span>
           <span className="terrain-chip reef">Reef</span>
           <span className="terrain-chip spawn">Spawn Zone</span>
-          <span className="terrain-chip city">City</span>
-          <span className="terrain-chip town">Town</span>
-          <span className="terrain-chip military">Military</span>
-          <span className="terrain-chip airfield">Airfield</span>
-          <span className="terrain-chip port">Port</span>
-          <span className="terrain-chip mine">Mine</span>
         </div>
         {gameState?.gmUsername && (
           <div className="map-gm-display">
