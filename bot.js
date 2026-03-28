@@ -21772,6 +21772,142 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        app.post('/api/game/:channelId/use-item', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, itemId } = req.body;
+
+                // 1. Game exists
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'No active game in this channel' });
+
+                const guildId = game.guildId;
+
+                // 2. Player exists and is not sunk
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in this game' });
+                if (player.sunk || !player.alive) return res.status(400).json({ error: 'Your ship has been sunk' });
+
+                // 3. Item in inventory with qty > 0
+                const qty = this.getInventoryCount(guildId, userId, itemId);
+                if (qty <= 0) return res.status(400).json({ error: 'Item not in inventory' });
+
+                // 4. Action-cost check
+                const ACTION_COST_ITEMS = new Set([
+                    'repair_kit','smoke_screen','lucky_charm','emergency_speed_boost',
+                    'radar_jamming','decoy_buoy','combat_stimulants','repair_ship_contract',
+                    'fuel_barrels','air_support_marker'
+                ]);
+                const costAction = ACTION_COST_ITEMS.has(itemId);
+                const actionsUsed = player.actionsThisTurn ?? 0;
+                const maxActions  = player.maxActions ?? 2;
+                if (costAction && actionsUsed >= maxActions) {
+                    return res.status(400).json({ error: 'No actions remaining this turn' });
+                }
+
+                // 5. Item-specific conditions
+                if (itemId === 'fire_suppression' && !player.onFire) {
+                    return res.status(400).json({ error: 'You are not on fire' });
+                }
+                if (itemId === 'emergency_patch' && !player.flooding) {
+                    return res.status(400).json({ error: 'You are not flooding' });
+                }
+                if (itemId === 'decoy_buoy' && !player.shipClass?.toLowerCase().includes('submarine')) {
+                    return res.status(400).json({ error: 'Decoy Buoy is for Submarines only' });
+                }
+                if (itemId === 'fuel_barrels') {
+                    if (!player.shipClass?.toLowerCase().includes('carrier')) {
+                        return res.status(400).json({ error: 'Fuel Barrels are for Carriers only' });
+                    }
+                    const hasAircraft = game.aircraft && [...game.aircraft.values()].some(
+                        ac => (ac.owner === userId || ac.carrierID === userId) && ac.alive
+                    );
+                    if (!hasAircraft) return res.status(400).json({ error: 'No deployed aircraft' });
+                }
+                if (itemId === 'lucky_charm' && player.luckyCharm) {
+                    return res.status(400).json({ error: 'Lucky Charm is already active' });
+                }
+
+                // Apply effect
+                switch (itemId) {
+                    case 'repair_kit':
+                        player.currentHealth = Math.min(player.maxHealth, player.currentHealth + 50);
+                        player.onFire     = false;
+                        player.flooding   = false;
+                        player.bleeding   = false;
+                        break;
+                    case 'fire_suppression':
+                        player.onFire     = false;
+                        player.fireTimer  = 0;
+                        break;
+                    case 'emergency_patch':
+                        player.flooding   = false;
+                        player.floodTimer = 0;
+                        break;
+                    case 'smoke_screen':
+                        player.smokeScreenTurns = 3;
+                        player.evasionBonus = (player.evasionBonus || 0) + 50;
+                        break;
+                    case 'lucky_charm':
+                        player.luckyCharm = true;
+                        break;
+                    case 'emergency_speed_boost':
+                        player.speedBoostTurns = 2;
+                        if (player.stats) player.stats.speed = (player.stats.speed || 0) + 3;
+                        player.currentHealth = Math.max(0, player.currentHealth - 10);
+                        break;
+                    case 'radar_jamming':
+                        player.radarJammingTurns = 3;
+                        break;
+                    case 'decoy_buoy':
+                        player.decoyBuoyTurns = 2;
+                        break;
+                    case 'combat_stimulants':
+                        player.maxActions = (player.maxActions || 2) + 1;
+                        player.combatStimulantsBonus = (player.combatStimulantsBonus || 0) + 1;
+                        break;
+                    case 'repair_ship_contract':
+                        player.regenAmount = 40;
+                        player.regenTurns  = 3;
+                        break;
+                    case 'fuel_barrels':
+                        for (const ac of game.aircraft.values()) {
+                            if ((ac.owner === userId || ac.carrierID === userId) && ac.alive) {
+                                ac.fuel = (ac.fuel || 0) + 5;
+                            }
+                        }
+                        break;
+                }
+
+                // Decrement inventory
+                const inventory = this.getPlayerInventory(guildId, userId);
+                const newQty = (inventory.get(itemId) || 0) - 1;
+                if (newQty <= 0) inventory.delete(itemId);
+                else inventory.set(itemId, newQty);
+                await this.savePlayerData();
+
+                // Charge action if applicable
+                if (costAction) {
+                    player.actionsThisTurn = (player.actionsThisTurn || 0) + 1;
+                    if (player.actionsThisTurn >= player.maxActions) {
+                        this.endPlayerTurn(player);
+                    }
+                }
+
+                await this.broadcastGameUpdate(channelId);
+
+                // Discord message
+                const itemName = itemId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const channel  = this.client.channels.cache.get(channelId);
+                if (channel) channel.send(`🎒 **${player.username || player.characterAlias}** used **${itemName}**!`).catch(() => {});
+
+                res.json({ success: true, message: `Used ${itemName}` });
+            } catch (error) {
+                console.error('Error in use-item endpoint:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // ==================== ADMIN PANEL ENDPOINTS ====================
 
         // Get bot's guilds (for filtering mutual servers)
