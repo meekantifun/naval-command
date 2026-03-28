@@ -22037,8 +22037,13 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     character.activeUpgrades = character.activeUpgrades.filter(id => id !== itemId);
                 }
 
-                this.characterManager.savePlayerData(guildId, playerData);
-                res.json({ activeUpgrades: character.activeUpgrades });
+                const saved = this.characterManager.savePlayerData(guildId, playerData);
+                if (saved) {
+                    this.characterManager.syncInMemoryData(guildId, userId, playerData[userId]);
+                    res.json({ activeUpgrades: character.activeUpgrades });
+                } else {
+                    res.status(500).json({ error: 'Failed to save upgrade' });
+                }
             } catch (error) {
                 console.error('Error in active-upgrades endpoint:', error);
                 res.status(500).json({ error: 'Internal server error' });
