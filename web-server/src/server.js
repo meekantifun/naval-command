@@ -504,6 +504,24 @@ app.post('/api/game/:channelId/use-item', ensureAuthenticated, async (req, res) 
   }
 });
 
+app.get('/api/player/battle-status', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.get('/api/player/battle-status', { params: { guildId: req.query.guildId, userId: req.query.userId } });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || error.message || 'Failed to get battle status' });
+  }
+});
+
+app.patch('/api/player/active-upgrades', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.patch('/api/player/active-upgrades', req.body);
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || error.message || 'Failed to update upgrade' });
+  }
+});
+
 // WebSocket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
