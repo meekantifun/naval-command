@@ -17874,7 +17874,41 @@ class NavalWarfareBot {
         if (player.damageControlCooldown > 0) {
             player.damageControlCooldown--;
         }
-        
+
+        // Process item buff expiry
+        if (player.smokeScreenTurns > 0) {
+            player.smokeScreenTurns--;
+            if (player.smokeScreenTurns === 0) {
+                player.evasionBonus = Math.max(0, (player.evasionBonus || 0) - 50);
+            }
+        }
+
+        if (player.speedBoostTurns > 0) {
+            player.speedBoostTurns--;
+            if (player.speedBoostTurns === 0) {
+                if (player.stats) player.stats.speed = Math.max(0, (player.stats.speed || 0) - 3);
+            }
+        }
+
+        if (player.radarJammingTurns > 0) {
+            player.radarJammingTurns--;
+        }
+
+        if (player.decoyBuoyTurns > 0) {
+            player.decoyBuoyTurns--;
+        }
+
+        if (player.regenTurns > 0) {
+            player.currentHealth = Math.min(player.maxHealth, player.currentHealth + (player.regenAmount || 0));
+            player.regenTurns--;
+            if (player.regenTurns === 0) player.regenAmount = 0;
+        }
+
+        if (player.combatStimulantsBonus > 0) {
+            player.maxActions -= player.combatStimulantsBonus;
+            player.combatStimulantsBonus = 0;
+        }
+
         if (totalDamage > 0) {
             messages.push(`🩸 ${player.shipClass} takes ${totalDamage} status effect damage!`);
         }
