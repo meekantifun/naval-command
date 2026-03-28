@@ -4,6 +4,23 @@ import io from 'socket.io-client';
 import GameMap from './GameMap';
 import './GameView.css';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '2rem', color: '#f87171', background: '#1e293b', minHeight: '100vh' }}>
+          <h2>Render error — check console</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem' }}>{String(this.state.error)}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem', color: '#94a3b8' }}>{this.state.error?.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 // ── Confetti canvas animation ─────────────────────────────────────────────────
@@ -82,14 +99,14 @@ function MVPScreen({ mvp, onBack }) {
             <div className="mvp-subtitle">Most Valuable Player</div>
             <div className="mvp-avatar-wrapper">
               <img
-                src={mvp.avatarURL || '/icons/class/destroyer.png'}
+                src={mvp.avatarURL || '/icons/ally/destroyer.png'}
                 alt={mvp.username}
                 className="mvp-avatar"
-                onError={e => { e.target.src = '/icons/class/destroyer.png'; }}
+                onError={e => { e.target.src = '/icons/ally/destroyer.png'; }}
               />
               <img src="/icons/crown.png" alt="Crown" className="mvp-crown" />
             </div>
-            <div className="mvp-username">{mvp.username}</div>
+            <div className="mvp-username">{mvp.characterAlias || mvp.username}</div>
             <div className="mvp-score">MVP Score: {mvp.score.toLocaleString()}</div>
             <div className="mvp-stats-grid">
               <div className="mvp-stat">
@@ -167,12 +184,15 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [error, setError] = useState(null);
   const [socket, setSocket] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [actionMode, setActionMode] = useState('move');
+  const [launchingRecon, setLaunchingRecon] = useState(false);
+  const [launchingAircraft, setLaunchingAircraft] = useState(false);
+  const [selectedAircraft, setSelectedAircraft] = useState(null);
   const [selectedCell, setSelectedCell] = useState(null);
 
   // New state for feature parity
   const [attackState, setAttackState] = useState(null);
   // null | { targetId, targetName, step: 'weapon'|'shell'|'confirm', weaponType?, weaponName?, shellType? }
+  const [airSupportTargeting, setAirSupportTargeting] = useState(false);
   const [confirmEndBattle, setConfirmEndBattle] = useState(false);
   const [startingBattle, setStartingBattle] = useState(false);
   const [endingTurn, setEndingTurn] = useState(false);
@@ -186,6 +206,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [gmControlledAI, setGmControlledAI] = useState(null); // enemy object being controlled
   const [gmAIMoveCoord, setGmAIMoveCoord] = useState('');
   const [gmAIAttackTarget, setGmAIAttackTarget] = useState('');
+  const [showInventory, setShowInventory] = useState(false);
 
   const audioRef = useRef(null);
   const prevGameStateRef = useRef(null);
@@ -220,6 +241,15 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (gameState && selectedPlayer) {
       const fresh = gameState.players.find(p => p.userId === selectedPlayer.userId);
       if (fresh) setSelectedPlayer(fresh);
+    }
+  }, [gameState]);
+
+  // Keep selectedAircraft in sync with fresh game state
+  useEffect(() => {
+    if (gameState && selectedAircraft) {
+      const fresh = (gameState.aircraft || []).find(a => a.id === selectedAircraft.id);
+      if (fresh) setSelectedAircraft(fresh);
+      else setSelectedAircraft(null);
     }
   }, [gameState]);
 
@@ -424,6 +454,25 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }).map(e => ({ x: e.x, y: e.y }));
   }, [selectedPlayer, gameState]);
 
+  const AIRCRAFT_MOVE_RANGES = { fighter: 10, dive_bomber: 8, torpedo_bomber: 5 };
+
+  const aircraftMoveHighlights = useMemo(() => {
+    if (!selectedAircraft || (selectedAircraft.actionPoints ?? 0) <= 0) return [];
+    const range = AIRCRAFT_MOVE_RANGES[selectedAircraft.type] || 8;
+    const result = [];
+    for (let dx = -range; dx <= range; dx++) {
+      for (let dy = -range; dy <= range; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        if (Math.sqrt(dx * dx + dy * dy) > range) continue;
+        const nx = selectedAircraft.x + dx;
+        const ny = selectedAircraft.y + dy;
+        if (nx < 0 || ny < 0 || nx >= 75 || ny >= 75) continue;
+        result.push({ x: nx, y: ny });
+      }
+    }
+    return result;
+  }, [selectedAircraft]);
+
   // Map every cell covered by an infrastructure footprint → the infrastructure item
   // Mirrors INFRA_SPAN from GameMap.js (centered on item.x, item.y)
   const infraCellMap = useMemo(() => {
@@ -528,6 +577,92 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
+  const handleLaunchRecon = async () => {
+    if (!selectedPlayer || launchingRecon) return;
+    setLaunchingRecon(true);
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/launch-recon`, {}, { withCredentials: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to launch aircraft');
+    } finally {
+      setLaunchingRecon(false);
+    }
+  };
+
+  const handleLaunchAircraft = async (aircraftType) => {
+    if (!selectedPlayer || launchingAircraft) return;
+    setLaunchingAircraft(true);
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/launch-aircraft`, { aircraftType }, { withCredentials: true });
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to launch aircraft');
+    } finally {
+      setLaunchingAircraft(false);
+    }
+  };
+
+  const handleMoveAircraft = async (aircraftId, x, y) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/move-aircraft`,
+        { aircraftId, x, y }, { withCredentials: true });
+      setSelectedCell(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to move aircraft');
+    }
+  };
+
+  const handleAircraftAttack = async (aircraft, targetId) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/game/${channelId}/attack-aircraft`,
+        { aircraftId: aircraft.id, targetId }, { withCredentials: true });
+      const hit = response.data?.hit;
+      const damage = response.data?.damage;
+      addLogEntry(
+        hit
+          ? `✈️ ${aircraft.name} hits for ${damage} damage!`
+          : `✈️ ${aircraft.name} misses!`,
+        'attack'
+      );
+      setSelectedCell(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to attack with aircraft');
+    }
+  };
+
+  const handleRecallAircraft = async (aircraftId) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/recall-aircraft`,
+        { aircraftId }, { withCredentials: true });
+      setSelectedAircraft(null);
+      setSelectedCell(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to recall aircraft');
+    }
+  };
+
+  const handleLandAircraft = async (aircraftId) => {
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/land-aircraft`,
+        { aircraftId }, { withCredentials: true });
+      setSelectedAircraft(null);
+      setSelectedCell(null);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to land aircraft');
+    }
+  };
+
+  const handleUseAirSupport = async (targetId, targetName) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/game/${channelId}/use-air-support`,
+        { targetId }, { withCredentials: true });
+      const turnsUntil = response.data?.turnsUntil;
+      addLogEntry(`✈️ Air support called in on ${targetName}! Bombers arriving in ${turnsUntil} turn${turnsUntil !== 1 ? 's' : ''}`, 'attack');
+      setAirSupportTargeting(false);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to call air support');
+    }
+  };
+
   const handleEndTurn = async () => {
     if (!selectedPlayer || endingTurn) return;
     setEndingTurn(true);
@@ -545,7 +680,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   const handleAttackFull = async (targetId, weaponType, shellType) => {
     try {
-      await axios.post(`${API_URL}/api/game/${channelId}/attack`,
+      const response = await axios.post(`${API_URL}/api/game/${channelId}/attack`,
         { targetId, weaponType, shellType, characterAlias: selectedPlayer?.characterAlias },
         { withCredentials: true }
       );
@@ -553,7 +688,13 @@ function GameView({ channelId, user, onBack, onLogout }) {
       const weapon   = attackState?.weaponName || weaponType || 'weapon';
       const target   = attackState?.targetName || 'target';
       const shell    = shellType && shellType !== 'torpedo' ? ` (${shellType.toUpperCase()})` : '';
-      addLogEntry(`⚔️ ${attacker} fires ${weapon}${shell} at ${target}`, 'attack');
+      const hit = response.data?.result?.hit;
+      const entry = hit === true
+        ? `⚔️ ${attacker} hits ${target} with ${weapon}${shell}`
+        : hit === false
+          ? `⚔️ ${attacker} misses ${target} with ${weapon}${shell}`
+          : `⚔️ ${attacker} fires ${weapon}${shell} at ${target}`;
+      addLogEntry(entry, 'attack');
       setAttackState(null);
       setSelectedCell(null);
     } catch (err) {
@@ -701,6 +842,13 @@ function GameView({ channelId, user, onBack, onLogout }) {
     return Math.sqrt(dx * dx + dy * dy) <= getAttackRange();
   };
 
+  const isWeaponInRange = (weapon, ex, ey) => {
+    if (!selectedPlayer || selectedPlayer.x == null) return false;
+    const dx = ex - selectedPlayer.x;
+    const dy = ey - selectedPlayer.y;
+    return Math.sqrt(dx * dx + dy * dy) <= (weapon.range || 0);
+  };
+
   const renderAttackFlow = (e) => {
     const weapons = Array.isArray(selectedPlayer.weapons)
       ? selectedPlayer.weapons
@@ -719,20 +867,32 @@ function GameView({ channelId, user, onBack, onLogout }) {
         <div className="attack-flow">
           <div className="attack-flow-label">Choose weapon</div>
           <div className="attack-flow-buttons">
-            {weapons.map(w => (
-              <button key={w.type || w.name} onClick={() => {
-                const isTorpedo = (w.type || '').toLowerCase().includes('torpedo');
-                setAttackState({
-                  ...attackState,
-                  weaponType: w.type,
-                  weaponName: w.name || w.type,
-                  step: isTorpedo ? 'confirm' : 'shell',
-                  shellType: isTorpedo ? 'torpedo' : null,
-                });
-              }}>
-                {w.name || w.type}
-              </button>
-            ))}
+            {weapons.map(w => {
+              const inRange = isWeaponInRange(w, e.x, e.y);
+              return (
+                <button
+                  key={w.type || w.name}
+                  title={inRange ? undefined : 'Out of Range'}
+                  style={inRange
+                    ? { background: '#276749', color: '#9ae6b4', borderColor: '#48bb78' }
+                    : { background: 'var(--surface-2)', color: 'var(--text-muted)', opacity: 0.5, cursor: 'not-allowed' }
+                  }
+                  onClick={() => {
+                    if (!inRange) return;
+                    const isTorpedo = (w.type || '').toLowerCase().includes('torpedo');
+                    setAttackState({
+                      ...attackState,
+                      weaponType: w.type,
+                      weaponName: w.name || w.type,
+                      step: isTorpedo ? 'confirm' : 'shell',
+                      shellType: isTorpedo ? 'torpedo' : null,
+                    });
+                  }}
+                >
+                  {w.name || w.type}
+                </button>
+              );
+            })}
             <button className="btn-cancel" onClick={() => setAttackState(null)}>✕ Cancel</button>
           </div>
         </div>
@@ -804,6 +964,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const canAttackAny = selectedPlayer && !selectedPlayer.sunk &&
       selectedPlayer.actionsThisTurn < selectedPlayer.maxActions;
 
+    // Aircraft at this cell
+    const allAircraftHere = (gameState.aircraft || []).filter(ac => ac.x === x && ac.y === y);
+    const myAircraftHere = allAircraftHere.filter(ac => ac.carrierID === user.id);
+    const otherAircraftHere = allAircraftHere.filter(ac => ac.carrierID !== user.id);
+    const inAircraftRange = selectedAircraft &&
+      (x !== selectedAircraft.x || y !== selectedAircraft.y) &&
+      Math.sqrt((x - selectedAircraft.x) ** 2 + (y - selectedAircraft.y) ** 2) <= (AIRCRAFT_MOVE_RANGES[selectedAircraft.type] || 8);
+
     // Determine terrain/infrastructure label
     const TERRAIN_LABELS = { island: '🏝️ Island', reef: '🪸 Reef', spawn: '⚓ Spawn Zone', city: '🏙️ City', town: '🏘️ Town', minefield: '💣 Minefield' };
     const INFRA_LABELS = {
@@ -830,6 +998,60 @@ function GameView({ channelId, user, onBack, onLogout }) {
         </div>
 
         {terrainLabel && <div className="cell-info-terrain">{terrainLabel}</div>}
+
+        {myAircraftHere.length > 0 && (
+          <div className="cell-info-section">
+            <div className="cell-info-section-title">Your Aircraft</div>
+            {myAircraftHere.map((ac, i) => {
+              const hpPct = ac.maxHealth > 0 ? Math.round((ac.health / ac.maxHealth) * 100) : 0;
+              const isSelected = selectedAircraft?.id === ac.id;
+              const distToCarrier = selectedPlayer
+                ? Math.max(Math.abs(ac.x - selectedPlayer.x), Math.abs(ac.y - selectedPlayer.y))
+                : Infinity;
+              return (
+                <div key={i} className={`cell-unit friendly${isSelected ? ' own' : ''}`}>
+                  <div className="unit-name">{ac.name}{isSelected ? ' ✈️ Active' : ''}</div>
+                  <div className="unit-class">{ac.type.replace(/_/g, ' ')} · {ac.squadronSize} planes</div>
+                  <div className="unit-hp-bar"><div className="unit-hp-fill" style={{ width: `${hpPct}%`, background: '#48bb78' }} /></div>
+                  <div className="unit-hp-text">{ac.health}/{ac.maxHealth} HP · {ac.ammo} ammo · {ac.fuel} fuel</div>
+                  {ac.mission === 'returning' ? (
+                    <div className="cell-info-hint" style={{ marginTop: 4 }}>↩️ Returning to carrier...</div>
+                  ) : (
+                    <>
+                      <button
+                        className="btn-move-here"
+                        style={{ marginTop: 4 }}
+                        onClick={() => isSelected ? setSelectedAircraft(null) : setSelectedAircraft(ac)}
+                      >
+                        {isSelected ? '✕ Deselect Squadron' : '🎮 Control Squadron'}
+                      </button>
+                      {distToCarrier <= 3 && (
+                        <button
+                          className="btn-secondary-small"
+                          style={{ marginTop: 4 }}
+                          disabled={selectedPlayer?.actionsThisTurn >= selectedPlayer?.maxActions}
+                          onClick={() => handleLandAircraft(ac.id)}
+                        >
+                          🛬 Land
+                        </button>
+                      )}
+                      {(ac.ammo ?? 0) === 0 && (
+                        <button
+                          className="btn-secondary-small"
+                          style={{ marginTop: 4 }}
+                          disabled={selectedPlayer?.actionsThisTurn >= selectedPlayer?.maxActions}
+                          onClick={() => handleRecallAircraft(ac.id)}
+                        >
+                          ↩️ Recall Squadron
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {ic && (() => {
           const stateTag = ic.state === 'destroyed' ? { label: 'Destroyed', cls: 'infra-state-destroyed', icon: '💥' }
@@ -882,15 +1104,42 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   <div className="unit-class">{e.shipClass}</div>
                   <div className="unit-hp-bar"><div className="unit-hp-fill" style={{ width: `${hpPct}%`, background: hpPct > 50 ? '#f56565' : hpPct > 25 ? '#ed8936' : '#c53030' }} /></div>
                   <div className="unit-hp-text">{e.health}/{e.maxHealth} HP</div>
-                  <div className="unit-range-info">{inRange ? '✅ In range' : '❌ Out of range'}</div>
                   {canAttackAny && inRange && renderAttackFlow(e)}
+                  {selectedAircraft && inAircraftRange && (selectedAircraft.ammo ?? 0) > 0 && (selectedAircraft.actionPoints ?? 0) > 0 && (
+                    <button className="btn-attack-unit" onClick={() => handleAircraftAttack(selectedAircraft, e.id)}>
+                      ✈️ Strike with aircraft
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {players.length === 0 && enemies.length === 0 && (
+        {otherAircraftHere.length > 0 && (
+          <div className="cell-info-section">
+            <div className="cell-info-section-title">Aircraft ({otherAircraftHere.length})</div>
+            {otherAircraftHere.map((ac, i) => {
+              const hpPct = ac.maxHealth > 0 ? Math.round((ac.health / ac.maxHealth) * 100) : 0;
+              const isHostile = ac.owner === 'enemy';
+              return (
+                <div key={i} className={`cell-unit ${isHostile ? 'enemy' : 'friendly'}`}>
+                  <div className="unit-name">{ac.name}</div>
+                  <div className="unit-class">{ac.type.replace(/_/g, ' ')} · {ac.squadronSize} planes</div>
+                  <div className="unit-hp-bar"><div className="unit-hp-fill" style={{ width: `${hpPct}%`, background: isHostile ? '#f56565' : '#48bb78' }} /></div>
+                  <div className="unit-hp-text">{ac.health}/{ac.maxHealth} HP</div>
+                  {selectedAircraft && isHostile && inAircraftRange && (selectedAircraft.ammo ?? 0) > 0 && (selectedAircraft.actionPoints ?? 0) > 0 && (
+                    <button className="btn-attack-unit" onClick={() => handleAircraftAttack(selectedAircraft, ac.id)}>
+                      ✈️ Strike
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {players.length === 0 && enemies.length === 0 && myAircraftHere.length === 0 && otherAircraftHere.length === 0 && (
           <div className="cell-info-empty">No units here</div>
         )}
 
@@ -903,6 +1152,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
           )}
           {!needsSpawn && canMove && (
             <button className="btn-move-here" onClick={() => handleMove(x, y)}>🚢 Move Here</button>
+          )}
+          {selectedAircraft && inAircraftRange && myAircraftHere.length === 0 && (selectedAircraft.actionPoints ?? 0) > 0 && (
+            <button className="btn-move-here" style={{ background: 'var(--primary)' }} onClick={() => handleMoveAircraft(selectedAircraft.id, x, y)}>✈️ Fly Here</button>
+          )}
+          {selectedAircraft && (
+            <button className="btn-secondary-small" onClick={() => setSelectedAircraft(null)} style={{ marginTop: 4, fontSize: '0.75rem', opacity: 0.7 }}>
+              Cancel aircraft control
+            </button>
           )}
           {!selectedPlayer && <div className="cell-info-hint">Select a ship to take actions</div>}
           {selectedPlayer && selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions && !needsSpawn && (
@@ -1091,18 +1348,55 @@ function GameView({ channelId, user, onBack, onLogout }) {
             <div className="sidebar-section">
               <h3>Actions</h3>
               <div className="action-buttons">
-                <button className={`btn ${actionMode === 'move' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActionMode('move')}
-                  disabled={selectedPlayer.sunk || selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}>
-                  🚢 Move
-                </button>
-                <button className={`btn ${actionMode === 'attack' ? 'btn-danger' : 'btn-secondary'}`}
-                  onClick={() => setActionMode('attack')}
-                  disabled={selectedPlayer.sunk || selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}>
-                  🎯 Attack
-                </button>
                 {!selectedPlayer.sunk && (
                   <>
+                    {selectedPlayer.reconAircraft && !selectedPlayer.shipClass?.includes('Carrier') && (
+                      <button
+                        className="btn btn-primary"
+                        disabled={
+                          selectedPlayer.reconActive ||
+                          (selectedPlayer.reconCooldown ?? 0) > 0 ||
+                          selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
+                          launchingRecon
+                        }
+                        onClick={handleLaunchRecon}
+                        title={selectedPlayer.reconAircraft.name}
+                      >
+                        🛩️ {selectedPlayer.reconActive
+                          ? `In Air (${selectedPlayer.reconTurnsRemaining}t)`
+                          : (selectedPlayer.reconCooldown ?? 0) > 0
+                            ? `Cooldown (${selectedPlayer.reconCooldown}t)`
+                            : launchingRecon ? 'Launching...' : 'Launch Aircraft'}
+                      </button>
+                    )}
+                    {selectedPlayer.shipClass?.includes('Carrier') && (
+                      <>
+                        {[
+                          { type: 'fighter',       label: '🛩️ Launch Fighters' },
+                          { type: 'dive_bomber',   label: '💣 Launch Dive Bombers' },
+                          { type: 'torpedo_bomber',label: '🐟 Launch Torpedo Bombers' },
+                        ].map(({ type, label }) => (
+                          <button
+                            key={type}
+                            className="btn btn-primary"
+                            disabled={
+                              launchingAircraft ||
+                              selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
+                              (selectedPlayer.hangar ?? 0) === 0 ||
+                              (gameState?.weather === 'hurricane' && !selectedPlayer.hasAllWeatherAircraft)
+                            }
+                            onClick={() => handleLaunchAircraft(type)}
+                            title={
+                              gameState?.weather === 'hurricane' && !selectedPlayer.hasAllWeatherAircraft
+                                ? 'Cannot launch during a hurricane'
+                                : `Hangar: ${selectedPlayer.hangar ?? 0} aircraft`
+                            }
+                          >
+                            {launchingAircraft ? 'Launching...' : label}
+                          </button>
+                        ))}
+                      </>
+                    )}
                     <button
                       className="btn btn-warning"
                       disabled={
@@ -1115,20 +1409,40 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       🔧 Damage Control
                       {(selectedPlayer.damageControlCooldown ?? 0) > 0 && ` (${selectedPlayer.damageControlCooldown}t)`}
                     </button>
+                    <button
+                      className="btn btn-info"
+                      onClick={() => setShowInventory(v => !v)}
+                    >
+                      🎒 Inventory
+                      {selectedPlayer.inventory && Object.keys(selectedPlayer.inventory).length > 0 &&
+                        ` (${Object.values(selectedPlayer.inventory).reduce((a, b) => a + b, 0)})`}
+                    </button>
+                    {selectedPlayer.hasAirSupportMarker && (
+                      <button
+                        className="btn btn-success"
+                        disabled={selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}
+                        onClick={() => setAirSupportTargeting(true)}
+                      >
+                        ✈️ Air Support
+                      </button>
+                    )}
                     <button className="btn btn-secondary" onClick={handleEndTurn} disabled={endingTurn}>
                       {endingTurn ? 'Ending...' : '✋ End Turn'}
                     </button>
                   </>
                 )}
               </div>
-              <p className="action-help">Click any cell on the map to inspect it</p>
+              <p className="action-help">Click the map to move or attack</p>
             </div>
           )}
 
 
           {/* Enemies */}
           <div className="sidebar-section">
-            <h3>Enemies ({gameState.enemies.filter(e => !e.sunk && (e.visible || isGM)).length})</h3>
+            <h3>
+              Enemies ({gameState.enemies.filter(e => !e.sunk && (e.visible || isGM)).length})
+              {airSupportTargeting && <span style={{ color: '#4caf50', fontSize: '0.8em', marginLeft: 8 }}>— Select a target</span>}
+            </h3>
             <div className="enemy-list">
               {gameState.enemies.filter(e => !e.sunk && (e.visible || isGM)).length === 0 ? (
                 <p className="no-enemies">No enemies in sight</p>
@@ -1159,7 +1473,16 @@ function GameView({ channelId, user, onBack, onLogout }) {
                           {enemy.health ?? 0}/{enemy.maxHealth ?? 0}
                         </span>
                       </div>
-                      {isGM && (
+                      {airSupportTargeting && (
+                        <button
+                          className="gm-control-btn take"
+                          style={{ background: '#4caf50' }}
+                          onClick={() => handleUseAirSupport(enemy.id, enemy.name)}
+                        >
+                          ✈️ Call Strike
+                        </button>
+                      )}
+                      {!airSupportTargeting && isGM && (
                         isControlled
                           ? <button className="gm-control-btn release" onClick={handleReleaseControl}>Release Control</button>
                           : <button className="gm-control-btn take" onClick={() => handleTakeControl(enemy)}>Take Control</button>
@@ -1169,6 +1492,15 @@ function GameView({ channelId, user, onBack, onLogout }) {
                 })
               )}
             </div>
+            {airSupportTargeting && (
+              <button
+                className="btn btn-secondary"
+                style={{ marginTop: 6, width: '100%' }}
+                onClick={() => setAirSupportTargeting(false)}
+              >
+                Cancel Air Support
+              </button>
+            )}
           </div>
 
           {/* GM Controls */}
@@ -1378,6 +1710,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
             <div className="spawn-banner">⚓ Select your spawn location — click a highlighted green cell</div>
           )}
           <div className="map-and-log">
+            <ErrorBoundary>
             <GameMap
               gameState={gameState}
               onCellClick={handleMapClick}
@@ -1385,9 +1718,12 @@ function GameView({ channelId, user, onBack, onLogout }) {
               spawnZoneCoords={needsSpawn ? (gameState.spawnZoneCoords || []) : []}
               myUserId={user.id}
               isGM={isGM}
-              moveHighlights={needsSpawn ? [] : moveHighlights}
-              attackHighlights={needsSpawn ? [] : attackHighlights}
+              moveHighlights={needsSpawn ? [] : (selectedAircraft ? aircraftMoveHighlights : moveHighlights)}
+              attackHighlights={needsSpawn || selectedAircraft ? [] : attackHighlights}
+              reconPlayers={(gameState.players || []).filter(p => p.reconActive && p.x != null && p.y != null)}
+              aircraft={gameState.aircraft || []}
             />
+            </ErrorBoundary>
             <div className="battle-log-panel">
               <div className="battle-log-header">
                 📋 Battle Log
