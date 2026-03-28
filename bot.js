@@ -17905,7 +17905,7 @@ class NavalWarfareBot {
         }
 
         if (player.combatStimulantsBonus > 0) {
-            player.maxActions -= player.combatStimulantsBonus;
+            player.maxActions = Math.max(1, player.maxActions - player.combatStimulantsBonus);
             player.combatStimulantsBonus = 0;
         }
 
@@ -21905,7 +21905,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         player.regenTurns  = 3;
                         break;
                     case 'fuel_barrels':
-                        for (const ac of game.aircraft.values()) {
+                        for (const ac of (game.aircraft?.values() || [])) {
                             if ((ac.owner === userId || ac.carrierID === userId) && ac.alive) {
                                 ac.fuel = (ac.fuel || 0) + 5;
                             }
