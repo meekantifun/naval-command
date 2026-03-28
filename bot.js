@@ -9831,6 +9831,25 @@ class NavalWarfareBot {
         
         
         try {
+            // Permanent shop upgrades bypass equipment selection entirely
+            const playerDataForLaunch = this.getGuildPlayerData(interaction.guildId, interaction.user.id);
+            const autoEquipment = {};
+            let autoLaunch = false;
+
+            if (aircraftType === 'fighter' && (playerDataForLaunch?.inventory?.get('fighter_rockets') ?? 0) > 0) {
+                autoEquipment.hasRockets = true;
+                autoLaunch = true;
+            } else if (aircraftType === 'dive_bomber' && (playerDataForLaunch?.inventory?.get('ap_bombs') ?? 0) > 0) {
+                autoEquipment.bombType = 'ap';
+                autoLaunch = true;
+            }
+
+            if (autoLaunch) {
+                const fullSquadronId = `squadron_${squadronId}`;
+                await this.launchAircraftSquadron(interaction, gamePlayer, game, aircraftType, squadronSize, hangarCost, autoEquipment, availableAircraftData, fullSquadronId);
+                return;
+            }
+
             // Check if this aircraft type needs equipment selection
             const options = this.carrierSystem.getLaunchOptions ? this.carrierSystem.getLaunchOptions(shipClass, aircraftType) : {};
             
