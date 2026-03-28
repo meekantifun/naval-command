@@ -98,10 +98,57 @@ const AA_CALIBERS = {
 };
 const AA_MOUNT_MULTIPLIERS = {single:1.0,twin:1.8,triple:2.5,quad:3.2,sextuple:4.5,octuple:5.5};
 
+const EQUIPMENT_META = {
+  // All classes
+  advanced_radar:             { name: 'Advanced Radar System',              emoji: '📡', description: '+10% accuracy, +2 detection range' },
+  reinforced_armor:           { name: 'Reinforced Armor Plating',           emoji: '🛡️', description: '+20 armor points' },
+  improved_engines:           { name: 'Improved Engine System',             emoji: '⚡', description: '+1 speed, +5% evasion' },
+  fire_control_system:        { name: 'Advanced Fire Control',              emoji: '🎯', description: '-reload time, +15% accuracy' },
+  navigation_computer:        { name: 'Navigation Computer',                emoji: '🧭', description: '+1 movement range per turn' },
+  rangefinder:                { name: 'Optical Rangefinder',                emoji: '🔭', description: '+8% accuracy, +1 attack range' },
+  damage_control_team:        { name: 'Damage Control Team',                emoji: '🧯', description: '-30% fire/flood damage, halved status duration' },
+  sonar_array:                { name: 'Surface Search Sonar',               emoji: '📻', description: 'Detects submarines within 4 cells' },
+  medical_bay:                { name: 'Onboard Medical Bay',                emoji: '⚕️', description: '+8 HP regen at start of each turn' },
+  camouflage_paint:           { name: 'Dazzle Camouflage Scheme',           emoji: '🎨', description: '+8% evasion vs long-range attacks' },
+  crew_training:              { name: 'Elite Crew Training',                emoji: '👥', description: '+5% accuracy, +5% evasion, +3 armor' },
+  // Destroyer
+  high_speed_turbines:        { name: 'High-Speed Steam Turbines',          emoji: '💨', description: '+2 speed (Destroyer)' },
+  torpedo_director:           { name: 'Torpedo Fire Director',              emoji: '🎯', description: '+20% torpedo accuracy, +15% flooding (Destroyer)' },
+  depth_charge_racks:         { name: 'Depth Charge Racks',                 emoji: '💣', description: '60 dmg to submerged subs in adjacent cells (Destroyer)' },
+  enhanced_smoke_gen:         { name: 'Enhanced Smoke Generator',           emoji: '🌫️', description: '+65% evasion for 4 turns (Destroyer)' },
+  // Light Cruiser
+  aa_director:                { name: 'AA Fire Director Mk. III',           emoji: '🛡️', description: '+30% AA damage, +2 AA range (Light Cruiser)' },
+  high_pressure_boiler:       { name: 'High-Pressure Boiler System',        emoji: '⚙️', description: '+1 speed, +1 movement (Light Cruiser)' },
+  // Light Cruiser + Heavy Cruiser
+  scout_floatplane:           { name: 'OS2U Kingfisher Floatplane',         emoji: '🛩️', description: '+5 detection range, +12% long-range accuracy (Light/Heavy Cruiser)' },
+  // Heavy Cruiser
+  heavy_armor_belt:           { name: 'Heavy Side Armor Belt',              emoji: '🪨', description: '+40 armor (Heavy Cruiser)' },
+  dual_purpose_mount:         { name: 'Dual-Purpose Gun Mount',             emoji: '🔫', description: '+20 AA damage, +10 secondary damage (Heavy Cruiser)' },
+  type94_fire_director:       { name: 'Type 94 Fire Director',              emoji: '💻', description: '+20% accuracy, -shell spread at range (Heavy Cruiser)' },
+  // Battleship
+  turtleback_armor:           { name: 'Turtleback Armor Scheme',            emoji: '🛡️', description: '+60 armor, -below-waterline penetration (Battleship)' },
+  secondary_battery_director: { name: 'Secondary Battery Director',         emoji: '🎯', description: '+35% secondary gun damage, +2 secondary range (Battleship)' },
+  ford_rangekeeping:          { name: 'Ford Rangekeeping Computer',         emoji: '📐', description: '+25% accuracy beyond 5 cells (Battleship)' },
+  conning_tower_armor:        { name: 'Conning Tower Reinforcement',        emoji: '🏰', description: '-40% chance of crew casualty crits (Battleship)' },
+  // Aircraft Carrier
+  armored_flight_deck:        { name: 'Armored Flight Deck',                emoji: '🛬', description: '-35% bomb/strafing damage to carrier (Carrier)' },
+  expanded_hangar:            { name: 'Expanded Hangar Deck',               emoji: '🏗️', description: '+2 aircraft squadron capacity (Carrier)' },
+  advanced_cic:               { name: 'Advanced Combat Information Center', emoji: '🖥️', description: '+15% aircraft damage, -1 rearm turn (Carrier)' },
+  catapult_upgrade:           { name: 'H-4 Catapult Upgrade',               emoji: '🚀', description: '-1 launch delay turn (Carrier)' },
+  // Submarine
+  improved_periscope:         { name: 'High-Power Attack Periscope',        emoji: '🔭', description: 'Target from 6 cells while submerged (Submarine)' },
+  silent_running:             { name: 'Silent Running System',              emoji: '🤫', description: '-40% sonar detection chance (Submarine)' },
+  oxygen_recycler:            { name: 'Oxygen Recycling System',            emoji: '💨', description: '+4 turns before forced surface (Submarine)' },
+  magnetic_detonator:         { name: 'Magnetic Torpedo Detonator',         emoji: '🧲', description: '+25% torpedo damage (Submarine)' },
+  escape_hatch:               { name: 'Emergency Escape System',            emoji: '🆘', description: 'Survive one fatal hit at 1 HP (Submarine)' },
+};
+
 function resolveAAStats(aa) {
-  if (aa.range != null && aa.damage != null) return aa;
+  // Normalize accuracy: Discord stores as percentage (e.g. 47.4), web stores as decimal (e.g. 0.79)
+  const normalizeAccuracy = (v) => (v != null && v > 1 ? v / 100 : v);
+  if (aa.range != null && aa.damage != null) return { ...aa, accuracy: normalizeAccuracy(aa.accuracy) };
   const data = AA_CALIBERS[aa.caliber];
-  if (!data) return aa;
+  if (!data) return { ...aa, accuracy: normalizeAccuracy(aa.accuracy) };
   const mult = AA_MOUNT_MULTIPLIERS[aa.mountType] || 1.0;
   return {
     ...aa,
@@ -167,6 +214,8 @@ function CharacterManager({ guildId, user }) {
   const [showWizard, setShowWizard] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState(null);
   const [expandedCards, setExpandedCards] = useState(new Set());
+  const [battleStatuses, setBattleStatuses] = useState({});
+  const [pendingUpgrades, setPendingUpgrades] = useState(new Set());
 
   const toggleCard = (idx) => {
     setExpandedCards(prev => {
@@ -187,12 +236,48 @@ function CharacterManager({ guildId, user }) {
         params: { guildId },
         withCredentials: true
       });
-      setCharacters(response.data.characters || []);
+      const chars = response.data.characters || [];
+      setCharacters(chars);
+
+      // Fetch battle status for each unique userId
+      const uniqueUserIds = [...new Set(chars.map(c => c.userId).filter(Boolean))];
+      const statusEntries = await Promise.all(
+        uniqueUserIds.map(uid =>
+          axios.get('/api/player/battle-status', { params: { guildId, userId: uid }, withCredentials: true })
+            .then(r => [uid, r.data])
+            .catch(() => [uid, { inBattle: false }])
+        )
+      );
+      setBattleStatuses(Object.fromEntries(statusEntries));
     } catch (error) {
       console.error('Error loading characters:', error);
       alert('Failed to load characters');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleUpgrade = async (char, itemId, newActive) => {
+    const key = `${char.userId}:${char.name}:${itemId}`;
+    if (pendingUpgrades.has(key)) return;
+    setPendingUpgrades(prev => new Set(prev).add(key));
+    try {
+      const res = await axios.patch('/api/player/active-upgrades', {
+        guildId,
+        userId: char.userId,
+        characterName: char.name,
+        itemId,
+        active: newActive,
+      }, { withCredentials: true });
+      setCharacters(prev => prev.map(c =>
+        c.userId === char.userId && c.name === char.name
+          ? { ...c, activeUpgrades: res.data.activeUpgrades }
+          : c
+      ));
+    } catch (err) {
+      alert(err.response?.data?.error ?? 'Failed to update upgrade');
+    } finally {
+      setPendingUpgrades(prev => { const n = new Set(prev); n.delete(key); return n; });
     }
   };
 
@@ -460,6 +545,20 @@ function CharacterManager({ guildId, user }) {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reconnaissance Aircraft */}
+                {char.reconAircraft && (
+                  <div className="char-section">
+                    <h5>🛩️ Reconnaissance Aircraft</h5>
+                    <div className="aa-list">
+                      <div className="aa-item">
+                        <strong>{char.reconAircraft.name}</strong>
+                        <span>Type: {char.reconAircraft.type}</span>
+                        <span>Effect: +5 range when launched</span>
+                      </div>
                     </div>
                   </div>
                 )}
