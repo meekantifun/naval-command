@@ -135,6 +135,7 @@ class CarrierSystem {
             
             // Special equipment/options
             depthCharges: options.depthCharges || false, // Fighters only
+            hasRockets: options.hasRockets || false,     // Fighters only — allows ship attacks
             bombType: options.bombType || null, // Dive bombers: 'ap' or 'he'
             
             // Combat properties
@@ -148,6 +149,10 @@ class CarrierSystem {
             aircraft.targets.push('submarine');
             // Debuff when attacking aircraft
             aircraft.stats.accuracy -= 15; // -15% accuracy vs aircraft when carrying depth charges
+        }
+
+        if (aircraft.hasRockets && aircraft.type === 'fighter') {
+            aircraft.targets.push('ship');
         }
 
         return aircraft;
