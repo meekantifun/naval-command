@@ -53,8 +53,8 @@ A `<div>` that floats over the sidebar (absolute/fixed positioned). Closed by cl
 - All action-cost items: disabled when `actionsThisTurn >= maxActions`
 - `fire_suppression`: disabled when `!player.onFire`
 - `emergency_patch`: disabled when `!player.flooding`
-- `decoy_buoy`: disabled when `player.shipClass !== 'Submarine'`
-- `fuel_barrels`: disabled when `!player.shipClass.includes('Carrier')`
+- `decoy_buoy`: disabled when `!player.shipClass?.toLowerCase().includes('submarine')`
+- `fuel_barrels`: disabled when `!player.shipClass?.toLowerCase().includes('carrier')`
 - `air_support_marker`: always enabled if qty > 0 (opens targeting mode, not use-item)
 
 ### Static Item Metadata (frontend lookup table)
@@ -118,6 +118,12 @@ app.post('/api/game/:channelId/use-item', ensureAuthenticated, async (req, res) 
 
 **Request body:** `{ userId, itemId }`
 
+`guildId` is not in the request body — retrieve it from the active game:
+```js
+const game = this.activeGames.get(channelId);
+const guildId = game.guildId;
+```
+
 **Validation (in order):**
 1. Game exists
 2. Player exists in game and is not sunk
@@ -129,17 +135,17 @@ app.post('/api/game/:channelId/use-item', ensureAuthenticated, async (req, res) 
 
 | itemId | Effect |
 |---|---|
-| `repair_kit` | `player.health = min(maxHealth, health + 50)`, clear `onFire`, `flooding`, `bleeding` |
+| `repair_kit` | `player.currentHealth = Math.min(player.maxHealth, player.currentHealth + 50)`, clear `onFire`, `flooding`, `bleeding` status flags. Note: this is the only consumable that clears status; damage control is a cooldown-gated action that also clears status — both paths are valid. |
 | `fire_suppression` | `player.onFire = false`, `player.fireTimer = 0` |
 | `emergency_patch` | `player.flooding = false`, `player.floodTimer = 0` |
-| `smoke_screen` | Set `player.smokeScreenTurns = 3`, `player.evasionBonus = (player.evasionBonus || 0) + 50` |
-| `lucky_charm` | `player.luckyCharm = true` (checked in crit calculations) |
-| `emergency_speed_boost` | `player.speedBoostTurns = 2`, `player.speedKnots += 3`, `player.health -= 10` |
-| `radar_jamming` | Set `player.radarJammingTurns = 3` (applied as -20% accuracy to all enemies targeting this player) |
+| `smoke_screen` | `player.smokeScreenTurns = 3`, `player.evasionBonus = (player.evasionBonus \|\| 0) + 50` |
+| `lucky_charm` | If `player.luckyCharm` is already `true`, reject with "Lucky Charm already active". Otherwise set `player.luckyCharm = true`. During crit roll, add 25 percentage-points to the base crit chance before the roll: `critChance = baseCritChance + 0.25`. Flag persists for the whole battle (not per-turn). |
+| `emergency_speed_boost` | `player.speedBoostTurns = 2`, `player.stats.speed += 3`, `player.currentHealth -= 10` |
+| `radar_jamming` | `player.radarJammingTurns = 3` (applied as -20% accuracy to all enemies targeting this player) |
 | `decoy_buoy` | `player.decoyBuoyTurns = 2` (torpedo redirect flag checked during incoming torpedo resolution) |
-| `combat_stimulants` | `player.actionPoints++`, `player.maxActions++` (only for current turn tracking) |
+| `combat_stimulants` | `player.maxActions++`, `player.combatStimulantsBonus = (player.combatStimulantsBonus \|\| 0) + 1` (grants one extra action slot this turn only; the bonus is tracked so it can be reversed at turn end) |
 | `repair_ship_contract` | `player.regenAmount = 40`, `player.regenTurns = 3` |
-| `fuel_barrels` | Add +5 fuel to each of this player's deployed aircraft in `game.aircraft` |
+| `fuel_barrels` | Carrier-only item. Reject if `!player.shipClass?.toLowerCase().includes('carrier')` ("Carriers only"). Reject if no aircraft for this player exist in `game.aircraft` ("No deployed aircraft"). Otherwise add +5 fuel to each of this player's deployed aircraft. |
 
 **After effect:**
 - Decrement inventory qty; delete key if qty reaches 0
@@ -152,7 +158,52 @@ app.post('/api/game/:channelId/use-item', ensureAuthenticated, async (req, res) 
 
 ### Turn tick — buff expiry
 
-Timed buffs (`smokeScreenTurns`, `speedBoostTurns`, `radarJammingTurns`, `decoyBuoyTurns`, `regenTurns`) are decremented each turn in the existing turn-processing logic. When a turn counter reaches 0 the associated effect is reversed/cleared.
+Add the following blocks to `processTurnEffects` (the function that already handles `fireTimer`, `floodTimer`, `damageControlCooldown`) for each player:
+
+```js
+// smoke_screen
+if (player.smokeScreenTurns > 0) {
+  player.smokeScreenTurns--;
+  if (player.smokeScreenTurns === 0) {
+    player.evasionBonus = Math.max(0, (player.evasionBonus || 0) - 50);
+  }
+}
+
+// emergency_speed_boost
+if (player.speedBoostTurns > 0) {
+  player.speedBoostTurns--;
+  if (player.speedBoostTurns === 0) {
+    player.stats.speed = Math.max(0, (player.stats.speed || 0) - 3);
+  }
+}
+
+// radar_jamming
+if (player.radarJammingTurns > 0) {
+  player.radarJammingTurns--;
+  // Effect is a read-time check; no cleanup needed when counter hits 0
+}
+
+// decoy_buoy
+if (player.decoyBuoyTurns > 0) {
+  player.decoyBuoyTurns--;
+  // Effect is a read-time check; no cleanup needed when counter hits 0
+}
+
+// repair_ship_contract (regen)
+if (player.regenTurns > 0) {
+  player.currentHealth = Math.min(player.maxHealth, player.currentHealth + player.regenAmount);
+  player.regenTurns--;
+  if (player.regenTurns === 0) {
+    player.regenAmount = 0;
+  }
+}
+
+// combat_stimulants — reverse bonus at turn end
+if (player.combatStimulantsBonus > 0) {
+  player.maxActions -= player.combatStimulantsBonus;
+  player.combatStimulantsBonus = 0;
+}
+```
 
 ---
 
