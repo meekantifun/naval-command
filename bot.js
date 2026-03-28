@@ -10033,10 +10033,36 @@ class NavalWarfareBot {
 
         const mappedType = aircraftTypeMapping[aircraftType] || aircraftType;
 
+        // Pick a spawn cell adjacent to the carrier that isn't already taken by another live squadron
+        const spawnPosition = (() => {
+            const origin = game.coordToNumbers(player.position);
+            const takenByAircraft = new Set(
+                [...(game.aircraft?.values() || [])].filter(ac => ac.alive).map(ac => ac.position)
+            );
+            const candidates = [];
+            const mapSize = 75;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = origin.x + dx;
+                    const ny = origin.y + dy;
+                    if (nx < 0 || nx >= mapSize || ny < 1 || ny > mapSize) continue;
+                    const col = nx < 26
+                        ? String.fromCharCode(65 + nx)
+                        : String.fromCharCode(65 + Math.floor((nx - 26) / 26)) + String.fromCharCode(65 + (nx - 26) % 26);
+                    const coord = `${col}${ny}`;
+                    const cell = game.map?.get(coord);
+                    if ((!cell || cell.type === 'ocean') && !takenByAircraft.has(coord)) candidates.push(coord);
+                }
+            }
+            if (candidates.length === 0) return player.position;
+            return candidates[Math.floor(Math.random() * candidates.length)];
+        })();
+
         const aircraft = this.carrierSystem.createAircraftSquadron(
             mappedType,
             squadronSize,
-            player.position,
+            spawnPosition,
             'player',
             player.id,
             equipment,
@@ -20965,23 +20991,27 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 if (!game.aircraft) game.aircraft = new Map();
 
-                // Pick a random ocean cell within 1-square radius of the carrier
+                // Pick a random ocean cell within 1-square radius of the carrier,
+                // excluding squares already occupied by another live squadron
                 const spawnPosition = (() => {
                     const origin = game.coordToNumbers(player.position);
+                    const takenByAircraft = new Set(
+                        [...(game.aircraft?.values() || [])].filter(ac => ac.alive).map(ac => ac.position)
+                    );
                     const candidates = [];
                     const mapSize = 75;
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             if (dx === 0 && dy === 0) continue;
                             const nx = origin.x + dx;
-                            const ny = origin.y + dy; // y is 1-indexed
+                            const ny = origin.y + dy;
                             if (nx < 0 || nx >= mapSize || ny < 1 || ny > mapSize) continue;
                             const col = nx < 26
                                 ? String.fromCharCode(65 + nx)
                                 : String.fromCharCode(65 + Math.floor((nx - 26) / 26)) + String.fromCharCode(65 + (nx - 26) % 26);
                             const coord = `${col}${ny}`;
                             const cell = game.map?.get(coord);
-                            if (!cell || cell.type === 'ocean') candidates.push(coord);
+                            if ((!cell || cell.type === 'ocean') && !takenByAircraft.has(coord)) candidates.push(coord);
                         }
                     }
                     if (candidates.length === 0) return player.position;
