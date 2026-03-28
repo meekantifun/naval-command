@@ -9839,7 +9839,8 @@ class NavalWarfareBot {
             if (aircraftType === 'fighter' && (playerDataForLaunch?.inventory?.get('fighter_rockets') ?? 0) > 0) {
                 autoEquipment.hasRockets = true;
                 autoLaunch = true;
-            } else if (aircraftType === 'dive_bomber' && (playerDataForLaunch?.inventory?.get('ap_bombs') ?? 0) > 0) {
+            }
+            if (aircraftType === 'dive_bomber' && (playerDataForLaunch?.inventory?.get('ap_bombs') ?? 0) > 0) {
                 autoEquipment.bombType = 'ap';
                 autoLaunch = true;
             }
@@ -21055,7 +21056,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 // Validate aircraft can attack this target type
                 if (aircraft.type === 'fighter' && !targetIsAircraft && !aircraft.depthCharges && !aircraft.hasRockets) {
-                    return res.status(400).json({ error: 'Fighters can only attack aircraft (or submarines with depth charges)' });
+                    return res.status(400).json({ error: 'Fighters can only attack aircraft, submarines (with depth charges), or ships (with rockets)' });
                 }
                 if (aircraft.type === 'torpedo_bomber' && targetIsAircraft) {
                     return res.status(400).json({ error: 'Torpedo bombers cannot attack aircraft' });
