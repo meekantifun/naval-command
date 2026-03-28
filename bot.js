@@ -21988,6 +21988,63 @@ Use \`/stats\` during a battle to view your current ship statistics!
             res.json({ inBattle });
         });
 
+        // PATCH /api/player/active-upgrades — toggle a permanent upgrade on/off
+        app.patch('/api/player/active-upgrades', authenticateAPIKey, async (req, res) => {
+            try {
+                const { guildId, userId, characterName, itemId, active } = req.body;
+                if (!guildId || !userId || !characterName || !itemId || active === undefined) {
+                    return res.status(400).json({ error: 'guildId, userId, characterName, itemId, and active are required' });
+                }
+
+                // Excluded aircraft-loadout items — not toggleable
+                const EXCLUDED = new Set(['fighter_rockets', 'ap_bombs', 'all_weather_aircraft']);
+                const shopItem = this.shopSystem.shopItems.get(itemId);
+                if (!shopItem || shopItem.type !== 'equipment' || EXCLUDED.has(itemId)) {
+                    return res.status(400).json({ error: 'Item is not a toggleable upgrade' });
+                }
+
+                // Check player is not in battle
+                for (const game of this.games.values()) {
+                    if (game.guildId === guildId && game.players.has(userId)) {
+                        return res.status(400).json({ error: 'Cannot change upgrades during battle' });
+                    }
+                }
+
+                const playerData = this.characterManager.loadPlayerData(guildId);
+                const userData = playerData[userId];
+                if (!userData || !userData.characters || !userData.characters[characterName]) {
+                    return res.status(404).json({ error: 'Character not found' });
+                }
+
+                const character = userData.characters[characterName];
+
+                // Validate item is in inventory with qty >= 1
+                const inv = character.inventory || {};
+                const qty = inv[itemId] ?? 0;
+                if (qty < 1) {
+                    return res.status(400).json({ error: 'Item not in inventory' });
+                }
+
+                // Initialize activeUpgrades if absent, then update
+                if (!Array.isArray(character.activeUpgrades)) {
+                    character.activeUpgrades = [];
+                }
+                if (active) {
+                    if (!character.activeUpgrades.includes(itemId)) {
+                        character.activeUpgrades.push(itemId);
+                    }
+                } else {
+                    character.activeUpgrades = character.activeUpgrades.filter(id => id !== itemId);
+                }
+
+                this.characterManager.savePlayerData(guildId, playerData);
+                res.json({ activeUpgrades: character.activeUpgrades });
+            } catch (error) {
+                console.error('Error in active-upgrades endpoint:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // ==================== ADMIN PANEL ENDPOINTS ====================
 
         // Get bot's guilds (for filtering mutual servers)
