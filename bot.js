@@ -712,9 +712,13 @@ class NavalWarfareBot {
                                         charactersMap.set(charName, charData);
                                     }
 
+                                    const loadedInventory = playerEntry.inventory && typeof playerEntry.inventory === 'object' && !(playerEntry.inventory instanceof Map)
+                                        ? new Map(Object.entries(playerEntry.inventory))
+                                        : (playerEntry.inventory instanceof Map ? playerEntry.inventory : new Map());
                                     guildMap.set(playerId, {
                                         ...playerEntry,
-                                        characters: charactersMap
+                                        characters: charactersMap,
+                                        inventory: loadedInventory
                                     });
                                 } else {
                                     guildMap.set(playerId, playerEntry);
@@ -779,7 +783,10 @@ class NavalWarfareBot {
                         guildData[playerId] = {
                             characters: charactersObj,
                             activeCharacter: playerEntry.activeCharacter,
-                            maxCharacters: playerEntry.maxCharacters
+                            maxCharacters: playerEntry.maxCharacters,
+                            inventory: playerEntry.inventory instanceof Map
+                                ? Object.fromEntries(playerEntry.inventory)
+                                : (playerEntry.inventory || {})
                         };
 
                     } else {
@@ -906,6 +913,26 @@ class NavalWarfareBot {
             return false;
         }
         return guildMap.has(userId);
+    }
+
+    // Returns the active character's inventory as a Map, ensuring it's converted if stored as plain object.
+    getPlayerInventory(guildId, userId) {
+        const pd = this.getGuildPlayerData(guildId, userId);
+        if (!pd) return null;
+        const charData = pd.characters instanceof Map
+            ? pd.characters.get(pd.activeCharacter)
+            : pd.characters?.[pd.activeCharacter];
+        if (!charData) return null;
+        if (!charData.inventory) {
+            charData.inventory = new Map();
+        } else if (!(charData.inventory instanceof Map)) {
+            charData.inventory = new Map(Object.entries(charData.inventory));
+        }
+        return charData.inventory;
+    }
+
+    getInventoryCount(guildId, userId, itemId) {
+        return this.getPlayerInventory(guildId, userId)?.get(itemId) ?? 0;
     }
 
     deleteGuildPlayerData(guildId, userId) {
@@ -5759,7 +5786,7 @@ class NavalWarfareBot {
                                `${game.roleplayMode ? '🎭 **After your actions, send a message describing what you did for roleplay!**' : ''}`)
                 .setColor(0xFFFF00);
 
-            const actionRows = this.createActionButtons(player);
+            const actionRows = this.createActionButtons(player, game);
 
             // Send turn message and get the message object
             const turnMessage = await channel.send({
@@ -6007,7 +6034,7 @@ class NavalWarfareBot {
         }
     }
 
-    createActionButtons(player) {
+    createActionButtons(player, game) {
         const buttons = [
             new ButtonBuilder().setCustomId(`get_map_${player.id}`).setLabel('🗺️ Get Map').setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId('move').setLabel('Move').setStyle(ButtonStyle.Primary),
@@ -6049,7 +6076,9 @@ class NavalWarfareBot {
         }
 
         // Add Use Item button if player has an Air Support Marker
-        const hasAirSupport = player.inventory && (player.inventory['air_support_marker'] || 0) > 0;
+        const hasAirSupport = game
+            ? this.getInventoryCount(game.guildId, player.userId || player.id, 'air_support_marker') > 0
+            : false;
         if (hasAirSupport) {
             buttons.splice(-1, 0, new ButtonBuilder()
                 .setCustomId('use_item')
@@ -6478,9 +6507,9 @@ class NavalWarfareBot {
                            `⚡ Each action costs 1 AP`)
             .setColor(0xFF0000);
 
-        const actionRows = this.createActionButtons(opforPlayer);
-        
-        const turnMessage = await channel.send({ 
+        const actionRows = this.createActionButtons(opforPlayer, game);
+
+        const turnMessage = await channel.send({
             content: `<@${opforPlayer.id}>`,
             embeds: [turnEmbed],
             components: actionRows 
@@ -9832,15 +9861,14 @@ class NavalWarfareBot {
         
         try {
             // Permanent shop upgrades bypass equipment selection entirely
-            const playerDataForLaunch = this.getGuildPlayerData(interaction.guildId, interaction.user.id);
             const autoEquipment = {};
             let autoLaunch = false;
 
-            if (aircraftType === 'fighter' && (playerDataForLaunch?.inventory?.get('fighter_rockets') ?? 0) > 0) {
+            if (aircraftType === 'fighter' && this.getInventoryCount(interaction.guildId, interaction.user.id, 'fighter_rockets') > 0) {
                 autoEquipment.hasRockets = true;
                 autoLaunch = true;
             }
-            if (aircraftType === 'dive_bomber' && (playerDataForLaunch?.inventory?.get('ap_bombs') ?? 0) > 0) {
+            if (aircraftType === 'dive_bomber' && this.getInventoryCount(interaction.guildId, interaction.user.id, 'ap_bombs') > 0) {
                 autoEquipment.bombType = 'ap';
                 autoLaunch = true;
             }
@@ -17920,10 +17948,10 @@ class NavalWarfareBot {
     }
 
     async showItemSelection(interaction, player, game) {
-        const inventory = player.inventory || {};
+        const inventory = this.getPlayerInventory(game.guildId, player.userId || player.id) || new Map();
         const buttons = [];
 
-        for (const [itemId, qty] of Object.entries(inventory)) {
+        for (const [itemId, qty] of inventory) {
             if (qty <= 0) continue;
             const item = this.shopSystem.shopItems.get(itemId);
             if (!item || item.type !== 'consumable' || item.effect !== 'air_support') continue;
@@ -18048,10 +18076,12 @@ class NavalWarfareBot {
             }
 
             // Consume item
-            if (!player.inventory || !player.inventory['air_support_marker'] || player.inventory['air_support_marker'] <= 0) {
+            const airSuppCount = this.getInventoryCount(game.guildId, interaction.user.id, 'air_support_marker');
+            if (airSuppCount <= 0) {
                 return interaction.update({ content: '❌ You no longer have an Air Support Marker!', embeds: [], components: [] });
             }
-            player.inventory['air_support_marker']--;
+            this.getPlayerInventory(game.guildId, interaction.user.id).set('air_support_marker', airSuppCount - 1);
+            this.savePlayerData();
 
             // Schedule strike
             const arrivalTurn = game.turnNumber + Math.floor(Math.random() * 5) + 1;
@@ -20207,18 +20237,14 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     reconTurnsRemaining: p.reconTurnsRemaining ?? 0,
                     reconCooldown: p.reconCooldown ?? 0,
                     hangar: p.hangar ?? 0,
-                    hasAllWeatherAircraft: (() => {
-                        const pd = this.getGuildPlayerData(game.guildId, p.userId || p.id);
-                        return (pd?.inventory?.get('all_weather_aircraft') ?? 0) > 0;
-                    })(),
-                    hasFighterRockets: (() => {
-                        const pd = this.getGuildPlayerData(game.guildId, p.userId || p.id);
-                        return (pd?.inventory?.get('fighter_rockets') ?? 0) > 0;
-                    })(),
-                    hasApBombs: (() => {
-                        const pd = this.getGuildPlayerData(game.guildId, p.userId || p.id);
-                        return (pd?.inventory?.get('ap_bombs') ?? 0) > 0;
-                    })()
+                    hasAllWeatherAircraft: this.getInventoryCount(game.guildId, p.userId || p.id, 'all_weather_aircraft') > 0,
+                    hasFighterRockets: this.getInventoryCount(game.guildId, p.userId || p.id, 'fighter_rockets') > 0,
+                    hasApBombs: this.getInventoryCount(game.guildId, p.userId || p.id, 'ap_bombs') > 0,
+                    hasAirSupportMarker: this.getInventoryCount(game.guildId, p.userId || p.id, 'air_support_marker') > 0,
+                    luckyCharm: p.luckyCharm ?? false,
+                    inventory: Object.fromEntries(
+                      this.getPlayerInventory(game.guildId, p.userId || p.id) ?? []
+                    )
                 }));
 
                 const enemiesArray = Array.from(game.enemies.values()).map(e => {
@@ -20328,6 +20354,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                                 fuel: a.fuel ?? 0,
                                 ammo: a.ammo ?? 0,
                                 actionPoints: a.actionPoints ?? 0,
+                                hasRockets: a.hasRockets ?? false,
+                                bombType: a.bombType ?? null,
                             };
                         })
                         .filter(a => a.x != null)
@@ -20888,8 +20916,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
 
                 if (game.weather === 'hurricane') {
-                    const pd = this.getGuildPlayerData(game.guildId, userId);
-                    if ((pd?.inventory?.get('all_weather_aircraft') ?? 0) <= 0) {
+                    if (this.getInventoryCount(game.guildId, userId, 'all_weather_aircraft') <= 0) {
                         return res.status(400).json({ error: 'Cannot launch aircraft in hurricane conditions! Requires All-Weather Aircraft.' });
                     }
                 }
@@ -20927,12 +20954,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return candidates[Math.floor(Math.random() * candidates.length)];
                 })();
 
-                const pd = this.getGuildPlayerData(game.guildId, userId);
                 const equipment = {};
-                if (aircraftType === 'fighter' && (pd?.inventory?.get('fighter_rockets') ?? 0) > 0) {
+                if (aircraftType === 'fighter' && this.getInventoryCount(game.guildId, userId, 'fighter_rockets') > 0) {
                     equipment.hasRockets = true;
                 }
-                if (aircraftType === 'dive_bomber' && (pd?.inventory?.get('ap_bombs') ?? 0) > 0) {
+                if (aircraftType === 'dive_bomber' && this.getInventoryCount(game.guildId, userId, 'ap_bombs') > 0) {
                     equipment.bombType = 'ap';
                 }
 
@@ -21234,6 +21260,60 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (error) {
                 console.error('Error landing aircraft:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Use Air Support Marker
+        app.post('/api/game/:channelId/use-air-support', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, targetId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+
+                const count = this.getInventoryCount(game.guildId, userId, 'air_support_marker');
+                if (count <= 0) return res.status(400).json({ error: 'No Air Support Markers in inventory' });
+
+                const target = game.enemies.get(targetId);
+                if (!target || !target.alive) return res.status(400).json({ error: 'Target not found or already sunk' });
+
+                this.getPlayerInventory(game.guildId, userId).set('air_support_marker', count - 1);
+                this.savePlayerData();
+
+                const arrivalTurn = game.turnNumber + Math.floor(Math.random() * 5) + 1;
+                if (!game.pendingAirSupport) game.pendingAirSupport = [];
+                game.pendingAirSupport.push({
+                    requesterId: player.id,
+                    requesterName: player.characterAlias || player.shipName || player.username,
+                    targetId: target.id,
+                    targetName: target.customName || target.shipClass,
+                    arrivalTurn
+                });
+
+                player.actionsThisTurn++;
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+
+                await this.broadcastGameUpdate(channelId);
+                const turnsUntil = arrivalTurn - game.turnNumber;
+                res.json({ success: true, arrivalTurn, turnsUntil });
+
+                const pName = player.characterAlias || player.username || 'A player';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        ch.send({ content: `✈️ **${pName}** called in air support targeting **${target.customName || target.shipClass}**! Bombers arriving in ${turnsUntil} turn${turnsUntil !== 1 ? 's' : ''}.` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error using air support:', error);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
