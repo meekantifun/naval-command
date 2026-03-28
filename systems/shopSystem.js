@@ -798,6 +798,42 @@ class ShopSystem {
 	        emoji: '🌙'
 	    });
 
+	    this.addItem('all_weather_aircraft', {
+	        name: 'All-Weather Aircraft',
+	        category: 'aircraft',
+	        price: 3000,
+	        description: 'Specially hardened aircraft and crews that can launch and operate in hurricane conditions',
+	        type: 'equipment',
+	        rarity: 'rare',
+	        requirements: { shipClass: ['Aircraft Carrier', 'Light Aircraft Carrier'] },
+	        stackable: false,
+	        emoji: '🌪️'
+	    });
+
+	    this.addItem('fighter_rockets', {
+	        name: 'Fighter Rockets',
+	        category: 'aircraft',
+	        price: 2500,
+	        description: 'Attaches rocket launchers under fighter wings, allowing fighters to strike enemy ships',
+	        type: 'equipment',
+	        rarity: 'rare',
+	        requirements: { shipClass: ['Aircraft Carrier', 'Light Aircraft Carrier'] },
+	        stackable: false,
+	        emoji: '🚀'
+	    });
+
+	    this.addItem('ap_bombs', {
+	        name: 'AP Bombs',
+	        category: 'aircraft',
+	        price: 2000,
+	        description: 'Replaces HE bombs with armor-piercing bombs. +30% vs heavy ships, -60% vs light ships',
+	        type: 'equipment',
+	        rarity: 'rare',
+	        requirements: { shipClass: ['Aircraft Carrier', 'Light Aircraft Carrier'] },
+	        stackable: false,
+	        emoji: '💣'
+	    });
+
 	    this.addItem('recon_squadron', {
 	        name: 'PBY Catalina Reconnaissance Squadron',
 	        category: 'aircraft',
