@@ -592,6 +592,7 @@ function CharacterManager({ guildId, user }) {
                                 <label className="toggle-switch">
                                   <input
                                     type="checkbox"
+                                    aria-label={meta.name}
                                     checked={isActive}
                                     disabled={isDisabled}
                                     onChange={() => handleToggleUpgrade(char, itemId, !isActive)}

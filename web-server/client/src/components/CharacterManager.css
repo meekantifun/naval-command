@@ -720,6 +720,11 @@
   cursor: not-allowed;
 }
 
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
 .toggle-label {
   font-size: 11px;
   color: var(--text-secondary, #64748b);
