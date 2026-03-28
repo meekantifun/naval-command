@@ -23,6 +23,21 @@ class ErrorBoundary extends React.Component {
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
+const ITEM_META = {
+  repair_kit:            { name: 'Repair Kit',            emoji: '🔧', desc: 'Heals 50 HP, clears status effects',   action: true  },
+  fire_suppression:      { name: 'Fire Suppression',      emoji: '🔥', desc: 'Extinguishes fires instantly',         action: false },
+  emergency_patch:       { name: 'Emergency Patch',       emoji: '🩹', desc: 'Stops flooding instantly',             action: false },
+  smoke_screen:          { name: 'Smoke Screen',          emoji: '💨', desc: '+50% evasion for 3 turns',             action: true  },
+  lucky_charm:           { name: 'Lucky Charm',           emoji: '🍀', desc: '+25% crit chance for this battle',     action: true  },
+  emergency_speed_boost: { name: 'Emergency Speed Boost', emoji: '⚡', desc: '+3 speed for 2 turns (costs 10 HP)',   action: true  },
+  radar_jamming:         { name: 'Radar Jamming',         emoji: '📡', desc: '-20% enemy accuracy for 3 turns',      action: true  },
+  decoy_buoy:            { name: 'Decoy Buoy',            emoji: '🪝', desc: 'Redirects torpedoes for 2 turns',      action: true  },
+  combat_stimulants:     { name: 'Combat Stimulants',     emoji: '💉', desc: '+1 action point this turn',            action: true  },
+  repair_ship_contract:  { name: 'Repair Ship Contract',  emoji: '🛠️', desc: '+40 HP/turn for 3 turns',             action: true  },
+  fuel_barrels:          { name: 'Fuel Barrels',          emoji: '⛽', desc: '+5 fuel to all deployed aircraft',     action: true  },
+  air_support_marker:    { name: 'Air Support Marker',    emoji: '✈️', desc: 'Call in bombers on a target',          action: true  },
+};
+
 // ── Confetti canvas animation ─────────────────────────────────────────────────
 function Confetti() {
   const canvasRef = useRef(null);
@@ -574,6 +589,26 @@ function GameView({ channelId, user, onBack, onLogout }) {
       );
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to perform damage control');
+    }
+  };
+
+  const handleUseItem = async (itemId) => {
+    if (itemId === 'air_support_marker') {
+      setShowInventory(false);
+      setAirSupportTargeting(true);
+      return;
+    }
+    try {
+      const r = await fetch(`${API_URL}/api/game/${channelId}/use-item`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ itemId }),
+      });
+      const data = await r.json();
+      if (!data.success) alert(data.error || 'Failed to use item');
+    } catch (err) {
+      console.error('use-item error', err);
     }
   };
 
@@ -1432,6 +1467,76 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   </>
                 )}
               </div>
+
+              {/* Inventory Overlay */}
+              {showInventory && selectedPlayer && (
+                <div className="inventory-overlay">
+                  <div className="inventory-header">
+                    <span>🎒 Inventory</span>
+                    <button className="inventory-close" onClick={() => setShowInventory(false)}>✕</button>
+                  </div>
+
+                  <div className="inventory-section-label">Consumables</div>
+                  {(() => {
+                    const inv = selectedPlayer.inventory || {};
+                    const consumables = Object.entries(inv).filter(([id]) => ITEM_META[id]);
+                    if (consumables.length === 0) {
+                      return <div className="inventory-empty">No consumables</div>;
+                    }
+                    return consumables.map(([id, qty]) => {
+                      const meta = ITEM_META[id];
+                      const noActions    = meta.action && selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions;
+                      const classCheck   = id === 'decoy_buoy'       && !selectedPlayer.shipClass?.toLowerCase().includes('submarine');
+                      const carrierCheck = id === 'fuel_barrels'     && !selectedPlayer.shipClass?.toLowerCase().includes('carrier');
+                      const fireCheck    = id === 'fire_suppression' && !selectedPlayer.onFire;
+                      const floodCheck   = id === 'emergency_patch'  && !selectedPlayer.flooding;
+                      const charmCheck   = id === 'lucky_charm'      && selectedPlayer.luckyCharm;
+                      const disabled = noActions || classCheck || carrierCheck || fireCheck || floodCheck || charmCheck;
+                      return (
+                        <div key={id} className={`inventory-item${disabled ? ' inventory-item--disabled' : ''}`}>
+                          <div className="inventory-item-info">
+                            <div className="inventory-item-name">
+                              {meta.emoji} {meta.name} <span className="inventory-qty">×{qty}</span>
+                            </div>
+                            <div className="inventory-item-desc">
+                              {meta.desc} · {meta.action ? '1 action' : 'Free'}
+                            </div>
+                          </div>
+                          <button
+                            className="inventory-use-btn"
+                            disabled={disabled}
+                            onClick={() => handleUseItem(id)}
+                          >
+                            USE
+                          </button>
+                        </div>
+                      );
+                    });
+                  })()}
+
+                  {(() => {
+                    const inv = selectedPlayer.inventory || {};
+                    const passives = Object.entries(inv).filter(([id]) => !ITEM_META[id]);
+                    if (passives.length === 0) return null;
+                    return (
+                      <>
+                        <div className="inventory-section-label" style={{ marginTop: 10 }}>Equipment (Passive)</div>
+                        {passives.map(([id]) => (
+                          <div key={id} className="inventory-item">
+                            <div className="inventory-item-info">
+                              <div className="inventory-item-name" style={{ color: '#94a3b8' }}>
+                                ⚙️ {id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                              </div>
+                            </div>
+                            <span className="inventory-active-badge">✓ ACTIVE</span>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
               <p className="action-help">Click the map to move or attack</p>
             </div>
           )}
