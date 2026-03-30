@@ -1238,10 +1238,11 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     for (const set of ['player', 'ally', 'enemy']) {
       for (const atype of ['recon', 'fighter', 'dive_bomber', 'torpedo_bomber',
                            'fighter_rockets', 'dive_bomber_AP']) {
-        const bust = set === 'player' ? '?v=3' : '';
+        const bust = '?v=4';
         toLoad.push([`aircraft/${set}/${atype}`, `/icons/aircraft/${set}/${atype}.png${bust}`]);
       }
     }
+    toLoad.push(['aircraft/b17', '/icons/aircraft/B17_Air_Marker.png?v=1']);
     let remaining = toLoad.length;
     for (const [key, src] of toLoad) {
       const img = new Image();
@@ -1500,13 +1501,18 @@ function GameMap({ gameState, onCellClick, selectedCell, spawnZoneCoords = [], m
     if (aircraft.length > 0) {
       const AC_MAX = Math.round(CELL * 1.1);
       for (const ac of aircraft) {
-        const set = ac.owner === 'enemy'  ? 'enemy'
-                  : ac.carrierID === myUserId ? 'player'
-                  : 'ally';
-        const iconType = (ac.type === 'fighter' && ac.hasRockets)            ? 'fighter_rockets'
-                       : (ac.type === 'dive_bomber' && ac.bombType === 'ap') ? 'dive_bomber_AP'
-                       : ac.type;
-        const img = icons[`aircraft/${set}/${iconType}`];
+        let img;
+        if (ac.type === 'b17') {
+          img = icons['aircraft/b17'];
+        } else {
+          const set = ac.owner === 'enemy'  ? 'enemy'
+                    : ac.carrierID === myUserId ? 'player'
+                    : 'ally';
+          const iconType = (ac.type === 'fighter' && ac.hasRockets)           ? 'fighter_rockets'
+                         : (ac.type === 'dive_bomber' && ac.bombType === 'ap') ? 'dive_bomber_AP'
+                         : ac.type;
+          img = icons[`aircraft/${set}/${iconType}`] || icons[`aircraft/${set}/${ac.type}`];
+        }
         if (!img) continue;
         const scale = Math.min(AC_MAX / img.naturalWidth, AC_MAX / img.naturalHeight);
         const dw = img.naturalWidth * scale;

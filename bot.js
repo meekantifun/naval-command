@@ -20427,6 +20427,30 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         .filter(a => a.x != null)
                     : [];
 
+                // Pending air support strikes — show B-17 icon at target position
+                if (game.pendingAirSupport) {
+                    for (const strike of game.pendingAirSupport) {
+                        const target = game.enemies.get(strike.targetId);
+                        if (!target || !target.alive || !target.position) continue;
+                        let ax = null, ay = null;
+                        try {
+                            const nums = game.coordToNumbers(target.position);
+                            ax = nums.x; ay = nums.y - 1;
+                        } catch (_) {}
+                        if (ax == null) continue;
+                        aircraftArray.push({
+                            id: `airsupport_${strike.requesterId}_${strike.arrivalTurn}`,
+                            type: 'b17',
+                            name: 'B-17 Formation',
+                            carrierID: strike.requesterId,
+                            owner: 'player',
+                            x: ax,
+                            y: ay,
+                            arrivalTurn: strike.arrivalTurn,
+                        });
+                    }
+                }
+
                 // Return game state
                 res.json({
                     channelId,
