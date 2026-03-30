@@ -18246,104 +18246,200 @@ class NavalWarfareBot {
     }
 
     async processAirSupport(game, channel) {
-        if (!game.pendingAirSupport || game.pendingAirSupport.length === 0) return [];
+        if (!game.pendingAirSupport) game.pendingAirSupport = [];
+        if (!game.activeB17s) game.activeB17s = [];
+        if (game.pendingAirSupport.length === 0 && game.activeB17s.length === 0) return [];
+
+        const MAP_SIZE = 75;
+        const B17_SPEED = 18;
+        const spawnSide = game.spawnSide || 'bottom';
+
+        // Resolve an enemy's current grid position (0-indexed x,y)
+        const getTargetPos = (targetId) => {
+            const target = game.enemies.get(targetId);
+            if (!target || !target.alive || !target.position) return null;
+            try {
+                const nums = game.coordToNumbers(target.position);
+                return { x: nums.x, y: nums.y - 1 };
+            } catch (_) { return null; }
+        };
+
+        // Entry cell on the spawn-side edge aligned with the target
+        const getEntryPos = (targetPos) => {
+            switch (spawnSide) {
+                case 'top':    return { x: targetPos.x, y: 0 };
+                case 'bottom': return { x: targetPos.x, y: MAP_SIZE - 1 };
+                case 'left':   return { x: 0,           y: targetPos.y };
+                case 'right':  return { x: MAP_SIZE - 1, y: targetPos.y };
+                default:       return { x: targetPos.x, y: MAP_SIZE - 1 };
+            }
+        };
+
+        // Target point just outside the spawn edge (for exit)
+        const getExitTarget = (b17) => {
+            switch (spawnSide) {
+                case 'top':    return { x: b17.x, y: -1 };
+                case 'bottom': return { x: b17.x, y: MAP_SIZE };
+                case 'left':   return { x: -1,    y: b17.y };
+                case 'right':  return { x: MAP_SIZE, y: b17.y };
+                default:       return { x: b17.x, y: MAP_SIZE };
+            }
+        };
+
+        const isOffMap = (x, y) => x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE;
+
+        // Move (cx,cy) toward (tx,ty) by up to speed; returns new pos + arrived flag
+        const moveToward = (cx, cy, tx, ty, speed) => {
+            const dx = tx - cx;
+            const dy = ty - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= speed) return { x: tx, y: ty, arrived: true };
+            const r = speed / dist;
+            return { x: Math.round(cx + dx * r), y: Math.round(cy + dy * r), arrived: false };
+        };
 
         const messages = [];
-        const stillPending = [];
 
+        // ── 1. Spawn strikes whose arrival turn has come ──────────────────────────
+        const stillPending = [];
         for (const strike of game.pendingAirSupport) {
             if (game.turnNumber < strike.arrivalTurn) {
                 stillPending.push(strike);
                 continue;
             }
-
-            const target = game.enemies.get(strike.targetId);
-            if (!target || !target.alive) {
-                messages.push(`✈️ **B-17 Formation** arrived to bomb **${strike.targetName}**, but the target was already destroyed!`);
+            const targetPos = getTargetPos(strike.targetId);
+            if (!targetPos) {
+                messages.push(`✈️ **B-17 Formation** was inbound on **${strike.targetName}**, but the target was destroyed before they arrived!`);
                 continue;
             }
+            const entry = getEntryPos(targetPos);
+            game.activeB17s.push({
+                id: `b17_${strike.requesterId}_${strike.arrivalTurn}`,
+                requesterId: strike.requesterId,
+                requesterName: strike.requesterName,
+                targetId: strike.targetId,
+                targetName: strike.targetName,
+                x: entry.x,
+                y: entry.y,
+                mission: 'inbound',
+                formationHP: 300,
+            });
+            messages.push(
+                `✈️ **B-17 Formation has entered the operational area!** Bombers called by **${strike.requesterName}** are heading for **${strike.targetName}**!`
+            );
+        }
+        game.pendingAirSupport = stillPending;
 
-            // AA intercept check — each enemy fires at the formation
-            let formationHP = 300;
-            let intercepted = false;
-            let interceptLines = '';
-
-            for (const enemy of game.enemies.values()) {
-                if (!enemy.alive || !enemy.aaSystem || enemy.aaSystem.ammo <= 0) continue;
-                const aa = enemy.aaSystem;
-                // B-17s fly at high altitude — halve AA effectiveness
-                const aaAcc = aa.accuracy * 0.5;
-                const rounds = Math.min(3, aa.ammo);
-                aa.ammo -= rounds;
-
-                let hits = 0;
-                for (let i = 0; i < rounds; i++) {
-                    if (Math.random() < aaAcc) hits++;
+        // ── 2. Process active B-17s ───────────────────────────────────────────────
+        const stillActive = [];
+        for (const b17 of game.activeB17s) {
+            if (b17.mission === 'inbound') {
+                const targetPos = getTargetPos(b17.targetId);
+                if (!targetPos) {
+                    // Target gone — abort and return
+                    messages.push(`✈️ **${b17.requesterName}'s B-17 Formation** is aborting — **${b17.targetName}** was destroyed before the bombing run!`);
+                    b17.mission = 'returning';
+                    stillActive.push(b17);
+                    continue;
                 }
-
-                if (hits > 0) {
-                    const dmg = hits * aa.damage;
-                    formationHP -= dmg;
-                    interceptLines += `\n> 💥 **${enemy.customName || enemy.shipClass}** AA hits the formation for **${dmg}** damage!`;
-                    if (formationHP <= 0) { intercepted = true; break; }
+                const { x, y, arrived } = moveToward(b17.x, b17.y, targetPos.x, targetPos.y, B17_SPEED);
+                b17.x = x; b17.y = y;
+                if (arrived) {
+                    messages.push(this.executeB17BombRun(b17, game));
+                    b17.mission = 'returning';
                 }
-            }
+                stillActive.push(b17);
 
-            if (intercepted) {
-                messages.push(
-                    `✈️ **B-17 Formation Inbound!**${interceptLines}\n` +
-                    `> ☁️ The bomber formation was **shot down** by anti-aircraft fire before reaching the target!`
-                );
-                continue;
-            }
-
-            // Bomb run — 2 × 4,000 lb HE bombs, 50% hit chance each
-            let bombMsg = `✈️ **B-17 Flying Fortress Formation — Bomb Run on ${target.customName || target.shipClass}!**`;
-            if (interceptLines) bombMsg += `\n*AA fired on the formation but failed to bring them down:*${interceptLines}`;
-            bombMsg += `\n\n**📦 Bomb Drop:**`;
-
-            let totalDamage = 0;
-            let firesStarted = 0;
-
-            for (let bomb = 1; bomb <= 2; bomb++) {
-                if (Math.random() < 0.50) {
-                    const dmg = 80 + Math.floor(Math.random() * 41); // 80–120
-                    totalDamage += dmg;
-                    bombMsg += `\n> 💣 **Bomb ${bomb}: HIT!** — ${dmg} damage`;
-                    if (Math.random() < 0.60) {
-                        firesStarted++;
-                        bombMsg += ` 🔥 Fire started!`;
-                    }
+            } else if (b17.mission === 'returning') {
+                const exit = getExitTarget(b17);
+                const { x, y, arrived } = moveToward(b17.x, b17.y, exit.x, exit.y, B17_SPEED);
+                b17.x = x; b17.y = y;
+                if (arrived || isOffMap(x, y)) {
+                    messages.push(`✈️ **${b17.requesterName}'s B-17 Formation** has exited the operational area.`);
+                    // Despawn — do not add to stillActive
                 } else {
-                    bombMsg += `\n> 💦 **Bomb ${bomb}: MISS** — splashes nearby`;
+                    stillActive.push(b17);
                 }
             }
+        }
+        game.activeB17s = stillActive;
+        return messages;
+    }
 
-            if (totalDamage > 0 || firesStarted > 0) {
-                target.currentHealth = Math.max(0, target.currentHealth - totalDamage);
-
-                if (firesStarted > 0 && !target.onFire) {
-                    target.onFire = true;
-                    target.fireTimer = firesStarted * 2;
-                }
-
-                bombMsg += `\n\n**Result:** ${target.customName || target.shipClass} takes **${totalDamage}** damage`;
-                if (firesStarted > 0) bombMsg += `, **${firesStarted} fire${firesStarted > 1 ? 's' : ''} started**`;
-                bombMsg += `! (${target.currentHealth}/${target.maxHealth} HP remaining)`;
-
-                if (target.currentHealth <= 0) {
-                    target.alive = false;
-                    bombMsg += `\n💥 **${target.customName || target.shipClass} has been sunk!**`;
-                }
-            } else {
-                bombMsg += `\n\nAll bombs missed. **${target.customName || target.shipClass}** is undamaged.`;
-            }
-
-            messages.push(bombMsg);
+    executeB17BombRun(b17, game) {
+        const target = game.enemies.get(b17.targetId);
+        if (!target || !target.alive) {
+            return `✈️ **B-17 Formation** reached **${b17.targetName}**'s last known position — target already destroyed!`;
         }
 
-        game.pendingAirSupport = stillPending;
-        return messages;
+        // AA intercept — all enemies fire at high-altitude formation
+        let formationHP = b17.formationHP;
+        let intercepted = false;
+        let interceptLines = '';
+        for (const enemy of game.enemies.values()) {
+            if (!enemy.alive || !enemy.aaSystem || enemy.aaSystem.ammo <= 0) continue;
+            const aa = enemy.aaSystem;
+            const aaAcc = aa.accuracy * 0.5; // halved for high-altitude
+            const rounds = Math.min(3, aa.ammo);
+            aa.ammo -= rounds;
+            let hits = 0;
+            for (let i = 0; i < rounds; i++) {
+                if (Math.random() < aaAcc) hits++;
+            }
+            if (hits > 0) {
+                const dmg = hits * aa.damage;
+                formationHP -= dmg;
+                interceptLines += `\n> 💥 **${enemy.customName || enemy.shipClass}** AA hits the formation for **${dmg}** damage!`;
+                if (formationHP <= 0) { intercepted = true; break; }
+            }
+        }
+        b17.formationHP = formationHP;
+
+        if (intercepted) {
+            return (
+                `✈️ **B-17 Formation — Bomb Run on ${target.customName || target.shipClass}!**${interceptLines}\n` +
+                `> ☁️ The bomber formation was **shot down** by anti-aircraft fire before releasing bombs!`
+            );
+        }
+
+        // Bomb run — 2 × 4,000 lb HE bombs, 50% hit each
+        let bombMsg = `✈️ **B-17 Flying Fortress Formation — Bomb Run on ${target.customName || target.shipClass}!**`;
+        if (interceptLines) bombMsg += `\n*AA fired on the formation but failed to bring them down:*${interceptLines}`;
+        bombMsg += `\n\n**📦 Bomb Drop:**`;
+
+        let totalDamage = 0;
+        let firesStarted = 0;
+        for (let bomb = 1; bomb <= 2; bomb++) {
+            if (Math.random() < 0.50) {
+                const dmg = 80 + Math.floor(Math.random() * 41);
+                totalDamage += dmg;
+                bombMsg += `\n> 💣 **Bomb ${bomb}: HIT!** — ${dmg} damage`;
+                if (Math.random() < 0.60) {
+                    firesStarted++;
+                    bombMsg += ` 🔥 Fire started!`;
+                }
+            } else {
+                bombMsg += `\n> 💦 **Bomb ${bomb}: MISS** — splashes nearby`;
+            }
+        }
+
+        if (totalDamage > 0 || firesStarted > 0) {
+            target.currentHealth = Math.max(0, target.currentHealth - totalDamage);
+            if (firesStarted > 0 && !target.onFire) {
+                target.onFire = true;
+                target.fireTimer = firesStarted * 2;
+            }
+            bombMsg += `\n\n**Result:** ${target.customName || target.shipClass} takes **${totalDamage}** damage`;
+            if (firesStarted > 0) bombMsg += `, **${firesStarted} fire${firesStarted > 1 ? 's' : ''} started**`;
+            bombMsg += `! (${target.currentHealth}/${target.maxHealth} HP remaining)`;
+            if (target.currentHealth <= 0) {
+                target.alive = false;
+                bombMsg += `\n💥 **${target.customName || target.shipClass} has been sunk!**`;
+            }
+        } else {
+            bombMsg += `\n\nAll bombs missed. **${target.customName || target.shipClass}** is undamaged.`;
+        }
+        return bombMsg;
     }
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -20485,7 +20581,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         .filter(a => a.x != null)
                     : [];
 
-                // Pending air support strikes — show B-17 icon at target position
+                // Pending air support strikes — show B-17 icon at target position as "inbound" marker
                 if (game.pendingAirSupport) {
                     for (const strike of game.pendingAirSupport) {
                         const target = game.enemies.get(strike.targetId);
@@ -20499,12 +20595,27 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         aircraftArray.push({
                             id: `airsupport_${strike.requesterId}_${strike.arrivalTurn}`,
                             type: 'b17',
-                            name: 'B-17 Formation',
+                            name: 'B-17 Formation (Inbound)',
                             carrierID: strike.requesterId,
                             owner: 'player',
                             x: ax,
                             y: ay,
-                            arrivalTurn: strike.arrivalTurn,
+                        });
+                    }
+                }
+
+                // Active B-17s — show at their actual position as they fly across the map
+                if (game.activeB17s) {
+                    for (const b17 of game.activeB17s) {
+                        if (b17.x == null || b17.y == null) continue;
+                        aircraftArray.push({
+                            id: b17.id,
+                            type: 'b17',
+                            name: `B-17 Formation (${b17.mission === 'returning' ? 'Returning' : 'Inbound'})`,
+                            carrierID: b17.requesterId,
+                            owner: 'player',
+                            x: b17.x,
+                            y: b17.y,
                         });
                     }
                 }
