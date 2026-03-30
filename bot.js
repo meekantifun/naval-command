@@ -5759,6 +5759,7 @@ class NavalWarfareBot {
 
             // Reset action points
             player.actionPoints = player.shipClass.includes('Carrier') ? 3 : 2;
+            player.maxActions = player.actionPoints;
             player.actionsThisTurn = 0;
             player.weaponsFiredThisTurn = new Set();
 
@@ -6207,6 +6208,11 @@ class NavalWarfareBot {
                 await interaction.reply({ content: '❌ An error occurred!', flags: MessageFlags.Ephemeral });
             }
         }
+    }
+
+    consumeAction(player) {
+        player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
+        player.actionsThisTurn = Math.min(player.maxActions ?? 2, (player.actionsThisTurn ?? 0) + 1);
     }
 
     endPlayerTurn(player) {
@@ -7387,7 +7393,7 @@ class NavalWarfareBot {
 
         // Handle "stay" command
         if (coordinate.toLowerCase() === 'stay') {
-            player.actionPoints--;
+            this.consumeAction(player);
 
             const playerName = GameUtils.getEntityName(player);
             const message = `🛑 **${playerName}** holds position at **${player.position}**!\n` +
@@ -7575,7 +7581,7 @@ class NavalWarfareBot {
 
         // Set new position
         player.position = destination;
-        player.actionPoints--;
+        this.consumeAction(player);
         
         // Mark new position
         const newCell = game.getMapCell(destination);
@@ -7782,7 +7788,7 @@ class NavalWarfareBot {
        const target = targets[0];
        const result = this.executeAttack(player, target, 'main', 'ap', game);
        
-       player.actionPoints--;
+       this.consumeAction(player);
        player.ammo.set('main', Math.max(0, player.ammo.get('main') - 1));
        
        await interaction.reply({ content: result.message });
@@ -8060,7 +8066,7 @@ class NavalWarfareBot {
         player.weaponsFiredThisTurn.add(weaponType);
 
         // Consume ammunition and action point
-        player.actionPoints--;
+        this.consumeAction(player);
         const ammoType = weaponType === 'torpedoes' ? 'torpedoes' : weaponType;
         player.ammo.set(ammoType, Math.max(0, player.ammo.get(ammoType) - 1));
         
@@ -8713,7 +8719,7 @@ class NavalWarfareBot {
         player.fireTimer = 0;
         player.floodTimer = 0;
         player.damageControlCooldown = 8;
-        player.actionPoints--;
+        this.consumeAction(player);
 
         await interaction.reply({ content: '🔧 Damage control successful! All status effects removed.', flags: MessageFlags.Ephemeral });
         
@@ -10084,7 +10090,7 @@ class NavalWarfareBot {
 
         game.aircraft.set(aircraft.id, aircraft);
         player.hangar -= hangarCost;
-        player.actionPoints--;
+        this.consumeAction(player);
         
         // Build launch message
         let equipmentText = '';
@@ -10698,7 +10704,7 @@ class NavalWarfareBot {
             assignedCount++;
         }
         
-        player.actionPoints--;
+        this.consumeAction(player);
         
         const message = `🛡️ **${assignedCount} Fighter Squadron(s)** assigned to protect **${targetPlayer.displayName || targetPlayer.shipClass}**!\n` +
                        `Fighters will intercept enemy aircraft within 10 squares of the protected unit.\n` +
@@ -10979,7 +10985,7 @@ class NavalWarfareBot {
 
         // Consume resources
         aircraft.ammo--;
-        player.actionPoints--;
+        this.consumeAction(player);
 
         // Clear aircraft selection after attack
         if (game.selectedAircraft) {
@@ -11183,7 +11189,7 @@ class NavalWarfareBot {
             // Move the aircraft
             const oldPosition = aircraft.position;
             aircraft.position = targetPosition;
-            player.actionPoints--;
+            this.consumeAction(player);
 
             // Clear the selection after successful move
             game.selectedAircraft?.delete(interaction.user.id);
@@ -11641,7 +11647,7 @@ class NavalWarfareBot {
         
         // Move aircraft
         aircraft.position = targetPosition;
-        player.actionPoints--;
+        this.consumeAction(player);
         
         // Award equipment XP
         if (this.levelingSystem) {
@@ -11699,7 +11705,7 @@ class NavalWarfareBot {
             player.hangar += aircraftCost; // Recovered successfully
             game.aircraft.delete(aircraft.id);
             
-            player.actionPoints--;
+            this.consumeAction(player);
             
             await interaction.update({
                 content: `🛬 **${aircraft.name}** successfully landed on carrier!\n` +
@@ -11791,7 +11797,7 @@ class NavalWarfareBot {
         // Land the aircraft
         const squadronSize = aircraft.squadronSize || 12;
         player.hangar += squadronSize;
-        player.actionPoints--;
+        this.consumeAction(player);
         
         // Remove from active aircraft
         game.aircraft.delete(aircraftId);
@@ -18154,7 +18160,7 @@ class NavalWarfareBot {
             , arrivalTurn });
 
             // Deduct action point
-            player.actionPoints--;
+            this.consumeAction(player);
 
             const turnsUntil = arrivalTurn - game.turnNumber;
             await interaction.update({
@@ -20557,7 +20563,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.x = x;
                 player.y = y;
                 player.position = game.generateExtendedCoordinate(x, y + 1); // keep Discord position string in sync
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) {
                     player.actionPoints = 0;
@@ -20672,7 +20678,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 // Record weapon fired this turn
                 player.weaponsFiredThisTurn.add(weaponType);
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) {
                     player.actionPoints = 0;
@@ -20750,7 +20756,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 squadron.x = x;
                 squadron.y = y;
                 squadron.deployed = true;
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 if (player.actionsThisTurn >= player.maxActions) {
                     player.actionPoints = 0;
                     this.endPlayerTurn(player);
@@ -20894,8 +20900,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.fireTimer = 0;
                 player.floodTimer = 0;
                 player.damageControlCooldown = 8;
-                player.actionsThisTurn++;
-                player.actionPoints = Math.max(0, (player.actionPoints ?? 0) - 1);
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) {
                     player.actionPoints = 0;
@@ -20938,7 +20943,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.reconActive = true;
                 player.reconTurnsRemaining = 5;
                 player.reconCooldown = 0;
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21039,7 +21044,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 game.aircraft.set(aircraft.id, aircraft);
                 player.hangar -= squadronSize;
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21096,7 +21101,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 aircraft.actionPoints = Math.max(0, (aircraft.actionPoints ?? 0) - 1);
 
                 const player = game.players.get(userId);
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21191,7 +21196,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 aircraft.actionPoints = Math.max(0, (aircraft.actionPoints ?? 0) - 1);
 
                 const player = game.players.get(userId);
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21258,7 +21263,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 aircraft.mission = 'returning';
                 aircraft.actionPoints = 0; // Cannot be manually moved while returning
 
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21306,7 +21311,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (player.hangar !== undefined) player.hangar += squadronSize;
                 game.aircraft.delete(aircraftId);
 
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21359,7 +21364,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     arrivalTurn
                 });
 
-                player.actionsThisTurn++;
+                this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
@@ -21952,7 +21957,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 // Charge action if applicable
                 if (costAction) {
-                    player.actionsThisTurn = (player.actionsThisTurn || 0) + 1;
+                    this.consumeAction(player);
                     if (player.actionsThisTurn >= player.maxActions) {
                         this.endPlayerTurn(player);
                     }
@@ -21996,10 +22001,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'guildId, userId, characterName, itemId, and active are required' });
                 }
 
-                // Excluded aircraft-loadout items — not toggleable
-                const EXCLUDED = new Set(['fighter_rockets', 'ap_bombs', 'all_weather_aircraft']);
                 const shopItem = this.shopSystem.shopItems.get(itemId);
-                if (!shopItem || shopItem.type !== 'equipment' || EXCLUDED.has(itemId)) {
+                if (!shopItem || shopItem.type !== 'equipment') {
                     return res.status(400).json({ error: 'Item is not a toggleable upgrade' });
                 }
 
