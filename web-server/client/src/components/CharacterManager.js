@@ -254,8 +254,7 @@ function AdjustRow({ label, value, guildId, userId, characterName, field }) {
 function ShopItemIcon({ item, className, style }) {
   if (!item) return <span className={className} style={style}>📦</span>;
   if (item.iconUrl) {
-    const src = item.iconUrl.startsWith('http') ? item.iconUrl : `/api${item.iconUrl}`;
-    return <img src={src} alt={item.name} className={className} style={{ width: '1.4rem', height: '1.4rem', objectFit: 'contain', ...style }} />;
+    return <img src={item.iconUrl} alt={item.name} className={className} style={{ width: '1.4rem', height: '1.4rem', objectFit: 'contain', ...style }} />;
   }
   return <span className={className} style={style}>{item.emoji || '📦'}</span>;
 }
@@ -738,6 +737,11 @@ function CharacterManager({ guildId, user }) {
                                 </span>
                               </div>
                               {inBattle && <span className="lock-badge">🔒 In battle</span>}
+                              <button
+                                className="inv-delete-btn"
+                                title="Remove upgrade"
+                                onClick={() => openDeleteItemModal(char, itemId, 1)}
+                              >🗑️</button>
                             </div>
                           );
                         })}

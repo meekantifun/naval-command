@@ -152,8 +152,7 @@ function CharactersSection({ user, guild, currencyConfig }) {
 function ShopItemIcon({ item, className }) {
   if (!item) return <span className={className}>📦</span>;
   if (item.iconUrl) {
-    const src = item.iconUrl.startsWith('http') ? item.iconUrl : `${API_URL}${item.iconUrl}`;
-    return <img src={src} alt={item.name} className={className} style={{ width: '1.4rem', height: '1.4rem', objectFit: 'contain' }} />;
+    return <img src={item.iconUrl} alt={item.name} className={className} style={{ width: '1.4rem', height: '1.4rem', objectFit: 'contain' }} />;
   }
   return <span className={className}>{item.emoji || '📦'}</span>;
 }
