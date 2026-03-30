@@ -22002,7 +22002,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
 
                 const shopItem = this.shopSystem.shopItems.get(itemId);
-                if (!shopItem || shopItem.type !== 'equipment') {
+                if (!shopItem || shopItem.type === 'consumable') {
                     return res.status(400).json({ error: 'Item is not a toggleable upgrade' });
                 }
 

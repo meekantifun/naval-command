@@ -13,6 +13,81 @@ function CurrencyIcon({ config, className }) {
   return <span>{c.icon || '💰'}</span>;
 }
 
+const EQUIPMENT_META = {
+  advanced_radar:             { name: 'Advanced Radar System',              emoji: '📡', description: '+10% accuracy, +2 detection range' },
+  reinforced_armor:           { name: 'Reinforced Armor Plating',           emoji: '🛡️', description: '+20 armor points' },
+  improved_engines:           { name: 'Improved Engine System',             emoji: '⚡', description: '+1 speed, +5% evasion' },
+  fire_control_system:        { name: 'Advanced Fire Control',              emoji: '🎯', description: '-reload time, +15% accuracy' },
+  navigation_computer:        { name: 'Navigation Computer',                emoji: '🧭', description: '+1 movement range per turn' },
+  rangefinder:                { name: 'Optical Rangefinder',                emoji: '🔭', description: '+8% accuracy, +1 attack range' },
+  damage_control_team:        { name: 'Damage Control Team',                emoji: '🧯', description: '-30% fire/flood damage, halved status duration' },
+  sonar_array:                { name: 'Surface Search Sonar',               emoji: '📻', description: 'Detects submarines within 4 cells' },
+  medical_bay:                { name: 'Onboard Medical Bay',                emoji: '⚕️', description: '+8 HP regen at start of each turn' },
+  camouflage_paint:           { name: 'Dazzle Camouflage Scheme',           emoji: '🎨', description: '+8% evasion vs long-range attacks' },
+  crew_training:              { name: 'Elite Crew Training',                emoji: '👥', description: '+5% accuracy, +5% evasion, +3 armor' },
+  high_speed_turbines:        { name: 'High-Speed Steam Turbines',          emoji: '💨', description: '+2 speed (Destroyer)' },
+  torpedo_director:           { name: 'Torpedo Fire Director',              emoji: '🎯', description: '+20% torpedo accuracy, +15% flooding (Destroyer)' },
+  depth_charge_racks:         { name: 'Depth Charge Racks',                 emoji: '💣', description: '60 dmg to submerged subs in adjacent cells (Destroyer)' },
+  enhanced_smoke_gen:         { name: 'Enhanced Smoke Generator',           emoji: '🌫️', description: '+65% evasion for 4 turns (Destroyer)' },
+  aa_director:                { name: 'AA Fire Director Mk. III',           emoji: '🛡️', description: '+30% AA damage, +2 AA range (Light Cruiser)' },
+  high_pressure_boiler:       { name: 'High-Pressure Boiler System',        emoji: '⚙️', description: '+1 speed, +1 movement (Light Cruiser)' },
+  scout_floatplane:           { name: 'OS2U Kingfisher Floatplane',         emoji: '🛩️', description: '+5 detection range, +12% long-range accuracy (Light/Heavy Cruiser)' },
+  spotter_aircraft:           { name: 'Spotter Aircraft',                   emoji: '✈️', description: '+3 range for 2 turns per battle (Heavy Cruiser)' },
+  improved_fire_control:      { name: 'Improved Fire Control Mk. II',       emoji: '🎯', description: '+20% accuracy, -1 reload (Heavy Cruiser)' },
+  reinforced_turrets:         { name: 'Reinforced Turret Barbettes',        emoji: '🏰', description: '+15% damage, +10 turret armor (Battleship)' },
+  long_range_radar:           { name: 'Long-Range Radar Array',             emoji: '📡', description: '+4 detection range, +10% long-range accuracy (Battleship)' },
+  improved_rangefinder:       { name: 'Improved Optical Rangefinder',       emoji: '🔭', description: '+15% accuracy, +2 attack range (Battleship)' },
+  damage_control_center:      { name: 'Central Damage Control',             emoji: '🧯', description: '-50% fire/flood damage, +20 HP regen (Battleship)' },
+  flight_deck_expansion:      { name: 'Flight Deck Expansion',              emoji: '🛬', description: '+2 max squadrons (Carrier)' },
+  improved_hangar:            { name: 'Improved Hangar Facilities',         emoji: '🏭', description: '+25% aircraft HP, faster rearm (Carrier)' },
+  advanced_avionics:          { name: 'Advanced Avionics Package',          emoji: '📡', description: '+3 aircraft range, +10% bomb accuracy (Carrier)' },
+  combat_air_patrol:          { name: 'Combat Air Patrol System',           emoji: '✈️', description: 'Auto-intercept incoming aircraft (Carrier)' },
+  improved_periscope:         { name: 'High-Power Attack Periscope',        emoji: '🔭', description: 'Target from 6 cells while submerged (Submarine)' },
+  silent_running:             { name: 'Silent Running System',              emoji: '🤫', description: '-40% sonar detection chance (Submarine)' },
+  oxygen_recycler:            { name: 'Oxygen Recycling System',            emoji: '💨', description: '+4 turns before forced surface (Submarine)' },
+  magnetic_detonator:         { name: 'Magnetic Torpedo Detonator',         emoji: '🧲', description: '+25% torpedo damage (Submarine)' },
+  escape_hatch:               { name: 'Emergency Escape System',            emoji: '🆘', description: 'Survive one fatal hit at 1 HP (Submarine)' },
+  fighter_rockets:            { name: 'Fighter Rockets',                    emoji: '🚀', description: 'Equips fighters with rockets for increased damage (Carrier)' },
+  ap_bombs:                   { name: 'AP Bombs',                           emoji: '💣', description: 'Equips dive bombers with armor-piercing bombs (Carrier)' },
+  all_weather_aircraft:       { name: 'All-Weather Aircraft',               emoji: '🌧️', description: 'Enables aircraft operations in all weather conditions (Carrier)' },
+};
+
+const ITEM_META = {
+  repair_kit:            { name: 'Repair Kit',            emoji: '🔧' },
+  fire_suppression:      { name: 'Fire Suppression',      emoji: '🔥' },
+  emergency_patch:       { name: 'Emergency Patch',       emoji: '🩹' },
+  smoke_screen:          { name: 'Smoke Screen',          emoji: '💨' },
+  lucky_charm:           { name: 'Lucky Charm',           emoji: '🍀' },
+  emergency_speed_boost: { name: 'Emergency Speed Boost', emoji: '⚡' },
+  radar_jamming:         { name: 'Radar Jamming',         emoji: '📡' },
+  decoy_buoy:            { name: 'Decoy Buoy',            emoji: '🪝' },
+  combat_stimulants:     { name: 'Combat Stimulants',     emoji: '💉' },
+  repair_ship_contract:  { name: 'Repair Ship Contract',  emoji: '🛠️' },
+  fuel_barrels:          { name: 'Fuel Barrels',          emoji: '⛽' },
+  air_support_marker:    { name: 'Air Support Marker',    emoji: '✈️' },
+};
+
+function isEquipmentItem(id, shopItems) {
+  if (shopItems[id]) {
+    const t = shopItems[id].type;
+    return t === 'equipment' || t === 'aircraft';
+  }
+  return id in EQUIPMENT_META;
+}
+
+function itemDisplayName(id, shopItems) {
+  return shopItems[id]?.name
+    || EQUIPMENT_META[id]?.name
+    || ITEM_META[id]?.name
+    || id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function itemDisplayDesc(id, shopItems) {
+  return shopItems[id]?.description
+    || EQUIPMENT_META[id]?.description
+    || null;
+}
+
 const RARITY_COLORS = {
   common: '#9e9e9e',
   uncommon: '#4caf50',
@@ -33,16 +108,23 @@ const CATEGORIES = [
 
 function CharactersSection({ user, guild, currencyConfig }) {
   const [characters, setCharacters] = useState([]);
+  const [shopItems, setShopItems] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await axios.get(`${API_URL}/api/admin/characters`, {
-          params: { guildId: guild.id, userId: user.id },
-          withCredentials: true
-        });
-        setCharacters(res.data.characters || []);
+        const [charsRes, shopRes] = await Promise.all([
+          axios.get(`${API_URL}/api/admin/characters`, {
+            params: { guildId: guild.id, userId: user.id },
+            withCredentials: true
+          }),
+          axios.get(`${API_URL}/api/shop/items`, { withCredentials: true })
+        ]);
+        setCharacters(charsRes.data.characters || []);
+        const itemMap = {};
+        for (const item of (shopRes.data.items || [])) itemMap[item.id] = item;
+        setShopItems(itemMap);
       } catch (e) {
         console.error('Failed to load characters', e);
       } finally {
@@ -62,21 +144,58 @@ function CharactersSection({ user, guild, currencyConfig }) {
 
   return (
     <div className="pp-characters">
-      {characters.map((char, i) => <CharacterCard key={i} char={char} currencyConfig={currencyConfig} />)}
+      {characters.map((char, i) => <CharacterCard key={i} char={char} currencyConfig={currencyConfig} guild={guild} shopItems={shopItems} />)}
     </div>
   );
 }
 
-function CharacterCard({ char, currencyConfig }) {
+function ShopItemIcon({ item, className }) {
+  if (!item) return <span className={className}>📦</span>;
+  if (item.iconUrl) {
+    const src = item.iconUrl.startsWith('http') ? item.iconUrl : `${API_URL}${item.iconUrl}`;
+    return <img src={src} alt={item.name} className={className} style={{ width: '1.4rem', height: '1.4rem', objectFit: 'contain' }} />;
+  }
+  return <span className={className}>{item.emoji || '📦'}</span>;
+}
+
+function CharacterCard({ char, currencyConfig, guild, shopItems = {} }) {
   const [expanded, setExpanded] = useState(true);
+  const [inBattle, setInBattle] = useState(false);
+  const [pendingUpgrades, setPendingUpgrades] = useState(new Set());
+  const [localActiveUpgrades, setLocalActiveUpgrades] = useState(char.activeUpgrades || []);
+
+  useEffect(() => {
+    if (!guild?.id || !char.userId) return;
+    axios.get(`${API_URL}/api/player/battle-status`, {
+      params: { guildId: guild.id, userId: char.userId },
+      withCredentials: true
+    }).then(r => setInBattle(r.data.inBattle || false)).catch(() => {});
+  }, [guild?.id, char.userId]);
+
+  const handleToggleUpgrade = async (itemId, newActive) => {
+    const key = `${char.userId}:${char.name}:${itemId}`;
+    if (pendingUpgrades.has(key) || inBattle) return;
+    setPendingUpgrades(prev => new Set([...prev, key]));
+    try {
+      const r = await axios.patch(`${API_URL}/api/player/active-upgrades`, {
+        guildId: guild.id,
+        characterName: char.name,
+        itemId,
+        active: newActive
+      }, { withCredentials: true });
+      setLocalActiveUpgrades(r.data.activeUpgrades);
+    } catch (e) {
+      console.error('Failed to toggle upgrade', e);
+    } finally {
+      setPendingUpgrades(prev => { const s = new Set(prev); s.delete(key); return s; });
+    }
+  };
 
   const weapons = char.weapons ? Object.values(char.weapons) : [];
   const skills = char.skills || [];
-  const inventory = char.inventory
-    ? (Array.isArray(char.inventory)
-        ? char.inventory
-        : Object.entries(char.inventory).map(([k, v]) => ({ id: k, qty: v })))
-    : [];
+  const inv = char.inventory || {};
+  const consumables = Object.entries(inv).filter(([id, qty]) => qty > 0 && !isEquipmentItem(id, shopItems));
+  const ownedUpgrades = Object.entries(inv).filter(([id, qty]) => isEquipmentItem(id, shopItems) && qty > 0);
 
   const statVal = (v) => (v !== undefined && v !== null) ? v : '—';
 
@@ -189,21 +308,66 @@ function CharacterCard({ char, currencyConfig }) {
             {(currencyConfig || DEFAULT_CURRENCY).name}
           </div>
 
-          {/* Inventory */}
+          {/* Inventory (consumables) */}
           <div className="pp-section-label">Inventory</div>
-          {inventory.length === 0
+          {consumables.length === 0 && ownedUpgrades.length === 0
             ? <div className="pp-empty-small">No items in inventory</div>
-            : (
+            : consumables.length > 0 && (
               <div className="pp-inventory">
-                {inventory.map((item, i) => (
-                  <div className="pp-inv-item" key={i}>
-                    <span>{item.id || item.name}</span>
-                    {item.qty > 1 && <span className="pp-inv-qty">×{item.qty}</span>}
-                  </div>
-                ))}
+                {consumables.map(([id, qty]) => {
+                  const shopItem = shopItems[id];
+                  const name = itemDisplayName(id, shopItems);
+                  return (
+                    <div className="pp-inv-item" key={id}>
+                      <ShopItemIcon item={shopItem} />
+                      <span>{name}</span>
+                      {qty > 1 && <span className="pp-inv-qty">×{qty}</span>}
+                    </div>
+                  );
+                })}
               </div>
             )
           }
+
+          {/* Upgrades */}
+          {ownedUpgrades.length > 0 && (
+            <>
+              <div className="pp-section-label" style={{ marginTop: 12 }}>Upgrades</div>
+              {inBattle && <div className="pp-battle-note">🔒 Locked during battle</div>}
+              <div className="pp-upgrades-list">
+                {ownedUpgrades.map(([itemId]) => {
+                  const name = itemDisplayName(itemId, shopItems);
+                  const desc = itemDisplayDesc(itemId, shopItems);
+                  const isActive = localActiveUpgrades.includes(itemId);
+                  const key = `${char.userId}:${char.name}:${itemId}`;
+                  const isPending = pendingUpgrades.has(key);
+                  const isDisabled = inBattle || isPending;
+                  return (
+                    <div key={itemId} className="pp-upgrade-row">
+                      <ShopItemIcon item={shopItems[itemId]} className="pp-upgrade-emoji" />
+                      <div className="pp-upgrade-info">
+                        <div className="pp-upgrade-name">{name}</div>
+                        {desc && <div className="pp-upgrade-desc">{desc}</div>}
+                      </div>
+                      <label className="pp-toggle-switch">
+                        <input
+                          type="checkbox"
+                          aria-label={name}
+                          checked={isActive}
+                          disabled={isDisabled}
+                          onChange={() => handleToggleUpgrade(itemId, !isActive)}
+                        />
+                        <span className="pp-toggle-slider" />
+                      </label>
+                      <span className={`pp-toggle-label${isActive ? ' active' : ''}`}>
+                        {isPending ? '…' : isActive ? 'On' : 'Off'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
         </div>
       )}

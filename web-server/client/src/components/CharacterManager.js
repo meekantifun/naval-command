@@ -162,6 +162,30 @@ const ITEM_META = {
   air_support_marker:    { name: 'Air Support Marker',    emoji: '✈️', desc: 'Call in bombers on a target'          },
 };
 
+// Returns true if an item ID should be shown in the Upgrades section (permanent equipment).
+// Checks live shop data first so custom items work automatically, falls back to hardcoded tables.
+function isEquipmentItem(id, shopItems) {
+  if (shopItems[id]) {
+    const t = shopItems[id].type;
+    return t === 'equipment' || t === 'aircraft';
+  }
+  return id in EQUIPMENT_META;
+}
+
+function itemDisplayName(id, shopItems) {
+  return shopItems[id]?.name
+    || EQUIPMENT_META[id]?.name
+    || ITEM_META[id]?.name
+    || id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function itemDisplayDesc(id, shopItems) {
+  return shopItems[id]?.description
+    || EQUIPMENT_META[id]?.description
+    || ITEM_META[id]?.desc
+    || null;
+}
+
 function resolveAAStats(aa) {
   // Normalize accuracy: Discord stores as percentage (e.g. 47.4), web stores as decimal (e.g. 0.79)
   const normalizeAccuracy = (v) => (v != null && v > 1 ? v / 100 : v);
@@ -640,7 +664,7 @@ function CharacterManager({ guildId, user }) {
                 {/* Inventory */}
                 {(() => {
                   const inv = char.inventory || {};
-                  const items = Object.entries(inv).filter(([id, qty]) => qty > 0 && !(id in EQUIPMENT_META));
+                  const items = Object.entries(inv).filter(([id, qty]) => qty > 0 && !isEquipmentItem(id, shopItems));
                   if (items.length === 0) return null;
                   const totalQty = items.reduce((s, [, q]) => s + q, 0);
                   return (
@@ -648,10 +672,9 @@ function CharacterManager({ guildId, user }) {
                       <h5>🎒 Inventory ({totalQty} item{totalQty !== 1 ? 's' : ''})</h5>
                       <div className="inv-list">
                         {items.map(([id, qty]) => {
-                          const meta = ITEM_META[id];
                           const shopItem = shopItems[id];
-                          const name = shopItem?.name || (meta ? meta.name : id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
-                          const desc = meta ? meta.desc : null;
+                          const name = itemDisplayName(id, shopItems);
+                          const desc = itemDisplayDesc(id, shopItems);
                           return (
                             <div key={id} className="inv-row">
                               <ShopItemIcon item={shopItem} className="inv-emoji" />
@@ -676,17 +699,18 @@ function CharacterManager({ guildId, user }) {
                 {/* Upgrades */}
                 {(() => {
                   const inv = char.inventory || {};
-                  const ownedEquipment = Object.entries(inv).filter(([id]) => id in EQUIPMENT_META && inv[id] > 0);
+                  const ownedEquipment = Object.entries(inv).filter(([id]) => isEquipmentItem(id, shopItems) && inv[id] > 0);
                   if (ownedEquipment.length === 0) return null;
                   const activeUpgrades = char.activeUpgrades || [];
                   const inBattle = battleStatuses[char.userId]?.inBattle ?? false;
-                  const hasActiveLocked = inBattle && activeUpgrades.some(id => id in EQUIPMENT_META);
+                  const hasActiveLocked = inBattle && activeUpgrades.some(id => isEquipmentItem(id, shopItems));
                   return (
                     <div className="char-section">
                       <h5>⚙️ Upgrades ({ownedEquipment.length})</h5>
                       <div className="upgrades-list">
                         {ownedEquipment.map(([itemId]) => {
-                          const meta = EQUIPMENT_META[itemId];
+                          const name = itemDisplayName(itemId, shopItems);
+                          const desc = itemDisplayDesc(itemId, shopItems);
                           const isActive = activeUpgrades.includes(itemId);
                           const key = `${char.userId}:${char.name}:${itemId}`;
                           const isPending = pendingUpgrades.has(key);
@@ -695,14 +719,14 @@ function CharacterManager({ guildId, user }) {
                             <div key={itemId} className="upgrade-row">
                               <ShopItemIcon item={shopItems[itemId]} className="upgrade-emoji" />
                               <div className="upgrade-info">
-                                <div className="upgrade-name">{meta.name}</div>
-                                <div className="upgrade-desc">{meta.description}</div>
+                                <div className="upgrade-name">{name}</div>
+                                {desc && <div className="upgrade-desc">{desc}</div>}
                               </div>
                               <div className="toggle-wrap">
                                 <label className="toggle-switch">
                                   <input
                                     type="checkbox"
-                                    aria-label={meta.name}
+                                    aria-label={name}
                                     checked={isActive}
                                     disabled={isDisabled}
                                     onChange={() => handleToggleUpgrade(char, itemId, !isActive)}
