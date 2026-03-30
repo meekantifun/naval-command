@@ -141,6 +141,25 @@ const EQUIPMENT_META = {
   oxygen_recycler:            { name: 'Oxygen Recycling System',            emoji: '💨', description: '+4 turns before forced surface (Submarine)' },
   magnetic_detonator:         { name: 'Magnetic Torpedo Detonator',         emoji: '🧲', description: '+25% torpedo damage (Submarine)' },
   escape_hatch:               { name: 'Emergency Escape System',            emoji: '🆘', description: 'Survive one fatal hit at 1 HP (Submarine)' },
+  // Carrier aircraft loadouts
+  fighter_rockets:            { name: 'Fighter Rockets',                    emoji: '🚀', description: 'Equips fighters with rockets for increased damage (Carrier)' },
+  ap_bombs:                   { name: 'AP Bombs',                           emoji: '💣', description: 'Equips dive bombers with armor-piercing bombs (Carrier)' },
+  all_weather_aircraft:       { name: 'All-Weather Aircraft',               emoji: '🌧️', description: 'Enables aircraft operations in all weather conditions (Carrier)' },
+};
+
+const ITEM_META = {
+  repair_kit:            { name: 'Repair Kit',            emoji: '🔧', desc: 'Heals 50 HP, clears status effects'   },
+  fire_suppression:      { name: 'Fire Suppression',      emoji: '🔥', desc: 'Extinguishes fires instantly'         },
+  emergency_patch:       { name: 'Emergency Patch',       emoji: '🩹', desc: 'Stops flooding instantly'             },
+  smoke_screen:          { name: 'Smoke Screen',          emoji: '💨', desc: '+50% evasion for 3 turns'             },
+  lucky_charm:           { name: 'Lucky Charm',           emoji: '🍀', desc: '+25% crit chance for this battle'     },
+  emergency_speed_boost: { name: 'Emergency Speed Boost', emoji: '⚡', desc: '+3 speed for 2 turns (costs 10 HP)'   },
+  radar_jamming:         { name: 'Radar Jamming',         emoji: '📡', desc: '-20% enemy accuracy for 3 turns'      },
+  decoy_buoy:            { name: 'Decoy Buoy',            emoji: '🪝', desc: 'Redirects torpedoes for 2 turns'      },
+  combat_stimulants:     { name: 'Combat Stimulants',     emoji: '💉', desc: '+1 action point this turn'            },
+  repair_ship_contract:  { name: 'Repair Ship Contract',  emoji: '🛠️', desc: '+40 HP/turn for 3 turns'             },
+  fuel_barrels:          { name: 'Fuel Barrels',          emoji: '⛽', desc: '+5 fuel to all deployed aircraft'     },
+  air_support_marker:    { name: 'Air Support Marker',    emoji: '✈️', desc: 'Call in bombers on a target'          },
 };
 
 function resolveAAStats(aa) {
@@ -208,6 +227,15 @@ function AdjustRow({ label, value, guildId, userId, characterName, field }) {
   );
 }
 
+function ShopItemIcon({ item, className, style }) {
+  if (!item) return <span className={className} style={style}>📦</span>;
+  if (item.iconUrl) {
+    const src = item.iconUrl.startsWith('http') ? item.iconUrl : `/api${item.iconUrl}`;
+    return <img src={src} alt={item.name} className={className} style={{ width: '1.4rem', height: '1.4rem', objectFit: 'contain', ...style }} />;
+  }
+  return <span className={className} style={style}>{item.emoji || '📦'}</span>;
+}
+
 function CharacterManager({ guildId, user }) {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,6 +244,8 @@ function CharacterManager({ guildId, user }) {
   const [expandedCards, setExpandedCards] = useState(new Set());
   const [battleStatuses, setBattleStatuses] = useState({});
   const [pendingUpgrades, setPendingUpgrades] = useState(new Set());
+  const [shopItems, setShopItems] = useState({});
+  const [deleteItemModal, setDeleteItemModal] = useState(null); // { char, itemId, itemName, qty, price }
 
   const toggleCard = (idx) => {
     setExpandedCards(prev => {
@@ -232,12 +262,15 @@ function CharacterManager({ guildId, user }) {
   const loadCharacters = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/admin/characters', {
-        params: { guildId },
-        withCredentials: true
-      });
+      const [response, shopRes] = await Promise.all([
+        axios.get('/api/admin/characters', { params: { guildId }, withCredentials: true }),
+        axios.get('/api/shop/items', { withCredentials: true })
+      ]);
       const chars = response.data.characters || [];
       setCharacters(chars);
+      const itemMap = {};
+      for (const item of (shopRes.data.items || [])) itemMap[item.id] = item;
+      setShopItems(itemMap);
 
       // Fetch battle status for each unique userId
       const uniqueUserIds = [...new Set(chars.map(c => c.userId).filter(Boolean))];
@@ -281,6 +314,46 @@ function CharacterManager({ guildId, user }) {
     }
   };
 
+  const openDeleteItemModal = (char, itemId, qty) => {
+    const shopItem = shopItems[itemId];
+    const meta = ITEM_META[itemId];
+    const name = shopItem?.name || (meta ? meta.name : itemId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+    const price = shopItem?.price ?? null;
+    setDeleteItemModal({ char, itemId, itemName: name, qty, price });
+  };
+
+  const handleDeleteItem = async (refund) => {
+    if (!deleteItemModal) return;
+    const { char, itemId, qty } = deleteItemModal;
+    setDeleteItemModal(null);
+    try {
+      const res = await axios.delete('/api/admin/inventory-item', {
+        data: { guildId, userId: char.userId, characterName: char.name, itemId, qty, refund },
+        withCredentials: true,
+      });
+      setCharacters(prev => prev.map(c => {
+        if (c.userId !== char.userId || c.name !== char.name) return c;
+        const inv = { ...(c.inventory || {}) };
+        if (!refund || res.data.refundAmount === 0) {
+          // just remove
+        }
+        const newQty = (inv[itemId] || 0) - qty;
+        if (newQty <= 0) delete inv[itemId];
+        else inv[itemId] = newQty;
+        const updated = { ...c, inventory: inv };
+        if (newQty <= 0 && updated.activeUpgrades) {
+          updated.activeUpgrades = updated.activeUpgrades.filter(id => id !== itemId);
+        }
+        if (refund && res.data.refundAmount > 0) {
+          updated.currency = res.data.currency;
+        }
+        return updated;
+      }));
+    } catch (err) {
+      alert(err.response?.data?.error ?? 'Failed to remove item');
+    }
+  };
+
   const handleEdit = (character) => {
     setEditingCharacter(character);
     setShowWizard(true);
@@ -314,6 +387,7 @@ function CharacterManager({ guildId, user }) {
   }
 
   return (
+    <>
     <div className="character-manager">
       {showWizard && (
         <CharacterCreationWizard
@@ -563,6 +637,42 @@ function CharacterManager({ guildId, user }) {
                   </div>
                 )}
 
+                {/* Inventory */}
+                {(() => {
+                  const inv = char.inventory || {};
+                  const items = Object.entries(inv).filter(([id, qty]) => qty > 0 && !(id in EQUIPMENT_META));
+                  if (items.length === 0) return null;
+                  const totalQty = items.reduce((s, [, q]) => s + q, 0);
+                  return (
+                    <div className="char-section">
+                      <h5>🎒 Inventory ({totalQty} item{totalQty !== 1 ? 's' : ''})</h5>
+                      <div className="inv-list">
+                        {items.map(([id, qty]) => {
+                          const meta = ITEM_META[id];
+                          const shopItem = shopItems[id];
+                          const name = shopItem?.name || (meta ? meta.name : id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+                          const desc = meta ? meta.desc : null;
+                          return (
+                            <div key={id} className="inv-row">
+                              <ShopItemIcon item={shopItem} className="inv-emoji" />
+                              <div className="inv-info">
+                                <div className="inv-name">{name}</div>
+                                {desc && <div className="inv-desc">{desc}</div>}
+                              </div>
+                              <span className="inv-qty">×{qty}</span>
+                              <button
+                                className="inv-delete-btn"
+                                title="Remove item"
+                                onClick={() => openDeleteItemModal(char, id, qty)}
+                              >🗑️</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Upgrades */}
                 {(() => {
                   const inv = char.inventory || {};
@@ -583,7 +693,7 @@ function CharacterManager({ guildId, user }) {
                           const isDisabled = inBattle || isPending;
                           return (
                             <div key={itemId} className="upgrade-row">
-                              <span className="upgrade-emoji">{meta.emoji}</span>
+                              <ShopItemIcon item={shopItems[itemId]} className="upgrade-emoji" />
                               <div className="upgrade-info">
                                 <div className="upgrade-name">{meta.name}</div>
                                 <div className="upgrade-desc">{meta.description}</div>
@@ -683,6 +793,38 @@ function CharacterManager({ guildId, user }) {
         )}
       </div>
     </div>
+
+    {/* Delete Item Modal */}
+    {deleteItemModal && (
+      <div className="modal-overlay" onClick={() => setDeleteItemModal(null)}>
+        <div className="modal-box" onClick={e => e.stopPropagation()}>
+          <h3>Remove Item</h3>
+          <p>
+            Remove <strong>×{deleteItemModal.qty} {deleteItemModal.itemName}</strong> from{' '}
+            <strong>{deleteItemModal.char.name}</strong>'s inventory?
+          </p>
+          {deleteItemModal.price != null && (
+            <p className="modal-refund-note">
+              Purchase price: <strong>{deleteItemModal.price * deleteItemModal.qty} credits</strong>
+            </p>
+          )}
+          <div className="modal-actions">
+            {deleteItemModal.price != null && (
+              <button className="btn-refund" onClick={() => handleDeleteItem(true)}>
+                Refund {deleteItemModal.price * deleteItemModal.qty} Credits
+              </button>
+            )}
+            <button className="btn-no-refund" onClick={() => handleDeleteItem(false)}>
+              Remove (No Refund)
+            </button>
+            <button className="btn-cancel" onClick={() => setDeleteItemModal(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

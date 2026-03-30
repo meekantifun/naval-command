@@ -663,6 +663,19 @@ app.patch('/api/admin/player-stats', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Remove inventory item (with optional refund)
+app.delete('/api/admin/inventory-item', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.delete('/api/admin/inventory-item', { data: req.body });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error removing inventory item:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to remove item'
+    });
+  }
+});
+
 // Get maps
 app.get('/api/admin/maps', ensureAuthenticated, async (req, res) => {
   try {

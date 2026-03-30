@@ -755,3 +755,118 @@
   border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: 4px;
 }
+
+/* Inventory (consumables) */
+.inv-list { display: flex; flex-direction: column; gap: 6px; }
+.inv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+}
+.inv-emoji { font-size: 1.2rem; flex-shrink: 0; }
+.inv-info { flex: 1; min-width: 0; }
+.inv-name { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
+.inv-desc { font-size: 0.75rem; color: #94a3b8; margin-top: 1px; }
+.inv-qty {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fbbf24;
+  white-space: nowrap;
+}
+
+/* Inventory delete button */
+.inv-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.inv-delete-btn:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Delete item modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 28px 32px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-box h3 {
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
+  color: #f1f5f9;
+}
+.modal-box p {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  margin: 0 0 10px 0;
+  line-height: 1.5;
+}
+.modal-refund-note {
+  color: #fbbf24 !important;
+  font-size: 0.85rem !important;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.btn-refund {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.btn-refund:hover { background: #15803d; }
+.btn-no-refund {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.btn-no-refund:hover { background: #b91c1c; }
+.btn-cancel {
+  background: #334155;
+  color: #94a3b8;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+  margin-left: auto;
+}
+.btn-cancel:hover { background: #475569; color: #e2e8f0; }

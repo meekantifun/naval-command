@@ -22276,6 +22276,58 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // Remove an item from a character's inventory (with optional refund)
+        app.delete('/api/admin/inventory-item', authenticateAPIKey, async (req, res) => {
+            try {
+                const { guildId, userId, characterName, itemId, qty, refund } = req.body;
+                if (!guildId || !userId || !characterName || !itemId) {
+                    return res.status(400).json({ error: 'guildId, userId, characterName, and itemId are required' });
+                }
+                const playerData = this.characterManager.loadPlayerData(guildId);
+                const userData = playerData[userId];
+                if (!userData || !userData.characters || !userData.characters[characterName]) {
+                    return res.status(404).json({ error: 'Character not found' });
+                }
+                const char = userData.characters[characterName];
+                const inv = char.inventory || {};
+                const currentQty = inv[itemId] || 0;
+                if (currentQty <= 0) {
+                    return res.status(400).json({ error: 'Item not in inventory' });
+                }
+                const removeQty = qty ? Math.min(Number(qty), currentQty) : currentQty;
+                const newQty = currentQty - removeQty;
+                if (newQty <= 0) {
+                    delete inv[itemId];
+                } else {
+                    inv[itemId] = newQty;
+                }
+                char.inventory = inv;
+                // Also remove from activeUpgrades if it was there
+                if (newQty <= 0 && Array.isArray(char.activeUpgrades)) {
+                    char.activeUpgrades = char.activeUpgrades.filter(id => id !== itemId);
+                }
+                // Refund if requested
+                let refundAmount = 0;
+                if (refund) {
+                    const shopItem = this.shopSystem.shopItems.get(itemId);
+                    if (shopItem && shopItem.price) {
+                        refundAmount = shopItem.price * removeQty;
+                        char.currency = (char.currency || 0) + refundAmount;
+                    }
+                }
+                const saved = this.characterManager.savePlayerData(guildId, playerData);
+                if (saved) {
+                    this.characterManager.syncInMemoryData(guildId, userId, userData);
+                    res.json({ success: true, refundAmount, currency: char.currency || 0 });
+                } else {
+                    res.status(500).json({ error: 'Failed to save' });
+                }
+            } catch (error) {
+                console.error('Error removing inventory item:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Get all custom maps
         app.get('/api/admin/maps', authenticateAPIKey, async (req, res) => {
             try {
