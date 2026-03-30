@@ -17811,6 +17811,10 @@ class NavalWarfareBot {
                 const arrivalEmoji = { rainy: '🌧️', thunderstorm: '⛈️', foggy: '🌫️', clear: '🌤️', hurricane: '🌀' }[pw.condition] || '🌦️';
                 messages.push(`${arrivalEmoji} **${pw.condition.toUpperCase()} — weather has arrived!**\n*"${arrivalText}"*`);
 
+                if (pw.condition === 'hurricane') {
+                    messages.push(...this.recallAircraftForHurricane(game));
+                }
+
                 game.pendingWeather = null;
 
             } else {
@@ -18187,6 +18191,58 @@ class NavalWarfareBot {
                 this.endPlayerTurn(player);
             }
         }
+    }
+
+    recallAircraftForHurricane(game) {
+        const messages = [];
+        const recalled = [];
+        const protected_ = [];
+
+        // Force all player-owned deployed aircraft to return unless carrier has All-Weather Aircraft
+        if (game.aircraft) {
+            for (const ac of game.aircraft.values()) {
+                if (ac.owner === 'enemy' || !ac.alive) continue;
+                if (ac.mission === 'returning' || ac.mission === 'landed') continue;
+                const hasAWA = ac.carrierID
+                    && this.getInventoryCount(game.guildId, ac.carrierID, 'all_weather_aircraft') > 0;
+                if (hasAWA) {
+                    protected_.push(ac.name);
+                } else {
+                    ac.mission = 'returning';
+                    recalled.push(ac.name);
+                }
+            }
+        }
+
+        // Force recon aircraft to land unless player has All-Weather Aircraft
+        for (const player of game.players.values()) {
+            if (!player.reconActive) continue;
+            const playerId = player.userId || player.id;
+            const hasAWA = this.getInventoryCount(game.guildId, playerId, 'all_weather_aircraft') > 0;
+            const pName = player.characterAlias || player.displayName || player.username || 'Unknown';
+            if (hasAWA) {
+                protected_.push(`${pName}'s recon`);
+            } else {
+                player.reconActive = false;
+                player.reconTurnsRemaining = 0;
+                player.reconCooldown = 3;
+                recalled.push(`${pName}'s recon`);
+            }
+        }
+
+        if (recalled.length > 0) {
+            messages.push(
+                `🌀 **Hurricane conditions — aircraft recalled!** All aircraft without All-Weather Aircraft upgrades have been ordered to return:\n` +
+                `> ${recalled.join(', ')}`
+            );
+        }
+        if (protected_.length > 0) {
+            messages.push(
+                `✈️ **All-Weather Aircraft** upgrades keep the following airborne:\n> ${protected_.join(', ')}`
+            );
+        }
+
+        return messages;
     }
 
     async processAirSupport(game, channel) {
@@ -18826,6 +18882,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
             let weatherMessage = `🌤️ Weather changed from ${oldWeather.charAt(0).toUpperCase() + oldWeather.slice(1)} to ${condition.charAt(0).toUpperCase() + condition.slice(1)}!`;
             if (condition === 'hurricane') {
                 weatherMessage += `\n⚠️ **Severe conditions reduce visibility to 5 cells!** Enemy forces outside this range are hidden.`;
+                const recallMsgs = this.recallAircraftForHurricane(game);
+                if (recallMsgs.length > 0) weatherMessage += '\n' + recallMsgs.join('\n');
             } else if (condition === 'thunderstorm') {
                 weatherMessage += `\n⚠️ **Heavy clouds reduce visibility to 10 cells!** Enemy forces outside this range are hidden.`;
             } else if (condition === 'fog') {
