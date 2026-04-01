@@ -5679,47 +5679,51 @@ class NavalWarfareBot {
             userId: p.id || p.userId,
             characterName: p.characterAlias || p.displayName,
             currentIsOPFOR: p.isOPFOR || false,
-            guildId: channel.guild.id
+            guildId: guildId
         }));
 
         // Send Discord channel messages for sunk human players
-        for (const sunk of sunkHumans) {
-            const userId = sunk.id || sunk.userId;
-            const charName = sunk.characterAlias || sunk.displayName;
-            if (sunk.isOPFOR) {
-                // Sunk OPFOR: offer recovery
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`opfor_recover_yes_${userId}_${channel.guild.id}_${charName}`)
-                        .setLabel('Be Recovered')
-                        .setStyle(ButtonStyle.Success),
-                    new ButtonBuilder()
-                        .setCustomId(`opfor_recover_no_${userId}`)
-                        .setLabel('Remain OPFOR')
-                        .setStyle(ButtonStyle.Danger)
-                );
-                await channel.send({
-                    content: `🏳️ <@${userId}>, you were sunk. Return to BLUFOR (be recovered), or remain OPFOR?`,
-                    components: [row]
-                });
-            } else {
-                // Sunk BLUFOR: offer conversion
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`opfor_convert_yes_${userId}_${channel.guild.id}_${charName}`)
-                        .setLabel('Convert to OPFOR')
-                        .setStyle(ButtonStyle.Danger),
-                    new ButtonBuilder()
-                        .setCustomId(`opfor_convert_no_${userId}`)
-                        .setLabel('Remain Sunk')
-                        .setStyle(ButtonStyle.Secondary)
-                );
-                await channel.send({
-                    content: `⚔️ <@${userId}>, you were sunk. Convert to OPFOR for future battles, or remain sunk?`,
-                    components: [row]
-                });
+        // Wrapped in try/catch so a Discord error here doesn't abort endSnapshot caching or games.delete()
+        try {
+            for (const sunk of sunkHumans) {
+                const userId = sunk.id || sunk.userId;
+                // Truncate to 40 chars to stay well under the 100-char Discord customId limit
+                const charName = (sunk.characterAlias || sunk.displayName || '').slice(0, 40);
+                if (sunk.isOPFOR) {
+                    // Sunk OPFOR: offer recovery
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`opfor_recover_yes_${userId}_${guildId}_${charName}`)
+                            .setLabel('Be Recovered')
+                            .setStyle(ButtonStyle.Success),
+                        new ButtonBuilder()
+                            .setCustomId(`opfor_recover_no_${userId}`) // no-op; userId only for acknowledgement
+                            .setLabel('Remain OPFOR')
+                            .setStyle(ButtonStyle.Danger)
+                    );
+                    await channel.send({
+                        content: `🏳️ <@${userId}>, you were sunk. Return to BLUFOR (be recovered), or remain OPFOR?`,
+                        components: [row]
+                    });
+                } else {
+                    // Sunk BLUFOR: offer conversion
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`opfor_convert_yes_${userId}_${guildId}_${charName}`)
+                            .setLabel('Convert to OPFOR')
+                            .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId(`opfor_convert_no_${userId}`) // no-op; userId only for acknowledgement
+                            .setLabel('Remain Sunk')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+                    await channel.send({
+                        content: `⚔️ <@${userId}>, you were sunk. Convert to OPFOR for future battles, or remain sunk?`,
+                        components: [row]
+                    });
+                }
             }
-        }
+        } catch (e) { console.error('Error sending OPFOR choice prompts:', e); }
 
         // Cache end-game state for web dashboard MVP screen
         try {
