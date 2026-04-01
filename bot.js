@@ -21130,25 +21130,54 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 if (game.phase !== 'joining') return res.status(400).json({ error: 'Game is not in joining phase' });
-                const player = game.players.get(userId);
-                if (!player) return res.status(404).json({ error: 'Player not found in game' });
-                const coordStr = game.generateExtendedCoordinate(x, y + 1);
-                if (!(game.spawnZoneCoords || []).includes(coordStr)) {
-                    return res.status(400).json({ error: 'Cell is not in spawn zone' });
+
+                // Check BLUFOR players first, then OPFOR players in enemies
+                let player = game.players.get(userId);
+                let isOPFOR = false;
+                if (!player) {
+                    const opforCandidate = game.enemies.get(userId);
+                    if (opforCandidate?.isOPFOR) {
+                        player = opforCandidate;
+                        isOPFOR = true;
+                    }
                 }
-                const occupied = Array.from(game.players.values()).some(p => p.x === x && p.y === y);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+
+                const coordStr = game.generateExtendedCoordinate(x, y + 1);
+
+                if (isOPFOR) {
+                    // OPFOR spawn zone: columns 70-99
+                    const col = x;
+                    if (col < 70 || col >= 100) {
+                        return res.status(400).json({ error: 'Cell is not in OPFOR spawn zone' });
+                    }
+                    const cell = game.getMapCell(coordStr);
+                    if (!cell || (cell.type !== 'ocean' && cell.type !== 'reef')) {
+                        return res.status(400).json({ error: 'Cell is not a valid OPFOR spawn position' });
+                    }
+                } else {
+                    if (!(game.spawnZoneCoords || []).includes(coordStr)) {
+                        return res.status(400).json({ error: 'Cell is not in spawn zone' });
+                    }
+                }
+
+                // Check occupancy across both collections
+                const occupied = Array.from(game.players.values()).some(p => p.x === x && p.y === y)
+                    || Array.from(game.enemies.values()).some(e => e.x === x && e.y === y);
                 if (occupied) return res.status(400).json({ error: 'Cell is already occupied' });
+
                 player.x = x;
                 player.y = y;
                 player.position = coordStr;
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
-                // Announce to Discord (fire-and-forget)
+
                 this.client.channels.fetch(channelId)
                     .then(ch => {
                         if (!ch) return;
                         const pName = player.characterAlias || player.displayName || player.username || 'A player';
-                        ch.send({ content: `⚓ **${pName}** selected spawn position **${coordStr}**.` });
+                        const label = isOPFOR ? `🔴 **[OPFOR] ${pName}**` : `⚓ **${pName}**`;
+                        ch.send({ content: `${label} selected spawn position **${coordStr}**.` });
                     })
                     .catch(() => {});
             } catch (error) {
