@@ -208,8 +208,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [attackState, setAttackState] = useState(null);
   // null | { targetId, targetName, step: 'weapon'|'shell'|'confirm', weaponType?, weaponName?, shellType? }
   const [airSupportTargeting, setAirSupportTargeting] = useState(false);
+  const [airSupportSubmitting, setAirSupportSubmitting] = useState(false);
   const [confirmEndBattle, setConfirmEndBattle] = useState(false);
   const [startingBattle, setStartingBattle] = useState(false);
+  const [opforChoiceData, setOpforChoiceData] = useState(null);
   const [endingTurn, setEndingTurn] = useState(false);
   const [gmWeather, setGmWeather] = useState('clear');
   const [gmWeatherDelay, setGmWeatherDelay] = useState(0);
@@ -256,6 +258,16 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (gameState && selectedPlayer) {
       const fresh = gameState.players.find(p => p.userId === selectedPlayer.userId);
       if (fresh) setSelectedPlayer(fresh);
+    }
+  }, [gameState]);
+
+  // Show OPFOR choice modal when battle ends and current user was sunk
+  useEffect(() => {
+    if (gameState?.phase === 'ended' && gameState.opforChoices?.length > 0) {
+      const myChoice = gameState.opforChoices.find(c => c.userId === user.id);
+      if (myChoice && !opforChoiceData) {
+        setOpforChoiceData(myChoice);
+      }
     }
   }, [gameState]);
 
@@ -546,6 +558,21 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   };
 
+  const handleOpforChoice = async (choice) => {
+    if (!opforChoiceData) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/opfor-choice`, {
+        characterName: opforChoiceData.characterName,
+        guildId: opforChoiceData.guildId,
+        choice
+      }, { withCredentials: true });
+    } catch (err) {
+      console.error('Failed to save OPFOR choice:', err);
+    } finally {
+      setOpforChoiceData(null);
+    }
+  };
+
   const handleMapClick = (x, y, clientX, clientY) => {
     if (gmSpawnMode) {
       handleSpawnEnemy(gmEnemyType, x, y, gmEnemyType === 'boss' ? gmBossKey : undefined);
@@ -687,6 +714,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
   };
 
   const handleUseAirSupport = async (targetId, targetName) => {
+    if (airSupportSubmitting) return;
+    setAirSupportSubmitting(true);
     try {
       const response = await axios.post(`${API_URL}/api/game/${channelId}/use-air-support`,
         { targetId }, { withCredentials: true });
@@ -695,6 +724,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
       setAirSupportTargeting(false);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to call air support');
+    } finally {
+      setAirSupportSubmitting(false);
     }
   };
 
@@ -1231,6 +1262,39 @@ function GameView({ channelId, user, onBack, onLogout }) {
 
   return (
     <div className="game-view">
+      {opforChoiceData && (
+        <div className="opfor-choice-overlay">
+          <div className="opfor-choice-modal">
+            {opforChoiceData.currentIsOPFOR ? (
+              <>
+                <h3>🏳️ You Were Sunk</h3>
+                <p>Do you want to return to BLUFOR (be recovered), or remain OPFOR for future battles?</p>
+                <div className="opfor-choice-buttons">
+                  <button className="btn-opfor-recover" onClick={() => handleOpforChoice('recover')}>
+                    Be Recovered
+                  </button>
+                  <button className="btn-opfor-stay" onClick={() => handleOpforChoice('convert')}>
+                    Remain OPFOR
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3>⚔️ You Were Sunk</h3>
+                <p>Convert to OPFOR for future battles, or remain sunk?</p>
+                <div className="opfor-choice-buttons">
+                  <button className="btn-opfor-convert" onClick={() => handleOpforChoice('convert')}>
+                    Convert to OPFOR
+                  </button>
+                  <button className="btn-opfor-stay" onClick={() => setOpforChoiceData(null)}>
+                    Remain Sunk
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {gameState?.phase === 'ended' && (
         <MVPScreen mvp={gameState.mvp} onBack={onBack} />
       )}
@@ -1581,10 +1645,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       {airSupportTargeting && (
                         <button
                           className="gm-control-btn take"
-                          style={{ background: '#4caf50' }}
+                          style={{ background: airSupportSubmitting ? '#555' : '#4caf50' }}
+                          disabled={airSupportSubmitting}
                           onClick={() => handleUseAirSupport(enemy.id, enemy.name)}
                         >
-                          ✈️ Call Strike
+                          {airSupportSubmitting ? '⏳ Calling...' : '✈️ Call Strike'}
                         </button>
                       )}
                       {!airSupportTargeting && isGM && (
@@ -1601,7 +1666,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
               <button
                 className="btn btn-secondary"
                 style={{ marginTop: 6, width: '100%' }}
-                onClick={() => setAirSupportTargeting(false)}
+                onClick={() => { setAirSupportTargeting(false); setAirSupportSubmitting(false); }}
               >
                 Cancel Air Support
               </button>
@@ -1664,6 +1729,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     <option value="destroyer">Destroyer</option>
                     <option value="light_cruiser">Light Cruiser</option>
                     <option value="heavy_cruiser">Heavy Cruiser</option>
+                    <option value="battlecruiser">Battlecruiser / Large Cruiser</option>
                     <option value="battleship">Battleship</option>
                     <option value="carrier">Carrier</option>
                     <option value="submarine">Submarine</option>

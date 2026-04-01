@@ -1315,3 +1315,29 @@
   font-weight: bold;
   flex-shrink: 0;
 }
+
+/* OPFOR choice modal */
+.opfor-choice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.opfor-choice-modal {
+  background: #1a1a2e;
+  border: 2px solid #e63946;
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 400px;
+  text-align: center;
+  color: #fff;
+}
+.opfor-choice-modal h3 { margin-top: 0; font-size: 1.4rem; }
+.opfor-choice-modal p { margin-bottom: 1.5rem; color: #ccc; }
+.opfor-choice-buttons { display: flex; gap: 1rem; justify-content: center; }
+.btn-opfor-convert { background: #e63946; color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-opfor-recover { background: #2a9d8f; color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-opfor-stay { background: #444; color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; }
