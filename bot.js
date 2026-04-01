@@ -3397,7 +3397,7 @@ class NavalWarfareBot {
             // Get ship class from character data or member roles
             const shipClass = character.shipClass || this.getPlayerShipClass(interaction.member);
 
-            // CHECK FOR OPFOR ROLE
+            // Read OPFOR flag from character record
             const isOPFOR = character.isOPFOR || false;
             character.characterAlias = characterName;
 
