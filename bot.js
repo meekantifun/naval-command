@@ -4795,6 +4795,10 @@ class NavalWarfareBot {
         const parts = interaction.customId.split('_');
         // Format: opfor_convert_yes/no_userId[_guildId_charName]
         //         opfor_recover_yes/no_userId[_guildId_charName]
+
+        // Guard: minimum 4 parts for any valid customId
+        if (parts.length < 4) return;
+
         const action = parts[1];   // 'convert' or 'recover'
         const answer = parts[2];   // 'yes' or 'no'
         const userId = parts[3];
@@ -4805,15 +4809,19 @@ class NavalWarfareBot {
         }
 
         if (answer === 'no') {
-            await interaction.update({ content: interaction.message.content + '\n*(No change made.)*', components: [] });
+            await interaction.update({ content: (interaction.message.content ?? '') + '\n*(No change made.)*', components: [] });
             return;
+        }
+
+        if (answer !== 'yes' || parts.length < 6) {
+            return interaction.reply({ content: '❌ Malformed button data.', flags: MessageFlags.Ephemeral });
         }
 
         // 'yes' path: parts[4] = guildId, parts[5..] = characterName (rejoin in case name had underscores)
         const guildId = parts[4];
         const characterName = parts.slice(5).join('_');
-        const choice = action === 'convert' ? 'convert' : 'recover';
 
+        let acknowledged = false;
         try {
             const playerData = this.characterManager.loadPlayerData(guildId);
 
@@ -4827,18 +4835,21 @@ class NavalWarfareBot {
                     return interaction.reply({ content: '❌ Character not found.', flags: MessageFlags.Ephemeral });
                 }
             }
-            playerData[userId].characters[resolvedCharName].isOPFOR = (choice === 'convert');
+            playerData[userId].characters[resolvedCharName].isOPFOR = (action === 'convert');
             this.characterManager.savePlayerData(guildId, playerData);
             this.characterManager.syncInMemoryData(guildId, userId, playerData[userId]);
 
-            const msg = choice === 'convert'
+            const msg = action === 'convert'
                 ? `✅ **${resolvedCharName}** is now flagged as OPFOR for future battles.`
                 : `✅ **${resolvedCharName}** has been recovered — OPFOR flag removed.`;
 
-            await interaction.update({ content: interaction.message.content + `\n${msg}`, components: [] });
+            await interaction.update({ content: (interaction.message.content ?? '') + `\n${msg}`, components: [] });
+            acknowledged = true;
         } catch (err) {
             console.error('Error handling OPFOR choice button:', err);
-            await interaction.reply({ content: '❌ An error occurred. Please try again.', flags: MessageFlags.Ephemeral });
+            if (!acknowledged) {
+                await interaction.reply({ content: '❌ An error occurred. Please try again.', flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
     }
 
