@@ -1323,6 +1323,11 @@ class NavalWarfareBot {
                 }
             }
 
+            // Handle post-battle OPFOR choice buttons (no active game needed)
+            if (interaction.customId.startsWith('opfor_convert_') || interaction.customId.startsWith('opfor_recover_')) {
+                return await this.handleOPFORChoiceButton(interaction);
+            }
+
             // NOW get the game for all other buttons
             const game = this.games.get(interaction.channelId);
             if (!game) {
@@ -4784,6 +4789,57 @@ class NavalWarfareBot {
         }
         
         return availableSpawns.sort();
+    }
+
+    async handleOPFORChoiceButton(interaction) {
+        const parts = interaction.customId.split('_');
+        // Format: opfor_convert_yes/no_userId[_guildId_charName]
+        //         opfor_recover_yes/no_userId[_guildId_charName]
+        const action = parts[1];   // 'convert' or 'recover'
+        const answer = parts[2];   // 'yes' or 'no'
+        const userId = parts[3];
+
+        // Only the intended player can respond
+        if (interaction.user.id !== userId) {
+            return interaction.reply({ content: '❌ This prompt is not for you.', flags: MessageFlags.Ephemeral });
+        }
+
+        if (answer === 'no') {
+            await interaction.update({ content: interaction.message.content + '\n*(No change made.)*', components: [] });
+            return;
+        }
+
+        // 'yes' path: parts[4] = guildId, parts[5..] = characterName (rejoin in case name had underscores)
+        const guildId = parts[4];
+        const characterName = parts.slice(5).join('_');
+        const choice = action === 'convert' ? 'convert' : 'recover';
+
+        try {
+            const playerData = this.characterManager.loadPlayerData(guildId);
+
+            let resolvedCharName = characterName;
+            if (!playerData[userId]?.characters?.[characterName]) {
+                // Try to find a character whose name starts with the (possibly truncated) characterName
+                const candidates = Object.keys(playerData[userId]?.characters || {}).filter(n => n.startsWith(characterName));
+                if (candidates.length === 1) {
+                    resolvedCharName = candidates[0];
+                } else {
+                    return interaction.reply({ content: '❌ Character not found.', flags: MessageFlags.Ephemeral });
+                }
+            }
+            playerData[userId].characters[resolvedCharName].isOPFOR = (choice === 'convert');
+            this.characterManager.savePlayerData(guildId, playerData);
+            this.characterManager.syncInMemoryData(guildId, userId, playerData[userId]);
+
+            const msg = choice === 'convert'
+                ? `✅ **${resolvedCharName}** is now flagged as OPFOR for future battles.`
+                : `✅ **${resolvedCharName}** has been recovered — OPFOR flag removed.`;
+
+            await interaction.update({ content: interaction.message.content + `\n${msg}`, components: [] });
+        } catch (err) {
+            console.error('Error handling OPFOR choice button:', err);
+            await interaction.reply({ content: '❌ An error occurred. Please try again.', flags: MessageFlags.Ephemeral });
+        }
     }
 
     async handleOPFORSpawnSelection(interaction, game) {
