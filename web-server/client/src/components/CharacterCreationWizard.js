@@ -77,7 +77,9 @@ function computeWeaponStats(type, caliberStr, totalBarrels) {
 // Defined outside component so it can be used in lazy state initializer
 function calculateStats(tonnage, speedKnots, armorThickness) {
   const calculatedHP = Math.max(10, 50 + Math.floor(tonnage / 100));
-  const calculatedArmor = Math.max(0, 10 + Math.floor(armorThickness.belt / 5));
+  const calculatedArmor = Math.max(5, Math.min(Math.round(
+    (armorThickness.belt * 0.50) + (armorThickness.deck * 0.30) + (armorThickness.turret * 0.20)
+  ), 500));
   const calculatedSpeed = Math.max(1, Math.min(10, Math.floor(speedKnots / 5)));
   const speedFactor = parseFloat((speedKnots / 25).toFixed(2));
   const sizeFactor = parseFloat((8000 / tonnage).toFixed(2));
@@ -97,6 +99,8 @@ function buildInitialFormData(initialData) {
       targetUserId: '',
       characterName: '',
       shipClass: 'Destroyer',
+      isHybrid: false,
+      isOPFOR: false,
       tonnage: 2500,
       speedKnots: 35,
       armorThickness: { belt: 25, deck: 15, turret: 10 },
@@ -114,6 +118,8 @@ function buildInitialFormData(initialData) {
     targetUserId: initialData.userId || '',
     characterName: initialData.name || '',
     shipClass: initialData.shipClass || 'Destroyer',
+    isHybrid: initialData.isHybrid || false,
+    isOPFOR: initialData.isOPFOR || false,
     tonnage,
     speedKnots,
     armorThickness: armor,
@@ -145,7 +151,10 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
     mounts: 4
   });
 
-  const shipClasses = ['Destroyer', 'Light Cruiser', 'Heavy Cruiser', 'Battleship', 'Carrier', 'Submarine'];
+  const shipClasses = ['Destroyer', 'Light Cruiser', 'Heavy Cruiser', 'Battlecruiser', 'Battleship', 'Carrier', 'Submarine'];
+  const shipClassLabels = {
+    'Battlecruiser': 'Battlecruiser / Large Cruiser',
+  };
 
   const gunCaliberGroups = [
     {
@@ -317,6 +326,8 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
       const characterData = {
         id: assignUserId,
         shipClass: formData.shipClass,
+        isHybrid: formData.isHybrid || false,
+        isOPFOR: formData.isOPFOR || false,
         tonnage: formData.tonnage,
         speedKnots: formData.speedKnots,
         armorThickness: formData.armorThickness,
@@ -324,7 +335,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
         calculatedArmor: formData.calculatedArmor,
         calculatedSpeed: formData.calculatedSpeed,
         calculatedEvasion: formData.calculatedEvasion,
-        hangar: formData.shipClass === 'Carrier' ? Math.floor(formData.tonnage / 500) : 0,
+        hangar: (formData.shipClass === 'Carrier' || formData.isHybrid) ? Math.floor(formData.tonnage / 500) : 0,
         weapons: formData.weapons,
         availableAircraft: formData.availableAircraft,
         activeSquadrons: initialData?.activeSquadrons || {},
@@ -361,14 +372,16 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
     }
   };
 
+  const hasAircraftStep = formData.shipClass === 'Carrier' || formData.isHybrid;
+
   const nextStep = () => {
     if (step === 1 && !formData.characterName.trim()) { alert('Please enter a character name'); return; }
-    if (step === 2 && formData.shipClass !== 'Carrier') { setStep(4); return; }
+    if (step === 2 && !hasAircraftStep) { setStep(4); return; }
     setStep(step + 1);
   };
 
   const prevStep = () => {
-    if (step === 4 && formData.shipClass !== 'Carrier') { setStep(2); return; }
+    if (step === 4 && !hasAircraftStep) { setStep(2); return; }
     setStep(step - 1);
   };
 
@@ -380,10 +393,10 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
           <div className="wizard-steps">
             <div className={`step ${step >= 1 ? 'active' : ''}`}>1. Ship Info</div>
             <div className={`step ${step >= 2 ? 'active' : ''}`}>2. Weapons</div>
-            {formData.shipClass === 'Carrier' && (
+            {hasAircraftStep && (
               <div className={`step ${step >= 3 ? 'active' : ''}`}>3. Aircraft</div>
             )}
-            <div className={`step ${step >= 4 ? 'active' : ''}`}>{formData.shipClass === 'Carrier' ? '4' : '3'}. AA Systems</div>
+            <div className={`step ${step >= 4 ? 'active' : ''}`}>{hasAircraftStep ? '4' : '3'}. AA Systems</div>
           </div>
         </div>
 
@@ -421,8 +434,36 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
               <div className="form-group">
                 <label>Ship Class *</label>
                 <select value={formData.shipClass} onChange={(e) => handleBasicInfoChange('shipClass', e.target.value)}>
-                  {shipClasses.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                  {shipClasses.map(sc => <option key={sc} value={sc}>{shipClassLabels[sc] || sc}</option>)}
                 </select>
+              </div>
+
+              {formData.shipClass !== 'Carrier' && (
+                <div className="form-group form-group-inline">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={formData.isHybrid || false}
+                      onChange={(e) => setFormData({ ...formData, isHybrid: e.target.checked })}
+                      style={{ marginRight: '8px' }}
+                    />
+                    Hybrid (adds aircraft capability — designates ship as <strong>{
+                      { Destroyer: 'DDV', 'Light Cruiser': 'CLV', 'Heavy Cruiser': 'CAV', Battlecruiser: 'BCV', Battleship: 'BBV', Submarine: 'SSV' }[formData.shipClass] || `${formData.shipClass}V`
+                    }</strong>)
+                  </label>
+                </div>
+              )}
+
+              <div className="form-group form-group-inline">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={formData.isOPFOR || false}
+                    onChange={(e) => setFormData({ ...formData, isOPFOR: e.target.checked })}
+                    style={{ marginRight: '8px' }}
+                  />
+                  OPFOR — this character fights for the enemy side
+                </label>
               </div>
 
               <div className="form-row">
@@ -605,7 +646,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                 )}
               </div>
 
-              {['Battleship', 'Heavy Cruiser', 'Light Cruiser'].includes(formData.shipClass) && (
+              {['Battleship', 'Battlecruiser', 'Heavy Cruiser', 'Light Cruiser'].includes(formData.shipClass) && (
                 <div className="recon-aircraft-section">
                   <h4>Reconnaissance Aircraft <span className="optional">(optional)</span></h4>
                   <p className="section-note">When launched in battle, extends main battery range by +5 cells.</p>
@@ -621,7 +662,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                           setFormData({
                             ...formData,
                             reconAircraft: name.trim()
-                              ? { ...(formData.reconAircraft || {}), name: name.trim() }
+                              ? { ...(formData.reconAircraft || {}), name: name }
                               : null
                           });
                         }}
@@ -649,8 +690,8 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
             </div>
           )}
 
-          {/* ── Step 3: Aircraft (Carriers only) ── */}
-          {step === 3 && formData.shipClass === 'Carrier' && (
+          {/* ── Step 3: Aircraft (Carriers and Hybrids) ── */}
+          {step === 3 && hasAircraftStep && (
             <div className="wizard-step">
               <h3>Aircraft Configuration</h3>
               <div className="info-box">
