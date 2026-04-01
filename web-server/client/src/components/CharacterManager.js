@@ -382,6 +382,25 @@ function CharacterManager({ guildId, user }) {
     setShowWizard(true);
   };
 
+  const handleOPFORToggle = async (char) => {
+    const updatedData = { ...char, isOPFOR: !char.isOPFOR };
+    const previousState = char.isOPFOR;
+    // Optimistic update
+    setCharacters(prev => prev.map(c => c.name === char.name && c.userId === char.userId ? { ...c, isOPFOR: !c.isOPFOR } : c));
+    try {
+      await axios.post('/api/admin/characters', {
+        guildId,
+        userId: char.userId,
+        characterName: char.name,
+        characterData: updatedData
+      }, { withCredentials: true });
+    } catch (err) {
+      // Revert on failure
+      setCharacters(prev => prev.map(c => c.name === char.name && c.userId === char.userId ? { ...c, isOPFOR: previousState } : c));
+      console.error('Failed to toggle OPFOR flag', err);
+    }
+  };
+
   const handleDelete = async (character) => {
     if (!window.confirm(`Are you sure you want to delete ${character.name}?`)) {
       return;
@@ -462,6 +481,13 @@ function CharacterManager({ guildId, user }) {
                     <p className="char-user">User ID: {char.userId}</p>
                   </div>
                   <div className="character-actions" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleOPFORToggle(char)}
+                      className={`btn-opfor-toggle${char.isOPFOR ? ' opfor-active' : ''}`}
+                      title={char.isOPFOR ? 'Remove OPFOR flag' : 'Set as OPFOR'}
+                    >
+                      {char.isOPFOR ? '🔴 OPFOR' : '⚪ OPFOR'}
+                    </button>
                     <button onClick={() => handleEdit(char)} className="btn-edit">
                       Edit
                     </button>
