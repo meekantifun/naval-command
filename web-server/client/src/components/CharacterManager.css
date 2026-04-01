@@ -283,6 +283,29 @@
   color: white;
 }
 
+.btn-opfor-toggle {
+  padding: 8px 16px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--surface-3);
+  color: white;
+  transition: all 0.2s;
+}
+
+.btn-opfor-toggle:hover {
+  background: var(--surface-3);
+  filter: brightness(1.2);
+}
+
+.btn-opfor-toggle.opfor-active {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
 /* Character Detail Sections */
 .char-section {
   background: var(--surface-1);

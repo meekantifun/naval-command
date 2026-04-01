@@ -384,7 +384,7 @@ function CharacterManager({ guildId, user }) {
 
   const handleOPFORToggle = async (char) => {
     const updatedData = { ...char, isOPFOR: !char.isOPFOR };
-    const previousState = char.isOPFOR;
+    const previousState = char.isOPFOR || false;
     // Optimistic update
     setCharacters(prev => prev.map(c => c.name === char.name && c.userId === char.userId ? { ...c, isOPFOR: !c.isOPFOR } : c));
     try {
