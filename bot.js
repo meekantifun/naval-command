@@ -5667,6 +5667,60 @@ class NavalWarfareBot {
 
         this.savePlayerData();
 
+        // Identify sunk human players for post-battle OPFOR prompts
+        // game.players contains only human players by construction — no isPlayer check needed
+        // game.enemies contains AI + OPFOR humans; filter to isPlayer to skip AI units
+        const sunkHumans = [
+            ...Array.from(game.players.values()).filter(p => !p.alive),
+            ...Array.from(game.enemies.values()).filter(p => p.isPlayer && !p.alive)
+        ];
+
+        const opforChoices = sunkHumans.map(p => ({
+            userId: p.id || p.userId,
+            characterName: p.characterAlias || p.displayName,
+            currentIsOPFOR: p.isOPFOR || false,
+            guildId: channel.guild.id
+        }));
+
+        // Send Discord channel messages for sunk human players
+        for (const sunk of sunkHumans) {
+            const userId = sunk.id || sunk.userId;
+            const charName = sunk.characterAlias || sunk.displayName;
+            if (sunk.isOPFOR) {
+                // Sunk OPFOR: offer recovery
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`opfor_recover_yes_${userId}_${channel.guild.id}_${charName}`)
+                        .setLabel('Be Recovered')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(`opfor_recover_no_${userId}`)
+                        .setLabel('Remain OPFOR')
+                        .setStyle(ButtonStyle.Danger)
+                );
+                await channel.send({
+                    content: `🏳️ <@${userId}>, you were sunk. Return to BLUFOR (be recovered), or remain OPFOR?`,
+                    components: [row]
+                });
+            } else {
+                // Sunk BLUFOR: offer conversion
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`opfor_convert_yes_${userId}_${channel.guild.id}_${charName}`)
+                        .setLabel('Convert to OPFOR')
+                        .setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder()
+                        .setCustomId(`opfor_convert_no_${userId}`)
+                        .setLabel('Remain Sunk')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+                await channel.send({
+                    content: `⚔️ <@${userId}>, you were sunk. Convert to OPFOR for future battles, or remain sunk?`,
+                    components: [row]
+                });
+            }
+        }
+
         // Cache end-game state for web dashboard MVP screen
         try {
             game.phase = 'ended';
@@ -5712,6 +5766,7 @@ class NavalWarfareBot {
                         gameStartTime: mvpCandidate.gameStartTime || Date.now(),
                     }
                 } : null,
+                opforChoices: opforChoices,
             };
             this.endedGames.set(game.channelId, endSnapshot);
             setTimeout(() => this.endedGames.delete(game.channelId), 30 * 60 * 1000);
