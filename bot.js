@@ -3540,17 +3540,6 @@ class NavalWarfareBot {
        return 'Destroyer';
     }
 
-    hasOPFORRole(member) {
-        return member.roles.cache.some(role => {
-            const roleName = role.name.toLowerCase();
-            return roleName.includes('opfor') || 
-                   roleName.includes('enemy') ||
-                   roleName.includes('hostile') ||
-                   roleName.includes('red team') ||
-                   roleName.includes('opposition');
-        });
-    }
-
     getPlayerCharacter(guildId, playerId) {
         const playerEntry = this.getGuildPlayerData(guildId, playerId);
         if (!playerEntry || !playerEntry.activeCharacter || !playerEntry.characters) {
