@@ -507,6 +507,10 @@ class NavalWarfareBot {
                         .setDescription('When true, pause after AI turn so GM can narrate AI actions before player turns begin')
                         .setRequired(false))
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+            new SlashCommandBuilder().setName('setgm').setDescription('[Admin] Set a role or user as GM for this server')
+                .addRoleOption(option => option.setName('role').setDescription('Role to grant GM permissions').setRequired(false))
+                .addUserOption(option => option.setName('user').setDescription('User to grant GM permissions').setRequired(false))
+                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
             new SlashCommandBuilder().setName('setlogchannel').setDescription('Set the channel for console logging')
                 .addChannelOption(option => option.setName('channel').setDescription('Channel to send logs to').setRequired(true))
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -935,6 +939,21 @@ class NavalWarfareBot {
         return this.getPlayerInventory(guildId, userId)?.get(itemId) ?? 0;
     }
 
+    // Returns true only if the player owns the upgrade AND has it set to active.
+    // Falls back to "active" when the activeUpgrades array doesn't exist yet (backwards compatibility).
+    isUpgradeActive(guildId, userId, itemId) {
+        if (this.getInventoryCount(guildId, userId, itemId) <= 0) return false;
+        const pd = this.getGuildPlayerData(guildId, userId);
+        if (!pd) return false;
+        const charData = pd.characters instanceof Map
+            ? pd.characters.get(pd.activeCharacter)
+            : pd.characters?.[pd.activeCharacter];
+        if (!charData) return false;
+        // No activeUpgrades array means the toggle feature hasn't been used yet — treat as active
+        if (!Array.isArray(charData.activeUpgrades)) return true;
+        return charData.activeUpgrades.includes(itemId);
+    }
+
     deleteGuildPlayerData(guildId, userId) {
         if (!this.playerData.has(guildId)) {
             return false;
@@ -1031,6 +1050,7 @@ class NavalWarfareBot {
             case 'equipment': await this.showEquipmentStats(interaction); break;
             case 'speak':      await this.handleGMSpeak(interaction); break;
             case 'aicanspeak': await this.handleAICanSpeak(interaction); break;
+            case 'setgm': await this.handleSetGM(interaction); break;
             case 'roleplay':
                 await this.setRoleplayMode(interaction);
                 break;
@@ -3309,9 +3329,9 @@ class NavalWarfareBot {
             
             // Get ship class from character data
             const shipClass = character.shipClass || 'Unknown';
-            
+
             // Check OPFOR role
-            const isOPFOR = this.hasOPFORRole(interaction.member);
+            const isOPFOR = character.isOPFOR || false;
             
             // Add player to game
             let joinSuccess = false;
@@ -3376,9 +3396,9 @@ class NavalWarfareBot {
         try {
             // Get ship class from character data or member roles
             const shipClass = character.shipClass || this.getPlayerShipClass(interaction.member);
-            
+
             // CHECK FOR OPFOR ROLE
-            const isOPFOR = this.hasOPFORRole(interaction.member);
+            const isOPFOR = character.isOPFOR || false;
             character.characterAlias = characterName;
 
             if (isOPFOR) {
@@ -3932,7 +3952,7 @@ class NavalWarfareBot {
         try {
             // Get ship class and check OPFOR
             const shipClass = activeCharacter.shipClass || this.getPlayerShipClass(interaction.member);
-            const isOPFOR = this.hasOPFORRole(interaction.member);
+            const isOPFOR = activeCharacter.isOPFOR || false;
             activeCharacter.characterAlias = selectionData.characterName;
 
             if (isOPFOR) {
@@ -7232,6 +7252,7 @@ class NavalWarfareBot {
         const aaMessages = await this.processAADefense(game, channel);
         for (const message of aaMessages) {
             await channel.send(message);
+            this.broadcastLogEntry(game.channelId, message.replace(/\*\*/g, '').replace(/\*/g, ''), 'attack');
         }
     }
 
@@ -9870,11 +9891,11 @@ class NavalWarfareBot {
             const autoEquipment = {};
             let autoLaunch = false;
 
-            if (aircraftType === 'fighter' && this.getInventoryCount(interaction.guildId, interaction.user.id, 'fighter_rockets') > 0) {
+            if (aircraftType === 'fighter' && this.isUpgradeActive(interaction.guildId, interaction.user.id, 'fighter_rockets')) {
                 autoEquipment.hasRockets = true;
                 autoLaunch = true;
             }
-            if (aircraftType === 'dive_bomber' && this.getInventoryCount(interaction.guildId, interaction.user.id, 'ap_bombs') > 0) {
+            if (aircraftType === 'dive_bomber' && this.isUpgradeActive(interaction.guildId, interaction.user.id, 'ap_bombs')) {
                 autoEquipment.bombType = 'ap';
                 autoLaunch = true;
             }
@@ -13003,7 +13024,8 @@ class NavalWarfareBot {
             'Battleship': `${iconFolder}/battleship.png`,
             'Aircraft Carrier': `${iconFolder}/carrier.png`,
             'Heavy Cruiser': `${iconFolder}/cruiser.png`,
-            'Light Cruiser': `${iconFolder}/cruiser.png`, // Light cruisers also use cruiser icon
+            'Battlecruiser': `${iconFolder}/cruiser.png`,
+            'Light Cruiser': `${iconFolder}/cruiser.png`,
             'Destroyer': `${iconFolder}/destroyer.png`,
             'Submarine': `${iconFolder}/submarine.png`,
             'Auxiliary': `${iconFolder}/auxiliary.png`
@@ -18150,7 +18172,9 @@ class NavalWarfareBot {
             if (airSuppCount <= 0) {
                 return interaction.update({ content: '❌ You no longer have an Air Support Marker!', embeds: [], components: [] });
             }
-            this.getPlayerInventory(game.guildId, interaction.user.id).set('air_support_marker', airSuppCount - 1);
+            const invDiscord = this.getPlayerInventory(game.guildId, interaction.user.id);
+            if (airSuppCount - 1 <= 0) invDiscord.delete('air_support_marker');
+            else invDiscord.set('air_support_marker', airSuppCount - 1);
             this.savePlayerData();
 
             // Schedule strike
@@ -18204,7 +18228,7 @@ class NavalWarfareBot {
                 if (ac.owner === 'enemy' || !ac.alive) continue;
                 if (ac.mission === 'returning' || ac.mission === 'landed') continue;
                 const hasAWA = ac.carrierID
-                    && this.getInventoryCount(game.guildId, ac.carrierID, 'all_weather_aircraft') > 0;
+                    && this.isUpgradeActive(game.guildId, ac.carrierID, 'all_weather_aircraft');
                 if (hasAWA) {
                     protected_.push(ac.name);
                 } else {
@@ -18218,7 +18242,7 @@ class NavalWarfareBot {
         for (const player of game.players.values()) {
             if (!player.reconActive) continue;
             const playerId = player.userId || player.id;
-            const hasAWA = this.getInventoryCount(game.guildId, playerId, 'all_weather_aircraft') > 0;
+            const hasAWA = this.isUpgradeActive(game.guildId, playerId, 'all_weather_aircraft');
             const pName = player.characterAlias || player.displayName || player.username || 'Unknown';
             if (hasAWA) {
                 protected_.push(`${pName}'s recon`);
@@ -18922,21 +18946,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
     }
 
     async handleAICanSpeak(interaction) {
-        const game = this.games.get(interaction.channelId);
-        if (!game) {
-            return interaction.reply({ content: '❌ No active battle in this channel.', ephemeral: true });
-        }
-
         const raw = interaction.options.getString('value').trim().toLowerCase();
 
         if (raw === 'false') {
-            game.aiSpeakChance = 0;
-            return interaction.reply({ content: '🔇 AI personality responses are now **disabled**. The AI will not respond to player messages.' });
+            this.aiSpeakChance = 0;
+            return interaction.reply({ content: '🔇 AI personality responses are now **disabled globally**. The AI will not respond to player messages in any battle.' });
         }
 
         if (raw === 'true') {
-            game.aiSpeakChance = 1.0;
-            return interaction.reply({ content: '🔊 AI personality responses are now **enabled**. The AI will respond to every player message.' });
+            this.aiSpeakChance = 1.0;
+            return interaction.reply({ content: '🔊 AI personality responses are now **enabled globally**. The AI will respond to every player message in all battles.' });
         }
 
         const num = parseInt(raw, 10);
@@ -18944,8 +18963,47 @@ Use \`/stats\` during a battle to view your current ship statistics!
             return interaction.reply({ content: '❌ Value must be `true`, `false`, or a number from **1–100** (percentage chance).', ephemeral: true });
         }
 
-        game.aiSpeakChance = num / 100;
-        return interaction.reply({ content: `🎲 AI personality responses set to **${num}%** — the AI will respond to roughly ${num} out of every 100 player messages.` });
+        this.aiSpeakChance = num / 100;
+        return interaction.reply({ content: `🎲 AI personality responses set globally to **${num}%** — the AI will respond to roughly ${num} out of every 100 player messages across all battles.` });
+    }
+
+    async handleSetGM(interaction) {
+        if (!interaction.member.permissions.has('Administrator')) {
+            return interaction.reply({ content: '❌ Only server administrators can configure GM settings.', ephemeral: true });
+        }
+
+        const role = interaction.options.getRole('role');
+        const user = interaction.options.getUser('user');
+
+        if (!role && !user) {
+            return interaction.reply({ content: '❌ Please provide a role or user to grant GM permissions.', ephemeral: true });
+        }
+
+        const guildId = interaction.guildId;
+        const lines = [];
+
+        if (role) {
+            const currentRoleId = this.staffRoleManager.getStaffRoleId(guildId);
+            if (currentRoleId === role.id) {
+                this.staffRoleManager.removeStaffRole(guildId);
+                lines.push(`🔇 GM role **${role.name}** removed — members with this role no longer have GM permissions.`);
+            } else {
+                this.staffRoleManager.setStaffRoleId(guildId, role.id);
+                lines.push(`✅ GM role set to **${role.name}** — all members with this role can use GM commands.`);
+            }
+        }
+
+        if (user) {
+            if (this.staffRoleManager.hasStaffUser(guildId, user.id)) {
+                this.staffRoleManager.removeStaffUser(guildId, user.id);
+                lines.push(`🔇 **${user.username}** removed as GM — they can no longer use GM commands in this server.`);
+            } else {
+                this.staffRoleManager.addStaffUser(guildId, user.id);
+                lines.push(`✅ **${user.username}** added as a GM — they can use GM commands in this server.`);
+            }
+        }
+
+        return interaction.reply({ content: lines.join('\n') });
     }
 
     async setWeather(interaction) {
@@ -20457,9 +20515,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     reconTurnsRemaining: p.reconTurnsRemaining ?? 0,
                     reconCooldown: p.reconCooldown ?? 0,
                     hangar: p.hangar ?? 0,
-                    hasAllWeatherAircraft: this.getInventoryCount(game.guildId, p.userId || p.id, 'all_weather_aircraft') > 0,
-                    hasFighterRockets: this.getInventoryCount(game.guildId, p.userId || p.id, 'fighter_rockets') > 0,
-                    hasApBombs: this.getInventoryCount(game.guildId, p.userId || p.id, 'ap_bombs') > 0,
+                    hasAllWeatherAircraft: this.isUpgradeActive(game.guildId, p.userId || p.id, 'all_weather_aircraft'),
+                    hasFighterRockets: this.isUpgradeActive(game.guildId, p.userId || p.id, 'fighter_rockets'),
+                    hasApBombs: this.isUpgradeActive(game.guildId, p.userId || p.id, 'ap_bombs'),
                     hasAirSupportMarker: this.getInventoryCount(game.guildId, p.userId || p.id, 'air_support_marker') > 0,
                     luckyCharm: p.luckyCharm ?? false,
                     inventory: Object.fromEntries(
@@ -21174,8 +21232,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
 
                 if (game.weather === 'hurricane') {
-                    if (this.getInventoryCount(game.guildId, userId, 'all_weather_aircraft') <= 0) {
-                        return res.status(400).json({ error: 'Cannot launch aircraft in hurricane conditions! Requires All-Weather Aircraft.' });
+                    if (!this.isUpgradeActive(game.guildId, userId, 'all_weather_aircraft')) {
+                        return res.status(400).json({ error: 'Cannot launch aircraft in hurricane conditions! Requires All-Weather Aircraft upgrade (active).' });
                     }
                 }
 
@@ -21217,10 +21275,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 })();
 
                 const equipment = {};
-                if (aircraftType === 'fighter' && this.getInventoryCount(game.guildId, userId, 'fighter_rockets') > 0) {
+                if (aircraftType === 'fighter' && this.isUpgradeActive(game.guildId, userId, 'fighter_rockets')) {
                     equipment.hasRockets = true;
                 }
-                if (aircraftType === 'dive_bomber' && this.getInventoryCount(game.guildId, userId, 'ap_bombs') > 0) {
+                if (aircraftType === 'dive_bomber' && this.isUpgradeActive(game.guildId, userId, 'ap_bombs')) {
                     equipment.bombType = 'ap';
                 }
 
@@ -21298,16 +21356,38 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
                 if (needsEndTurn) player.actionPoints = 0;
 
+                // Reactive AA: enemy ships with AA fire at aircraft that move into range
+                const aaReactions = [];
+                if (aircraft.alive) {
+                    for (const enemy of game.enemies.values()) {
+                        if (!enemy.alive || !enemy.aaSystem || enemy.aaSystem.ammo <= 0) continue;
+                        const aaDistToAircraft = game.calculateDistance(enemy.position, aircraft.position);
+                        if (aaDistToAircraft <= enemy.aaSystem.range) {
+                            const aaEntity = { entity: enemy, type: 'enemy', aaSystems: [enemy.aaSystem] };
+                            const aaResult = await this.executeAAAttack(
+                                aaEntity,
+                                [{ aircraft, distance: aaDistToAircraft }],
+                                game,
+                                enemy.aaSystem
+                            );
+                            if (aaResult.message) aaReactions.push(aaResult.message);
+                        }
+                    }
+                }
+
                 await this.broadcastGameUpdate(channelId);
                 res.json({ success: true });
 
                 const pName = player?.characterAlias || player?.username || 'A player';
+                for (const msg of aaReactions) {
+                    this.broadcastLogEntry(channelId, msg.replace(/\*\*/g, '').replace(/\*/g, ''), 'attack');
+                }
                 this.client.channels.fetch(channelId)
-                    .then(ch => {
+                    .then(async ch => {
                         if (!ch) return;
-                        ch.send({ content: `✈️ **${aircraft.name}** moved to **${newCoord}** (${pName})` })
-                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
-                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                        await ch.send({ content: `✈️ **${aircraft.name}** moved to **${newCoord}** (${pName})` });
+                        for (const msg of aaReactions) await ch.send(msg);
+                        if (needsEndTurn) this.endPlayerTurn(player);
                     })
                     .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (error) {
@@ -21420,6 +21500,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const resultMsg = hit
                     ? `💥 **${aircraft.name}** hits **${targetName}** for **${damage}** damage!${sank ? ' 🚢💥 **SUNK!**' : ''}`
                     : `🎯 **${aircraft.name}** misses **${targetName}**!`;
+                const cleanResultMsg = resultMsg.replace(/\*\*/g, '').replace(/\*/g, '');
+                this.broadcastLogEntry(channelId, `✈️ ${pName}: ${cleanResultMsg}`, 'attack');
+                for (const msg of aaReactions) {
+                    this.broadcastLogEntry(channelId, msg.replace(/\*\*/g, '').replace(/\*/g, ''), 'attack');
+                }
                 this.client.channels.fetch(channelId)
                     .then(async ch => {
                         if (!ch) return;
@@ -21544,7 +21629,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const target = game.enemies.get(targetId);
                 if (!target || !target.alive) return res.status(400).json({ error: 'Target not found or already sunk' });
 
-                this.getPlayerInventory(game.guildId, userId).set('air_support_marker', count - 1);
+                const invWeb = this.getPlayerInventory(game.guildId, userId);
+                if (count - 1 <= 0) invWeb.delete('air_support_marker');
+                else invWeb.set('air_support_marker', count - 1);
                 this.savePlayerData();
 
                 const arrivalTurn = game.turnNumber + Math.floor(Math.random() * 5) + 1;
@@ -22065,6 +22152,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const maxActions  = player.maxActions ?? 2;
                 if (costAction && actionsUsed >= maxActions) {
                     return res.status(400).json({ error: 'No actions remaining this turn' });
+                }
+
+                // Air support marker requires target selection via its dedicated endpoint
+                if (itemId === 'air_support_marker') {
+                    return res.status(400).json({ error: 'Use the /api/game/:channelId/use-air-support endpoint to call air support' });
                 }
 
                 // 5. Item-specific conditions
@@ -22870,6 +22962,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         destroyer: 'Destroyer',
                         light_cruiser: 'Light Cruiser',
                         heavy_cruiser: 'Heavy Cruiser',
+                        battlecruiser: 'Battlecruiser',
                         battleship: 'Battleship',
                         carrier: 'Aircraft Carrier'
                     };
@@ -23124,7 +23217,8 @@ class NavalBattle {
 
         if (this.players.size >= this.maxPlayers) return false;
         
-        const maxActions = shipClass.includes('Carrier') ? 3 : 2;
+        const isCarrierType = shipClass.includes('Carrier') || playerData.isHybrid;
+        const maxActions = isCarrierType ? 3 : 2;
         const player = {
             ...playerData,
             id: userId,
@@ -23148,8 +23242,8 @@ class NavalBattle {
             fuel: 100,
             ammo: new Map([['main', 50], ['secondary', 100], ['torpedoes', 12]]),
             hasTorpedoes: ['Destroyer', 'Submarine', 'Light Cruiser'].includes(shipClass),
-            aircraft: shipClass.includes('Carrier') ? new Map() : null,
-            hangar: shipClass.includes('Carrier') ? (playerData.hangar || 36) : 0,
+            aircraft: isCarrierType ? new Map() : null,
+            hangar: isCarrierType ? (playerData.hangar || 36) : 0,
             depth: shipClass === 'Submarine' ? 'surface' : null,
             alive: true,
             tonnage: playerData.tonnage || this.getDefaultTonnage(shipClass),
@@ -24272,6 +24366,7 @@ class NavalBattle {
             'Destroyer': 2500,
             'Light Cruiser': 6000,
             'Heavy Cruiser': 10000,
+            'Battlecruiser': 26000,
             'Battleship': 35000,
             'Aircraft Carrier': 25000,
             'Submarine': 1500,
@@ -24285,6 +24380,7 @@ class NavalBattle {
             'Destroyer': 35,
             'Light Cruiser': 32,
             'Heavy Cruiser': 28,
+            'Battlecruiser': 26,
             'Battleship': 21,
             'Aircraft Carrier': 25,
             'Submarine': 20,
