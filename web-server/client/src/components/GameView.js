@@ -269,7 +269,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
         setOpforChoiceData(myChoice);
       }
     }
-  }, [gameState]);
+  }, [gameState, user.id, opforChoiceData]);
 
   // Keep selectedAircraft in sync with fresh game state
   useEffect(() => {
@@ -1273,7 +1273,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   <button className="btn-opfor-recover" onClick={() => handleOpforChoice('recover')}>
                     Be Recovered
                   </button>
-                  <button className="btn-opfor-stay" onClick={() => handleOpforChoice('convert')}>
+                  <button className="btn-opfor-stay" onClick={() => setOpforChoiceData(null)}>
                     Remain OPFOR
                   </button>
                 </div>
