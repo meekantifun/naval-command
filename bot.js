@@ -20436,7 +20436,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     // If guildId is specified, return all games in that guild
                     if (guildId) {
                         if (game.guildId === guildId) {
-                            const isPlayer = userId ? game.players.has(userId) : false;
+                            const isPlayer = userId ? (game.players.has(userId) || game.enemies.has(userId)) : false;
                             userGames.push({
                                 channelId,
                                 guildId: game.guildId,
@@ -20716,6 +20716,30 @@ Use \`/stats\` during a battle to view your current ship statistics!
                                 const nums = game.coordToNumbers(coord);
                                 return { x: nums.x, y: nums.y - 1 };
                             });
+                    })(),
+                    requestingUserIsOPFOR: requestingUserId
+                        ? (!!game.enemies.get(requestingUserId)?.isOPFOR)
+                        : false,
+                    opforSpawnZoneCoords: (() => {
+                        const opforOccupied = new Set(
+                            Array.from(game.enemies.values())
+                                .filter(e => e.isOPFOR && e.x != null)
+                                .map(e => game.generateExtendedCoordinate(e.x, e.y + 1))
+                        );
+                        const results = [];
+                        for (let x = 70; x < 100; x++) {
+                            for (let y = 1; y <= 100; y++) {
+                                const coord = game.generateExtendedCoordinate(x, y);
+                                const cell = game.getMapCell(coord);
+                                if (cell && (cell.type === 'ocean' || cell.type === 'reef') && !cell.occupant && !opforOccupied.has(coord)) {
+                                    try {
+                                        const nums = game.coordToNumbers(coord);
+                                        results.push({ x: nums.x, y: nums.y - 1 });
+                                    } catch (_) {}
+                                }
+                            }
+                        }
+                        return results;
                     })(),
                 });
             } catch (error) {
@@ -21047,7 +21071,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'Game is not in joining phase' });
                 }
 
-                if (game.players.has(userId)) {
+                if (game.players.has(userId) || game.enemies.has(userId)) {
                     return res.status(400).json({ error: 'You are already in this game' });
                 }
 
@@ -21072,6 +21096,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 character = this.fixCharacterDataStructure(character);
                 const shipClass = character.shipClass;
+                const isOPFOR = character.isOPFOR || false;
 
                 const mockMember = {
                     displayName: displayName || username,
@@ -21079,13 +21104,18 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 };
 
                 character.characterAlias = resolvedName;
-                const success = game.addPlayer(userId, character, shipClass, mockMember);
+                let success;
+                if (isOPFOR) {
+                    success = game.addOPFORPlayer(userId, character, shipClass, mockMember);
+                } else {
+                    success = game.addPlayer(userId, character, shipClass, mockMember);
+                }
                 if (!success) {
                     return res.status(400).json({ error: 'Failed to join game' });
                 }
 
                 await this.broadcastGameUpdate(channelId);
-                res.json({ success: true, characterName: resolvedName });
+                res.json({ success: true, characterName: resolvedName, isOPFOR });
             } catch (error) {
                 console.error('Error joining game via web:', error);
                 res.status(500).json({ error: 'Internal server error' });
