@@ -21186,6 +21186,28 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // OPFOR conversion choice (post-battle)
+        app.post('/api/game/:channelId/opfor-choice', authenticateAPIKey, async (req, res) => {
+            try {
+                const { userId, guildId, characterName, choice } = req.body;
+                if (!userId || !guildId || !characterName || !['convert', 'recover'].includes(choice)) {
+                    return res.status(400).json({ error: 'userId, guildId, characterName, and choice (convert|recover) are required' });
+                }
+                const playerData = this.characterManager.loadPlayerData(guildId);
+                if (!playerData[userId]?.characters?.[characterName]) {
+                    return res.status(400).json({ error: 'Character not found' });
+                }
+                playerData[userId].characters[characterName].isOPFOR = (choice === 'convert');
+                const saved = this.characterManager.savePlayerData(guildId, playerData);
+                if (!saved) return res.status(500).json({ error: 'Failed to save character' });
+                this.characterManager.syncInMemoryData(guildId, userId, playerData[userId]);
+                res.json({ success: true });
+            } catch (error) {
+                console.error('Error processing OPFOR choice:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Damage control action
         app.post('/api/game/:channelId/damage-control', authenticateAPIKey, async (req, res) => {
             try {

@@ -293,6 +293,24 @@ app.post('/api/game/:channelId/join', ensureAuthenticated, async (req, res) => {
   }
 });
 
+app.post('/api/game/:channelId/opfor-choice', ensureAuthenticated, async (req, res) => {
+  try {
+    const { characterName, guildId, choice } = req.body;
+    const response = await botAPI.post(`/api/game/${req.params.channelId}/opfor-choice`, {
+      userId: req.user.id,
+      characterName,
+      guildId,
+      choice
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error processing OPFOR choice:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data?.error || 'Failed to process OPFOR choice'
+    });
+  }
+});
+
 app.post('/api/game/:channelId/moveair', ensureAuthenticated, async (req, res) => {
   try {
     const { x, y, squadronIndex, characterAlias } = req.body;
