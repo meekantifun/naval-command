@@ -103,13 +103,15 @@ Implementer should confirm which approach to take at implementation time based o
 
 The 2.2× torpedo multiplier currently applies to all attackers. It exists because the AI weapon formula (weight-based) produces low torpedo values (~80–120) that would otherwise feel weak. Player torpedo values are already hand-tuned to real-world lethality — applying the multiplier to them results in 1,100–2,750 damage per hit.
 
-Split the multiplier by attacker type using the existing `hasGuildPlayerData` check pattern:
+Split the multiplier by attacker type using the existing `hasGuildPlayerData` check pattern.
+
+**Important — insertion point:** In `bot.js`, `guildId` is declared a couple of lines *after* the current torpedo multiplier line. The new `isPlayerAttacker` check must be placed **after** `guildId` is in scope, not at the current torpedo line position. Verify declaration order before inserting.
 
 ```js
 // Before:
 if (weapon === 'torpedoes') baseDamage = Math.round(baseDamage * 2.2);
 
-// After:
+// After (placed after guildId is declared):
 const isPlayerAttacker = Boolean(attacker.id && guildId && this.hasGuildPlayerData(guildId, attacker.id));
 if (weapon === 'torpedoes' && !isPlayerAttacker) baseDamage = Math.round(baseDamage * 2.2);
 ```
