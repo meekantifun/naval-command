@@ -114,12 +114,12 @@ const WEAPON_TEMPLATES = {
     '343mm':  { type: 'main',      damage: 420, range: 35, reload: 17,penetration: 360, ammo: 21,  barrels: 1 },
     '356mm':  { type: 'main',      damage: 450, range: 36, reload: 18,penetration: 380, ammo: 20,  barrels: 1 },
     '380mm':  { type: 'main',      damage: 480, range: 38, reload: 19,penetration: 400, ammo: 18,  barrels: 1 },
-    '381mm':  { type: 'main',      damage: 500, range: 38, reload: 20,penetration: 420, ammo: 17,  barrels: 1 },
-    '406mm':  { type: 'main',      damage: 580, range: 40, reload: 22,penetration: 480, ammo: 15,  barrels: 1 },
-    '410mm':  { type: 'main',      damage: 600, range: 41, reload: 23,penetration: 500, ammo: 14,  barrels: 1 },
-    '457mm':  { type: 'main',      damage: 720, range: 44, reload: 28,penetration: 580, ammo: 10,  barrels: 1 },
-    '460mm':  { type: 'main',      damage: 750, range: 45, reload: 30,penetration: 600, ammo: 8,   barrels: 1 },
-    '480mm':  { type: 'main',      damage: 850, range: 48, reload: 35,penetration: 680, ammo: 6,   barrels: 1 },
+    '381mm':  { type: 'main',      damage: 470, range: 38, reload: 20,penetration: 420, ammo: 17,  barrels: 1 },
+    '406mm':  { type: 'main',      damage: 480, range: 40, reload: 22,penetration: 480, ammo: 15,  barrels: 1 },
+    '410mm':  { type: 'main',      damage: 483, range: 41, reload: 23,penetration: 500, ammo: 14,  barrels: 1 },
+    '457mm':  { type: 'main',      damage: 486, range: 44, reload: 28,penetration: 580, ammo: 10,  barrels: 1 },
+    '460mm':  { type: 'main',      damage: 488, range: 45, reload: 30,penetration: 600, ammo: 8,   barrels: 1 },
+    '480mm':  { type: 'main',      damage: 489, range: 48, reload: 35,penetration: 680, ammo: 6,   barrels: 1 },
 
     // Torpedoes (by warhead diameter/tube size)
     '324mm': { type: 'torpedo',    damage: 120,  range: 4,    reload: 25, penetration: 100,  ammo: 4, barrels: 1 },
