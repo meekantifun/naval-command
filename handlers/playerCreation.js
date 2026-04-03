@@ -129,9 +129,9 @@ const WEAPON_TEMPLATES = {
     '533mm': { type: 'torpedo',    damage: 500,  range: 10,   reload: 50, penetration: 1100, ammo: 6, barrels: 1 },
     '550mm': { type: 'torpedo',    damage: 520,  range: 10.5, reload: 52, penetration: 1150, ammo: 6, barrels: 1 },
     '610mm': { type: 'torpedo',    damage: 700,  range: 20,   reload: 60, penetration: 1400, ammo: 6, barrels: 1 },
-    '650mm': { type: 'torpedo',    damage: 800,  range: 22,   reload: 65, penetration: 1500, ammo: 4, barrels: 1 },
-    '750mm': { type: 'torpedo',    damage: 1000, range: 25,   reload: 75, penetration: 2000, ammo: 2, barrels: 1 },
-    '850mm': { type: 'torpedo',    damage: 1250, range: 20,   reload: 90, penetration: 999,  ammo: 1, barrels: 1 }
+    '650mm': { type: 'torpedo',    damage: 730,  range: 22,   reload: 65, penetration: 1500, ammo: 4, barrels: 1 },
+    '750mm': { type: 'torpedo',    damage: 730, range: 25,   reload: 75, penetration: 2000, ammo: 2, barrels: 1 },
+    '850mm': { type: 'torpedo',    damage: 730, range: 20,   reload: 90, penetration: 999,  ammo: 1, barrels: 1 }
 };
 
 const CONFIG_MULTIPLIERS = {
