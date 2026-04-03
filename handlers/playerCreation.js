@@ -233,14 +233,14 @@ class PlayerCreationModule {
     // Ship Statistics
     calculateShipHP(tonnage, shipClass) {
         const shipParams = {
-            'Destroyer': { baseHP: 40, multiplier: 0.012, bonus: 0 },
-            'Light Cruiser': { baseHP: 80, multiplier: 0.008, bonus: 20 },
-            'Heavy Cruiser': { baseHP: 100, multiplier: 0.007, bonus: 30 },
-            'Battleship': { baseHP: 200, multiplier: 0.005, bonus: 100 },
-            'Aircraft Carrier': { baseHP: 150, multiplier: 0.006, bonus: 50 },
-            'Light Aircraft Carrier': { baseHP: 120, multiplier: 0.007, bonus: 30 },
-            'Submarine': { baseHP: 30, multiplier: 0.015, bonus: -10 },
-            'Auxiliary': { baseHP: 60, multiplier: 0.004, bonus: 10 }
+            'Destroyer': { baseHP: 120, multiplier: 0.040, bonus: 0 },
+            'Light Cruiser': { baseHP: 200, multiplier: 0.025, bonus: 30 },
+            'Heavy Cruiser': { baseHP: 200, multiplier: 0.025, bonus: 70 },
+            'Battleship': { baseHP: 300, multiplier: 0.009, bonus: 0 },
+            'Aircraft Carrier': { baseHP: 250, multiplier: 0.010, bonus: 40 },
+            'Light Aircraft Carrier': { baseHP: 200, multiplier: 0.012, bonus: 30 },
+            'Submarine': { baseHP: 100, multiplier: 0.050, bonus: 0 },
+            'Auxiliary': { baseHP: 120, multiplier: 0.015, bonus: 20 }
         };
         
         const params = shipParams[shipClass];
@@ -249,13 +249,13 @@ class PlayerCreationModule {
             return 100;
         }
         
-        const calculatedHP = Math.round(params.baseHP + (tonnage * params.multiplier) + params.bonus);
-        return Math.max(calculatedHP, 20);
+        const scale = ['Destroyer', 'Submarine'].includes(shipClass) ? 1.5 : 2.0;
+        return Math.min(2000, Math.max(Math.round((params.baseHP + (tonnage * params.multiplier) + params.bonus) * scale), 20));
     }
 
     calculateShipArmor(beltMM, deckMM, turretMM) {
-        // Simplified formula: Belt × 0.6 + Deck × 0.25 + Turret × 0.15
-        const calculatedArmor = (beltMM * 0.6) + (deckMM * 0.25) + (turretMM * 0.15);
+        // Belt × 0.50 + Deck × 0.30 + Turret × 0.20
+        const calculatedArmor = (beltMM * 0.50) + (deckMM * 0.30) + (turretMM * 0.20);
         
         // Apply bounds: minimum 5, maximum 500
         const finalArmor = Math.max(5, Math.min(Math.round(calculatedArmor), 500));
@@ -1441,15 +1441,21 @@ class PlayerCreationModule {
             return interaction.reply({ content: '❌ Session expired. Please start over.', flags: MessageFlags.Ephemeral });
         }
 
+        // Derive range from existing weapons if present, otherwise placeholder
+        const existingWeapons = basicPlayerData.weapons ? Object.values(basicPlayerData.weapons) : [];
+        const existingMainRange = existingWeapons.find(w => w.type === 'main')?.range
+            || existingWeapons.find(w => w.type === 'secondary')?.range
+            || 8;
+
         // Create stats data with automatic accuracy
         const statsData = {
             ...basicPlayerData,
             stats: {
                 health: basicPlayerData.calculatedHP, // Auto-calculated
-                armor: basicPlayerData.calculatedArmor, // Auto-calculated  
+                armor: basicPlayerData.calculatedArmor, // Auto-calculated
                 speed: basicPlayerData.calculatedSpeed, // Auto-calculated
                 evasion: basicPlayerData.calculatedEvasion.evasionPercentage, // Auto-calculated
-                range: 8, // Temporary default - will be updated from primary weapon
+                range: existingMainRange, // From primary weapon if already configured
                 baseAccuracy: baseAccuracy, // AUTOMATIC DEFAULT (85)
                 accuracy: baseAccuracy // Legacy field for compatibility
             },
@@ -1806,6 +1812,12 @@ class PlayerCreationModule {
             return interaction.reply({ content: '❌ Session expired. Please start over.', flags: MessageFlags.Ephemeral });
         }
 
+        // Derive range from existing weapons if present, otherwise placeholder
+        const existingWeaponsEdit = basicPlayerData.weapons ? Object.values(basicPlayerData.weapons) : [];
+        const existingMainRangeEdit = existingWeaponsEdit.find(w => w.type === 'main')?.range
+            || existingWeaponsEdit.find(w => w.type === 'secondary')?.range
+            || 8;
+
         // Update stats data with edited values
         const statsData = {
             ...basicPlayerData,
@@ -1814,7 +1826,7 @@ class PlayerCreationModule {
                 armor: basicPlayerData.calculatedArmor, // Auto-calculated
                 speed: basicPlayerData.calculatedSpeed, // Auto-calculated
                 evasion: basicPlayerData.calculatedEvasion.evasionPercentage, // Auto-calculated
-                range: 8, // Temporary default - will be updated from primary weapon
+                range: existingMainRangeEdit, // From primary weapon if already configured
                 baseAccuracy: baseAccuracy, // AUTOMATIC DEFAULT (85)
                 accuracy: baseAccuracy // Legacy field for compatibility
             },
@@ -2834,7 +2846,7 @@ class PlayerCreationModule {
                 efficiency: Math.round((0.6 + (experienceLevel - 1) * 0.035) * 100 * 10) / 10,
                 range: effectiveness.range,
                 damage: effectiveness.damage,
-                accuracy: Math.round(effectiveness.accuracy * 1000) / 10,
+                accuracy: effectiveness.accuracy,
                 rateOfFire: effectiveness.rateOfFire,
                 ammo: 500,
                 maxAmmo: 500,
@@ -3059,8 +3071,8 @@ class PlayerCreationModule {
                 tempData.aaSystems = [];
             }
 
-            // Proceed with character finalization
-            await this.finalizeCharacterCreation(interaction, tempData);
+            // Prompt for recon aircraft (or finalize directly if ship class is ineligible)
+            await this.promptReconAircraft(interaction, tempData);
 
         } catch (error) {
             console.error('❌ Error in finalizeCharacterWithAA:', error);
@@ -3097,8 +3109,8 @@ class PlayerCreationModule {
                 embeds: []
             });
 
-            // Proceed with character finalization
-            await this.finalizeCharacterCreation(interaction, tempData);
+            // Prompt for recon aircraft (or finalize directly if ship class is ineligible)
+            await this.promptReconAircraft(interaction, tempData);
 
         } catch (error) {
             console.error('❌ Error in finalizeCharacterWithoutAA:', error);
@@ -3110,6 +3122,117 @@ class PlayerCreationModule {
                 });
             }
         }
+    }
+
+    async promptReconAircraft(interaction, tempData) {
+        const reconEligible = ['Battleship', 'Heavy Cruiser', 'Light Cruiser'].includes(tempData.shipClass);
+        if (!reconEligible) {
+            return this.finalizeCharacterCreation(interaction, tempData);
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle('🛩️ Reconnaissance Aircraft')
+            .setDescription(
+                'Would you like to configure a **reconnaissance aircraft**?\n\n' +
+                'When launched in battle, it extends main battery range by **+5 cells**.\n\n' +
+                '_Typical options: OS2U Kingfisher, Arado Ar 196, Type 0 Seaplane_'
+            )
+            .setColor(0x5865F2);
+
+        const configureButton = new ButtonBuilder()
+            .setCustomId(`configure_recon_${tempData.id}`)
+            .setLabel('🛩️ Configure Recon Aircraft')
+            .setStyle(ButtonStyle.Primary);
+
+        const skipButton = new ButtonBuilder()
+            .setCustomId(`skip_recon_${tempData.id}`)
+            .setLabel('⏭️ Skip')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder().addComponents(configureButton, skipButton);
+
+        if (interaction.replied || interaction.deferred) {
+            await interaction.editReply({ content: '', embeds: [embed], components: [row] });
+        } else {
+            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    async handleConfigureReconAircraft(interaction) {
+        const userId = interaction.customId.split('_')[2];
+        if (userId !== interaction.user.id) {
+            return interaction.reply({ content: '❌ This is not your character creation!', flags: MessageFlags.Ephemeral });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`recon_aircraft_${userId}`)
+            .setTitle('Reconnaissance Aircraft');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId('recon_name')
+            .setLabel('Aircraft Name')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('e.g. OS2U Kingfisher')
+            .setRequired(true)
+            .setMaxLength(50);
+
+        const typeInput = new TextInputBuilder()
+            .setCustomId('recon_type')
+            .setLabel('Type: floatplane / biplane / observation_plane')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('floatplane')
+            .setRequired(false)
+            .setMaxLength(20);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(typeInput)
+        );
+
+        await interaction.showModal(modal);
+    }
+
+    async handleSkipReconAircraft(interaction) {
+        const userId = interaction.customId.split('_')[2];
+        if (userId !== interaction.user.id) {
+            return interaction.reply({ content: '❌ This is not your character creation!', flags: MessageFlags.Ephemeral });
+        }
+
+        const tempData = this.bot.tempPlayerData.get(userId);
+        if (!tempData) {
+            return interaction.reply({ content: '❌ Session expired. Please start over.', flags: MessageFlags.Ephemeral });
+        }
+
+        tempData.reconAircraft = null;
+
+        await interaction.update({ content: '⏭️ Skipping recon aircraft...', embeds: [], components: [] });
+        await this.finalizeCharacterCreation(interaction, tempData);
+    }
+
+    async handleReconAircraftSubmit(interaction) {
+        const userId = interaction.customId.split('_')[2];
+        if (userId !== interaction.user.id) {
+            return interaction.reply({ content: '❌ This is not your character creation!', flags: MessageFlags.Ephemeral });
+        }
+
+        const tempData = this.bot.tempPlayerData.get(userId);
+        if (!tempData) {
+            return interaction.reply({ content: '❌ Session expired. Please start over.', flags: MessageFlags.Ephemeral });
+        }
+
+        const name = interaction.fields.getTextInputValue('recon_name').trim();
+        const typeRaw = (interaction.fields.getTextInputValue('recon_type') || '').trim().toLowerCase() || 'floatplane';
+        const validTypes = ['floatplane', 'biplane', 'observation_plane'];
+        const type = validTypes.includes(typeRaw) ? typeRaw : 'floatplane';
+
+        tempData.reconAircraft = { name, type };
+
+        await interaction.reply({
+            content: `🛩️ **${name}** (${type}) configured! Finalizing character...`,
+            flags: MessageFlags.Ephemeral
+        });
+
+        await this.finalizeCharacterCreation(interaction, tempData);
     }
 
     // Add this method to finalize character creation with AA system
@@ -3158,6 +3281,11 @@ class PlayerCreationModule {
                                   `**Range:** ${completePlayerData.stats.range} (from ${(completePlayerData.shipClass === 'Aircraft Carrier' || completePlayerData.shipClass === 'Light Aircraft Carrier') ? 'aircraft/weapons' : 'primary weapon'})\n` +
                                   `**Evasion:** ${completePlayerData.stats.evasion}% (calculated)\n` +
                                   `**Level:** ${completePlayerData.level}\n\n`;
+
+            // Add recon aircraft info
+            if (completePlayerData.reconAircraft) {
+                finalDescription += `**Recon Aircraft:** ${completePlayerData.reconAircraft.name} (${completePlayerData.reconAircraft.type}) — +5 range when launched\n\n`;
+            }
 
             // Add AA system info
             if (completePlayerData.aaSystem) {
