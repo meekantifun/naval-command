@@ -4435,6 +4435,7 @@ class FactionConfig {
         const classBase = {
             'Battleship':             1550,
             'Aircraft Carrier':       1100,
+            'Battlecruiser':           950,
             'Heavy Cruiser':           800,
             'Light Aircraft Carrier':  650,
             'Light Cruiser':           500,

@@ -236,6 +236,7 @@ class PlayerCreationModule {
         const classBase = {
             'Battleship':             1550,
             'Aircraft Carrier':       1100,
+            'Battlecruiser':           950,
             'Heavy Cruiser':           800,
             'Light Aircraft Carrier':  650,
             'Light Cruiser':           500,
@@ -930,6 +931,7 @@ class PlayerCreationModule {
             'DD': 'Destroyer',
             'CL': 'Light Cruiser',
             'CA': 'Heavy Cruiser',
+            'BC': 'Battlecruiser',
             'BB': 'Battleship',
             'CV': 'Aircraft Carrier',
             'CVL': 'Light Aircraft Carrier',
@@ -938,6 +940,7 @@ class PlayerCreationModule {
             'Destroyer': 'Destroyer',
             'Light Cruiser': 'Light Cruiser',
             'Heavy Cruiser': 'Heavy Cruiser',
+            'Battlecruiser': 'Battlecruiser',
             'Battleship': 'Battleship',
             'Aircraft Carrier': 'Aircraft Carrier',
             'Light Aircraft Carrier': 'Light Aircraft Carrier',
@@ -948,7 +951,7 @@ class PlayerCreationModule {
         const normalizedShipClass = shipClassMapping[shipClass];
         if (!normalizedShipClass) {
             return interaction.reply({
-                content: `❌ Invalid ship class! Must be one of: DD (Destroyer), CL (Light Cruiser), CA (Heavy Cruiser), BB (Battleship), CV (Aircraft Carrier), CVL (Light Aircraft Carrier), SS (Submarine), AX (Auxiliary)`,
+                content: `❌ Invalid ship class! Must be one of: DD (Destroyer), CL (Light Cruiser), CA (Heavy Cruiser), BC (Battlecruiser), BB (Battleship), CV (Aircraft Carrier), CVL (Light Aircraft Carrier), SS (Submarine), AX (Auxiliary)`,
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -1613,6 +1616,7 @@ class PlayerCreationModule {
             'DD': 'Destroyer',
             'CL': 'Light Cruiser',
             'CA': 'Heavy Cruiser',
+            'BC': 'Battlecruiser',
             'BB': 'Battleship',
             'CV': 'Aircraft Carrier',
             'CVL': 'Light Aircraft Carrier',
@@ -1621,6 +1625,7 @@ class PlayerCreationModule {
             'Destroyer': 'Destroyer',
             'Light Cruiser': 'Light Cruiser',
             'Heavy Cruiser': 'Heavy Cruiser',
+            'Battlecruiser': 'Battlecruiser',
             'Battleship': 'Battleship',
             'Aircraft Carrier': 'Aircraft Carrier',
             'Light Aircraft Carrier': 'Light Aircraft Carrier',
@@ -1631,7 +1636,7 @@ class PlayerCreationModule {
         const normalizedShipClass = shipClassMapping[shipClass];
         if (!normalizedShipClass) {
             return interaction.reply({
-                content: `❌ Invalid ship class! Must be one of: DD (Destroyer), CL (Light Cruiser), CA (Heavy Cruiser), BB (Battleship), CV (Aircraft Carrier), CVL (Light Aircraft Carrier), SS (Submarine), AX (Auxiliary)`,
+                content: `❌ Invalid ship class! Must be one of: DD (Destroyer), CL (Light Cruiser), CA (Heavy Cruiser), BC (Battlecruiser), BB (Battleship), CV (Aircraft Carrier), CVL (Light Aircraft Carrier), SS (Submarine), AX (Auxiliary)`,
                 flags: MessageFlags.Ephemeral
             });
         }
