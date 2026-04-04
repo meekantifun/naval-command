@@ -947,7 +947,7 @@ class CharacterManager {
             };
 
             // Recalculate stats based on new values
-            updatedCharacter.calculatedHP = Math.floor(newTonnage / 100) + 50;
+            updatedCharacter.calculatedHP = this.bot.playerCreation.calculateShipHP(newTonnage, newShipClass);
             updatedCharacter.calculatedSpeed = Math.floor(newSpeed / 5);
 
             // Update evasion calculation
