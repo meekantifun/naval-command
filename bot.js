@@ -62,6 +62,7 @@ class NavalWarfareBot {
         });
 
         this.games = new Map();
+        this.userActiveGame = new Map(); // userId → gameChannelId for DM button routing
         this.endedGames = new Map(); // cache for web dashboard MVP screen (auto-expires 30min)
         this.playerData = new Map();
         this.guildConfigs = new Map();
@@ -1329,10 +1330,15 @@ class NavalWarfareBot {
             }
 
             // NOW get the game for all other buttons
-            const game = this.games.get(interaction.channelId);
+            let game = this.games.get(interaction.channelId);
+            // DM fallback: if no game found and this is a DM, look up via userActiveGame map
+            if (!game && !interaction.guildId) {
+                const gameChannelId = this.userActiveGame.get(interaction.user.id);
+                if (gameChannelId) game = this.games.get(gameChannelId);
+            }
             if (!game) {
                 // Only return error for non-spawn buttons
-                if (!interaction.customId.includes('spawn_select_') && 
+                if (!interaction.customId.includes('spawn_select_') &&
                     !interaction.customId.includes('opfor_spawn_select_')) {
                     try {
                         return interaction.reply({ content: '❌ No active game in this channel!', flags: MessageFlags.Ephemeral });
@@ -5489,6 +5495,17 @@ class NavalWarfareBot {
             await interaction.editReply({
                 content: '✅ **Battle has begun!** Check the pinned map above and mission briefing below.'
             });
+
+            // Send website join instructions
+            await interaction.followUp({
+                content: `🌐 **Join via the website for the best experience!**\n` +
+                         `👉 **https://naval-command.com**\n\n` +
+                         `**How to join this battle:**\n` +
+                         `1. Log in at naval-command.com\n` +
+                         `2. Click **"Join Battle"** on **Game #${game.channelId}**\n` +
+                         `3. Select your character and spawn point\n\n` +
+                         `The website gives you a live map, action buttons, and real-time updates — no commands needed!`
+            });
             
         } catch (error) {
             console.error('Error setting up battle:', error);
@@ -5738,16 +5755,20 @@ class NavalWarfareBot {
             guildId: guildId
         }));
 
-        // Send Discord channel messages for sunk human players
-        // Wrapped in try/catch so a Discord error here doesn't abort endSnapshot caching or games.delete()
+        // Send DMs to sunk human players with OPFOR conversion/recovery prompt.
+        // DMs are private (only visible to the recipient). channel.send() cannot be ephemeral
+        // without an active interaction, so DMs are the only private option here.
+        // Wrapped in try/catch so a DM failure doesn't abort endSnapshot caching or games.delete()
         try {
             for (const sunk of sunkHumans) {
                 const userId = sunk.id || sunk.userId;
                 // Truncate to 40 chars to stay well under the 100-char Discord customId limit
                 const charName = (sunk.characterAlias || sunk.displayName || '').slice(0, 40);
+                let row;
+                let content;
                 if (sunk.isOPFOR) {
                     // Sunk OPFOR: offer recovery
-                    const row = new ActionRowBuilder().addComponents(
+                    row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId(`opfor_recover_yes_${userId}_${guildId}_${charName}`)
                             .setLabel('Be Recovered')
@@ -5757,13 +5778,10 @@ class NavalWarfareBot {
                             .setLabel('Remain OPFOR')
                             .setStyle(ButtonStyle.Danger)
                     );
-                    await channel.send({
-                        content: `🏳️ <@${userId}>, you were sunk. Return to BLUFOR (be recovered), or remain OPFOR?`,
-                        components: [row]
-                    });
+                    content = `🏳️ You were sunk. Return to BLUFOR (be recovered), or remain OPFOR for future battles?`;
                 } else {
                     // Sunk BLUFOR: offer conversion
-                    const row = new ActionRowBuilder().addComponents(
+                    row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId(`opfor_convert_yes_${userId}_${guildId}_${charName}`)
                             .setLabel('Convert to OPFOR')
@@ -5773,10 +5791,17 @@ class NavalWarfareBot {
                             .setLabel('Remain Sunk')
                             .setStyle(ButtonStyle.Secondary)
                     );
-                    await channel.send({
-                        content: `⚔️ <@${userId}>, you were sunk. Convert to OPFOR for future battles, or remain sunk?`,
-                        components: [row]
-                    });
+                    content = `⚔️ You were sunk in the battle. Convert to OPFOR for future battles, or remain sunk?`;
+                }
+                try {
+                    const discordUser = await this.client.users.fetch(userId);
+                    await discordUser.send({ content, components: [row] });
+                } catch (dmErr) {
+                    // DM failed (user has DMs disabled) — fall back to a channel mention
+                    const mention = sunk.isOPFOR
+                        ? `🏳️ <@${userId}>, you were sunk. Return to BLUFOR (be recovered), or remain OPFOR?`
+                        : `⚔️ <@${userId}>, you were sunk. Convert to OPFOR for future battles, or remain sunk?`;
+                    await channel.send({ content: mention, components: [row] }).catch(() => {});
                 }
             }
         } catch (e) { console.error('Error sending OPFOR choice prompts:', e); }
@@ -5924,12 +5949,30 @@ class NavalWarfareBot {
 
             const actionRows = this.createActionButtons(player, game);
 
-            // Send turn message and get the message object
-            const turnMessage = await channel.send({
-                content: `<@${player.id}>`,
-                embeds: [turnEmbed],
-                components: actionRows
-            });
+            // Try to DM the player the turn message; fall back to channel
+            let turnMessage;
+            let turnChannel = channel;
+            try {
+                const discordUser = await this.client.users.fetch(player.id);
+                const dmChannel = await discordUser.createDM();
+                turnMessage = await dmChannel.send({
+                    embeds: [turnEmbed],
+                    components: actionRows
+                });
+                turnChannel = dmChannel;
+                // Notify the battle channel without cluttering it
+                await channel.send(`<@${player.id}>, it's your turn! Check your DMs.`);
+                // Track this player's active DM game for button routing
+                this.userActiveGame.set(player.id, game.channelId);
+                player.turnMessageChannelId = dmChannel.id;
+            } catch (dmErr) {
+                // DMs disabled — fall back to game channel
+                turnMessage = await channel.send({
+                    content: `<@${player.id}>`,
+                    embeds: [turnEmbed],
+                    components: actionRows
+                });
+            }
 
             // Store the turn message ID for this player
             player.activeTurnMessageId = turnMessage.id;
@@ -5937,7 +5980,7 @@ class NavalWarfareBot {
             // Send ephemeral map to the player (PASS THE INTERACTION!)
             await this.sendEphemeralMapToPlayer(player, game, channel, interaction);
 
-            // Start the turn timer
+            // Start the turn timer (always notify the game channel on timeout)
             this.startTurnTimer(player, channel);
 
             // Promise will be resolved by finalizePlayerTurn() when turn ends
@@ -6289,7 +6332,8 @@ class NavalWarfareBot {
         }
         
         // Reset the turn timer (if resets are available)
-        const channel = interaction.channel;
+        // Use the game channel for public messages (interaction may be from a DM)
+        const channel = this.client.channels.cache.get(game.channelId) || interaction.channel;
         this.resetTurnTimer(player, channel);
         
         try {
@@ -6350,7 +6394,7 @@ class NavalWarfareBot {
         player.actionsThisTurn = Math.min(player.maxActions ?? 2, (player.actionsThisTurn ?? 0) + 1);
     }
 
-    endPlayerTurn(player) {
+    async endPlayerTurn(player) {
         console.log(`🛑 endPlayerTurn called for: ${player.username || player.id}`);
 
         // Find the game this player belongs to
@@ -6365,13 +6409,20 @@ class NavalWarfareBot {
                 clearTimeout(player.turnTimeout);
             }
 
-            // Send roleplay prompt
+            // Send roleplay prompt (via DM so only the player sees it)
             const channel = this.client.channels.cache.get(game.channelId);
             if (channel) {
                 console.log(`🎭 Roleplay timeout for game: ${game.roleplayTimeout}ms`);
                 const timeoutFormatted = this.formatTimeout(game.roleplayTimeout);
                 console.log(`🎭 Formatted timeout: ${timeoutFormatted}`);
-                channel.send(`🎭 <@${player.id}>, describe your actions for roleplay! (You have ${timeoutFormatted}, or type "skip" to continue immediately)`);
+                // Try DM first so the prompt is private; fall back to channel
+                try {
+                    const discordUser = await this.client.users.fetch(player.id);
+                    const dmChannel = await discordUser.createDM();
+                    await dmChannel.send(`🎭 Describe your actions for roleplay! (You have ${timeoutFormatted}, or type "skip" to continue immediately)`);
+                } catch {
+                    channel.send(`🎭 <@${player.id}>, describe your actions for roleplay! (You have ${timeoutFormatted}, or type "skip" to continue immediately)`);
+                }
 
                 // Set roleplay timeout
                 player.roleplayTimeout = setTimeout(() => {
@@ -6391,11 +6442,20 @@ class NavalWarfareBot {
     }
 
     waitForRoleplayMessage(player, channel) {
-        const messageListener = (message) => {
-            // Check if it's the right player and they're waiting for roleplay
-            if (message.author.id === player.id && player.waitingForRoleplay && !message.author.bot) {
-                // Player sent a roleplay message
-                player.waitingForRoleplay = false;
+        const messageListener = async (message) => {
+            if (message.author.id !== player.id || !player.waitingForRoleplay || message.author.bot) return;
+
+            // If the message came from a DM, redirect to game channel
+            if (!message.guildId) {
+                await message.reply(`Please post your roleplay in the game channel: <#${channel.id}>`).catch(() => {});
+                return;
+            }
+
+            // Only accept messages from the game channel
+            if (message.channelId !== channel.id) return;
+
+            // Player sent a roleplay message
+            player.waitingForRoleplay = false;
                 
                 // Clear roleplay timeout
                 if (player.roleplayTimeout) {
@@ -6417,7 +6477,6 @@ class NavalWarfareBot {
                         this.finalizePlayerTurn(player);
                     }, 2000); // 2 second delay
                 }
-            }
         };
         
         // Add the message listener
@@ -6494,9 +6553,11 @@ class NavalWarfareBot {
         this.disablePlayerTurnButtons(player);
         
         player.activeTurnMessageId = null;
+        player.turnMessageChannelId = null;
         player.waitingForRoleplay = false;
         player.timerResets = 0;
-        
+        this.userActiveGame.delete(player.id);
+
         // IMPORTANT: Also resolve the turn promise to prevent hanging
         if (player.turnResolve) {
             const resolveFunction = player.turnResolve;
@@ -6545,8 +6606,10 @@ class NavalWarfareBot {
             const resolveFunction = player.turnResolve;
             player.turnResolve = null;
             player.activeTurnMessageId = null;
+            player.turnMessageChannelId = null;
             player.waitingForRoleplay = false;
             player.timerResets = 0;
+            this.userActiveGame.delete(player.id);
 
             console.log(`✅ Resolving turn promise for: ${player.username || player.id}`);
             resolveFunction(); // This allows the turn system to continue
@@ -6554,8 +6617,10 @@ class NavalWarfareBot {
             console.warn(`⚠️ No turnResolve found for: ${player.username || player.id} - turn may have already ended`);
             // Clean up anyway
             player.activeTurnMessageId = null;
+            player.turnMessageChannelId = null;
             player.waitingForRoleplay = false;
             player.timerResets = 0;
+            this.userActiveGame.delete(player.id);
         }
     }
 
@@ -6571,12 +6636,14 @@ class NavalWarfareBot {
                 return;
             }
             
-            // Get the channel
-            const channel = this.client.channels.cache.get(game.channelId);
+            // Get the channel where the turn message lives (DM or game channel)
+            const turnChannelId = player.turnMessageChannelId || game.channelId;
+            const channel = this.client.channels.cache.get(turnChannelId)
+                || await this.client.channels.fetch(turnChannelId).catch(() => null);
             if (!channel) {
                 return;
             }
-            
+
             // Fetch the turn message
             const turnMessage = await channel.messages.fetch(player.activeTurnMessageId);
             if (!turnMessage) {
@@ -8225,8 +8292,8 @@ class NavalWarfareBot {
             game.aircraft.delete(targetId);
         }
 
-        // Send public message to channel
-        const channel = interaction.channel;
+        // Send public message to game channel (interaction may be from a DM)
+        const channel = this.client.channels.cache.get(game.channelId) || interaction.channel;
         if (channel) {
             await channel.send(`${result.message}${specialEffects}`);
 
@@ -8291,12 +8358,16 @@ class NavalWarfareBot {
             : null;
         let baseDamage = weaponData ? weaponData.damage : this.getWeaponDamage(weapon, ammoType);
 
-        // Torpedoes detonate below the waterline — massively amplified damage regardless of caliber
-        if (weapon === 'torpedoes') baseDamage = Math.round(baseDamage * 2.2);
-
         // Apply equipment level bonus for players
         const channel = game.channelId ? this.client.channels.cache.get(game.channelId) : null;
         const guildId = channel?.guild?.id;
+
+        // Torpedoes: AI ships use a 2.2× multiplier because their weight-based formula produces low
+        // base values (~80–120). Player weapon tables already encode real-world torpedo lethality —
+        // applying the multiplier to players results in 1,100–2,750 damage, far exceeding any ship HP.
+        const isPlayerAttacker = Boolean(attacker.id && guildId && this.hasGuildPlayerData(guildId, attacker.id));
+        if (weapon === 'torpedoes' && !isPlayerAttacker) baseDamage = Math.round(baseDamage * 2.2);
+
         if (attacker.id && guildId && this.hasGuildPlayerData(guildId, attacker.id)) {
             // Initialize equipment if it doesn't exist
             const equipmentId = `${weapon}_${ammoType}`;
