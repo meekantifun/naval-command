@@ -445,6 +445,7 @@ class CustomMapSystem {
         const mapId = `custom_${Date.now()}_${interaction.user.id}`;
         const mapData = {
             id: mapId,
+            guildId: interaction.guildId,
             name: name,
             description: description,
             creator: {
@@ -1683,14 +1684,17 @@ class CustomMapSystem {
         }
     }
 
-    // List available custom maps
-    getAvailableMaps() {
-        return Array.from(this.customMaps.values());
+    // List available custom maps for a specific guild
+    getAvailableMaps(guildId) {
+        return Array.from(this.customMaps.values()).filter(m => m.guildId === guildId);
     }
 
-    // Get map by ID
-    getMapById(mapId) {
-        return this.customMaps.get(mapId);
+    // Get map by ID, scoped to a guild
+    getMapById(mapId, guildId) {
+        const map = this.customMaps.get(mapId);
+        if (!map) return null;
+        if (guildId && map.guildId !== guildId) return null;
+        return map;
     }
 
     // Handle terrain addition

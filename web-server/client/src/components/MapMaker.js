@@ -220,7 +220,7 @@ function MapMaker({ guildId }) {
   const loadMaps = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('/api/admin/maps', { withCredentials: true });
+      const res = await axios.get('/api/admin/maps', { params: { guildId }, withCredentials: true });
       setMaps(res.data.maps || []);
       setTemplates(res.data.templates || []);
     } catch (err) {
@@ -394,6 +394,7 @@ function MapMaker({ guildId }) {
     try {
       const dataToSave = {
         ...mapData,
+        guildId,
         terrain: Object.entries(mapData.terrain).map(([key, val]) => {
           const [x, y] = key.split(',').map(Number);
           return { x, y, ...val };

@@ -96,7 +96,7 @@ class CustomMapCommands {
     }
 
     async handleListMaps(interaction, customMapSystem) {
-        const maps = customMapSystem.getAvailableMaps();
+        const maps = customMapSystem.getAvailableMaps(interaction.guildId);
 
         if (maps.length === 0) {
             await interaction.reply({
@@ -131,7 +131,7 @@ class CustomMapCommands {
 
     async handleUseMap(interaction, customMapSystem) {
         const mapId = interaction.options.getString('mapid');
-        const mapData = customMapSystem.getMapById(mapId);
+        const mapData = customMapSystem.getMapById(mapId, interaction.guildId);
 
         if (!mapData) {
             await interaction.reply({
@@ -183,7 +183,7 @@ class CustomMapCommands {
 
     async handlePreviewMap(interaction, customMapSystem) {
         const mapId = interaction.options.getString('mapid');
-        const mapData = customMapSystem.getMapById(mapId);
+        const mapData = customMapSystem.getMapById(mapId, interaction.guildId);
 
         if (!mapData) {
             await interaction.reply({
@@ -232,7 +232,7 @@ class CustomMapCommands {
 
     async handleDeleteMap(interaction, customMapSystem) {
         const mapId = interaction.options.getString('mapid');
-        const mapData = customMapSystem.getMapById(mapId);
+        const mapData = customMapSystem.getMapById(mapId, interaction.guildId);
 
         if (!mapData) {
             await interaction.reply({

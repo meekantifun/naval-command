@@ -42,6 +42,7 @@ function GameStarter({ guildId, user }) {
   const loadCustomMaps = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/admin/maps`, {
+        params: { guildId },
         withCredentials: true
       });
       setCustomMaps(response.data.maps || []);

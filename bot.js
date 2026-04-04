@@ -2069,8 +2069,9 @@ class NavalWarfareBot {
     }
 
     async showCustomMapSelection(interaction, game) {
-        // Get custom maps as an array from the Map object
-        const customMapsArray = Array.from(this.customMapSystem.customMaps.values());
+        // Get custom maps for this guild
+        const guildId = interaction.guildId;
+        const customMapsArray = this.customMapSystem.getAvailableMaps(guildId);
 
         if (customMapsArray.length === 0) {
             await interaction.reply({
@@ -2119,7 +2120,7 @@ class NavalWarfareBot {
 
     async handleCustomMapSelection(interaction, game) {
         const selectedMapId = interaction.values[0].replace('custom_map_', '');
-        const selectedMap = this.customMapSystem.customMaps.get(selectedMapId);
+        const selectedMap = this.customMapSystem.getMapById(selectedMapId, interaction.guildId);
 
         if (!selectedMap) {
             await interaction.reply({
@@ -22868,13 +22869,13 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // Get all custom maps
+        // Get all custom maps (filtered by guildId)
         app.get('/api/admin/maps', authenticateAPIKey, async (req, res) => {
             try {
-                const maps = Array.from(this.customMapSystem.customMaps.entries()).map(([id, mapData]) => ({
-                    id,
-                    ...mapData
-                }));
+                const { guildId } = req.query;
+                const maps = Array.from(this.customMapSystem.customMaps.values())
+                    .filter(m => !guildId || m.guildId === guildId)
+                    .map(m => ({ id: m.id, ...m }));
 
                 // Also include map templates
                 const templates = Array.from(this.customMapSystem.mapTemplates.entries()).map(([id, template]) => ({
