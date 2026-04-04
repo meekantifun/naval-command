@@ -22724,6 +22724,13 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     playerData[userId].characters = {};
                 }
 
+                // Always recalculate HP server-side so the client formula can't override it
+                if (characterData.tonnage && characterData.shipClass) {
+                    const hp = this.playerCreation.calculateShipHP(characterData.tonnage, characterData.shipClass);
+                    characterData.calculatedHP = hp;
+                    if (characterData.stats) characterData.stats.health = hp;
+                }
+
                 // Add/update character
                 playerData[userId].characters[characterName] = characterData;
 

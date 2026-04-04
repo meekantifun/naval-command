@@ -74,9 +74,16 @@ function computeWeaponStats(type, caliberStr, totalBarrels) {
   return { damage, range, reload, penetration, ammo };
 }
 
+const CLASS_BASE_HP = {
+  'Battleship': 1550, 'Aircraft Carrier': 1100, 'Battlecruiser': 950,
+  'Heavy Cruiser': 800, 'Light Aircraft Carrier': 650, 'Light Cruiser': 500,
+  'Auxiliary': 350, 'Destroyer': 200, 'Submarine': 100,
+};
+
 // Defined outside component so it can be used in lazy state initializer
-function calculateStats(tonnage, speedKnots, armorThickness) {
-  const calculatedHP = Math.max(10, 50 + Math.floor(tonnage / 100));
+function calculateStats(tonnage, speedKnots, armorThickness, shipClass) {
+  const base = CLASS_BASE_HP[shipClass] ?? 200;
+  const calculatedHP = Math.min(2000, Math.max(Math.round(base + tonnage * 0.006), 20));
   const calculatedArmor = Math.max(5, Math.min(Math.round(
     (armorThickness.belt * 0.50) + (armorThickness.deck * 0.30) + (armorThickness.turret * 0.20)
   ), 500));
@@ -104,7 +111,7 @@ function buildInitialFormData(initialData) {
       tonnage: 2500,
       speedKnots: 35,
       armorThickness: { belt: 25, deck: 15, turret: 10 },
-      ...calculateStats(2500, 35, { belt: 25, deck: 15, turret: 10 }),
+      ...calculateStats(2500, 35, { belt: 25, deck: 15, turret: 10 }, 'Destroyer'),
       weapons: {},
       availableAircraft: {},
       aaSystems: [],
@@ -123,7 +130,7 @@ function buildInitialFormData(initialData) {
     tonnage,
     speedKnots,
     armorThickness: armor,
-    ...calculateStats(tonnage, speedKnots, armor),
+    ...calculateStats(tonnage, speedKnots, armor, initialData.shipClass || 'Destroyer'),
     weapons: initialData.weapons || {},
     availableAircraft: initialData.availableAircraft || {},
     aaSystems: initialData.aaSystems || [],
@@ -217,8 +224,8 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
 
   const handleBasicInfoChange = (field, value) => {
     const newFormData = { ...formData, [field]: value };
-    if (field === 'tonnage' || field === 'speedKnots' || field === 'armorThickness') {
-      Object.assign(newFormData, calculateStats(newFormData.tonnage, newFormData.speedKnots, newFormData.armorThickness));
+    if (field === 'tonnage' || field === 'speedKnots' || field === 'armorThickness' || field === 'shipClass') {
+      Object.assign(newFormData, calculateStats(newFormData.tonnage, newFormData.speedKnots, newFormData.armorThickness, newFormData.shipClass));
     }
     setFormData(newFormData);
   };
