@@ -836,7 +836,7 @@ class CharacterManager {
 
     recalculateCharacterStats(character) {
         // Recalculate HP
-        character.calculatedHP = Math.floor(character.tonnage / 100) + 50;
+        character.calculatedHP = this.bot.playerCreation.calculateShipHP(character.tonnage, character.shipClass);
 
         // Recalculate speed
         character.calculatedSpeed = Math.floor(character.speedKnots / 5);
