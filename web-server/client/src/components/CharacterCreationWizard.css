@@ -291,8 +291,8 @@
 }
 
 .mount-count-input {
-  width: 60px;
-  padding: 6px 8px;
+  width: 30px;
+  padding: 6px 4px;
   background: var(--surface-0);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -315,6 +315,7 @@
 
 .mount-config-select {
   flex: 1;
+  min-width: 150px;
   padding: 6px 8px;
   background: var(--surface-0);
   border: 1px solid var(--border);
