@@ -100,6 +100,11 @@ function calculateStats(tonnage, speedKnots, armorThickness, shipClass) {
   return { calculatedHP, calculatedArmor, calculatedSpeed, calculatedEvasion };
 }
 
+function resolveCarrierClass(shipClass, isLightCarrier) {
+  if (shipClass === 'Carrier') return isLightCarrier ? 'Light Aircraft Carrier' : 'Aircraft Carrier';
+  return shipClass;
+}
+
 function buildInitialFormData(initialData) {
   if (!initialData) {
     return {
@@ -107,6 +112,7 @@ function buildInitialFormData(initialData) {
       characterName: '',
       shipClass: 'Destroyer',
       isHybrid: false,
+      isLightCarrier: false,
       isOPFOR: false,
       tonnage: 2500,
       speedKnots: 35,
@@ -118,19 +124,23 @@ function buildInitialFormData(initialData) {
       reconAircraft: null
     };
   }
+  const isCarrier = initialData.shipClass === 'Aircraft Carrier' || initialData.shipClass === 'Light Aircraft Carrier';
+  const isLightCarrier = initialData.shipClass === 'Light Aircraft Carrier';
+  const shipClass = isCarrier ? 'Carrier' : (initialData.shipClass || 'Destroyer');
   const tonnage = initialData.tonnage || 2500;
   const speedKnots = initialData.speedKnots || 35;
   const armor = initialData.armorThickness || { belt: 25, deck: 15, turret: 10 };
   return {
     targetUserId: initialData.userId || '',
     characterName: initialData.name || '',
-    shipClass: initialData.shipClass || 'Destroyer',
+    shipClass,
     isHybrid: initialData.isHybrid || false,
+    isLightCarrier,
     isOPFOR: initialData.isOPFOR || false,
     tonnage,
     speedKnots,
     armorThickness: armor,
-    ...calculateStats(tonnage, speedKnots, armor, initialData.shipClass || 'Destroyer'),
+    ...calculateStats(tonnage, speedKnots, armor, resolveCarrierClass(shipClass, isLightCarrier)),
     weapons: initialData.weapons || {},
     availableAircraft: initialData.availableAircraft || {},
     aaSystems: initialData.aaSystems || [],
@@ -224,8 +234,9 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
 
   const handleBasicInfoChange = (field, value) => {
     const newFormData = { ...formData, [field]: value };
-    if (field === 'tonnage' || field === 'speedKnots' || field === 'armorThickness' || field === 'shipClass') {
-      Object.assign(newFormData, calculateStats(newFormData.tonnage, newFormData.speedKnots, newFormData.armorThickness, newFormData.shipClass));
+    if (['tonnage', 'speedKnots', 'armorThickness', 'shipClass', 'isLightCarrier'].includes(field)) {
+      const resolved = resolveCarrierClass(newFormData.shipClass, newFormData.isLightCarrier);
+      Object.assign(newFormData, calculateStats(newFormData.tonnage, newFormData.speedKnots, newFormData.armorThickness, resolved));
     }
     setFormData(newFormData);
   };
@@ -330,10 +341,12 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
   const handleSubmit = async () => {
     const assignUserId = formData.targetUserId.trim() || userId;
     try {
+      const resolvedShipClass = resolveCarrierClass(formData.shipClass, formData.isLightCarrier);
       const characterData = {
         id: assignUserId,
-        shipClass: formData.shipClass,
+        shipClass: resolvedShipClass,
         isHybrid: formData.isHybrid || false,
+        isLightCarrier: formData.isLightCarrier || false,
         isOPFOR: formData.isOPFOR || false,
         tonnage: formData.tonnage,
         speedKnots: formData.speedKnots,
@@ -342,7 +355,7 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
         calculatedArmor: formData.calculatedArmor,
         calculatedSpeed: formData.calculatedSpeed,
         calculatedEvasion: formData.calculatedEvasion,
-        hangar: (formData.shipClass === 'Carrier' || formData.isHybrid) ? Math.floor(formData.tonnage / 500) : 0,
+        hangar: (formData.shipClass === 'Carrier' || formData.isHybrid) ? Math.floor(formData.tonnage / (formData.isLightCarrier ? 1000 : 500)) : 0,
         weapons: formData.weapons,
         availableAircraft: formData.availableAircraft,
         activeSquadrons: initialData?.activeSquadrons || {},
@@ -457,6 +470,20 @@ function CharacterCreationWizard({ guildId, userId, onComplete, onCancel, initia
                     Hybrid (adds aircraft capability — designates ship as <strong>{
                       { Destroyer: 'DDV', 'Light Cruiser': 'CLV', 'Heavy Cruiser': 'CAV', Battlecruiser: 'BCV', Battleship: 'BBV', Submarine: 'SSV' }[formData.shipClass] || `${formData.shipClass}V`
                     }</strong>)
+                  </label>
+                </div>
+              )}
+
+              {formData.shipClass === 'Carrier' && (
+                <div className="form-group form-group-inline">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={formData.isLightCarrier || false}
+                      onChange={(e) => handleBasicInfoChange('isLightCarrier', e.target.checked)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    Light Carrier — smaller hangar, fewer aircraft per squadron (designates ship as <strong>CVL</strong>)
                   </label>
                 </div>
               )}
