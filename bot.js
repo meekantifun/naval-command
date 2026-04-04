@@ -3346,7 +3346,10 @@ class NavalWarfareBot {
 
             // Recalculate HP using current formula (migration for pre-balance-update characters)
             if (character.tonnage && character.stats) {
-                character.stats.health = this.playerCreation.calculateShipHP(character.tonnage, shipClass);
+                const recalcHP = this.playerCreation.calculateShipHP(character.tonnage, shipClass);
+                character.calculatedHP = recalcHP;
+                character.stats.health = recalcHP;
+                this.savePlayerData();
             }
 
             // Add player to game

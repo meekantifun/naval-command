@@ -380,7 +380,7 @@ class GoogleSheetsManager {
      */
     calculateCharacterStats(character) {
         // Calculate HP, armor, speed, evasion
-        character.calculatedHP = Math.floor(character.tonnage / 100) + 50;
+        character.calculatedHP = this.bot.playerCreation.calculateShipHP(character.tonnage, character.shipClass);
         character.calculatedSpeed = Math.floor(character.speedKnots / 5);
         character.calculatedArmor = Math.floor(
             (character.armorThickness.belt + character.armorThickness.deck + character.armorThickness.turret) / 15
