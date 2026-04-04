@@ -3343,7 +3343,12 @@ class NavalWarfareBot {
 
             // Check OPFOR role
             const isOPFOR = character.isOPFOR || false;
-            
+
+            // Recalculate HP using current formula (migration for pre-balance-update characters)
+            if (character.tonnage && character.stats) {
+                character.stats.health = this.playerCreation.calculateShipHP(character.tonnage, shipClass);
+            }
+
             // Add player to game
             let joinSuccess = false;
             character.characterAlias = characterName;
