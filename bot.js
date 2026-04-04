@@ -126,7 +126,6 @@ class NavalWarfareBot {
         fs.mkdirSync('./public/shop-icons', { recursive: true });
         fs.mkdirSync('./public/currency-icons', { recursive: true });
         this.loadPlayerData();
-        this.migrateCharacterHP();
         this.initializeWeatherEvents();
         this.initializeFormations();
 
@@ -735,26 +734,6 @@ class NavalWarfareBot {
         } catch (error) {
             console.error('❌ Error loading player data:', error);
             this.playerData = new Map();
-        }
-    }
-
-    migrateCharacterHP() {
-        let count = 0;
-        for (const guildMap of this.playerData.values()) {
-            for (const playerEntry of guildMap.values()) {
-                if (!playerEntry.characters) continue;
-                for (const character of playerEntry.characters.values()) {
-                    if (!character.tonnage || !character.shipClass || !character.stats) continue;
-                    const hp = this.playerCreation.calculateShipHP(character.tonnage, character.shipClass);
-                    character.calculatedHP = hp;
-                    character.stats.health = hp;
-                    count++;
-                }
-            }
-        }
-        if (count > 0) {
-            this.savePlayerData();
-            console.log(`⚖️ HP migration: recalculated HP for ${count} character(s)`);
         }
     }
 
