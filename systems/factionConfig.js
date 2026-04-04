@@ -4431,20 +4431,20 @@ class FactionConfig {
 // These mirror aiConfig.js exactly — use the same values for stat consistency.
 
     calculateHP(tonnage, shipClass) {
-        const shipParams = {
-            'Destroyer':              { baseHP: 120, multiplier: 0.040, bonus: 0   },
-            'Light Cruiser':          { baseHP: 200, multiplier: 0.025, bonus: 30  },
-            'Heavy Cruiser':          { baseHP: 200, multiplier: 0.025, bonus: 70  },
-            'Battleship':             { baseHP: 300, multiplier: 0.009, bonus: 0   },
-            'Aircraft Carrier':       { baseHP: 250, multiplier: 0.010, bonus: 40  },
-            'Light Aircraft Carrier': { baseHP: 200, multiplier: 0.012, bonus: 30  },
-            'Submarine':              { baseHP: 100, multiplier: 0.050, bonus: 0   },
-            'Auxiliary':              { baseHP: 120, multiplier: 0.015, bonus: 20  }
+        // Base HP enforces class hierarchy; tonnage adds intra-class variation
+        const classBase = {
+            'Battleship':             1550,
+            'Aircraft Carrier':       1100,
+            'Heavy Cruiser':           800,
+            'Light Aircraft Carrier':  650,
+            'Light Cruiser':           500,
+            'Auxiliary':               350,
+            'Destroyer':               200,
+            'Submarine':               100,
         };
-        const params = shipParams[shipClass];
-        if (!params) return 100;
-        const scale = ['Destroyer', 'Submarine'].includes(shipClass) ? 1.5 : 2.0;
-        return Math.min(2000, Math.max(Math.round((params.baseHP + (tonnage * params.multiplier) + params.bonus) * scale), 20));
+        const base = classBase[shipClass];
+        if (base === undefined) return 100;
+        return Math.min(2000, Math.max(Math.round(base + (tonnage * 0.006)), 20));
     }
 
     calculateArmor(beltMM, deckMM, turretMM) {
