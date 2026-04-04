@@ -20,6 +20,18 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
+select {
+  background-color: var(--surface-0);
+  color: var(--text-primary);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select option {
+  background-color: var(--surface-0);
+  color: var(--text-primary);
+}
+
 #root {
   min-height: 100vh;
 }

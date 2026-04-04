@@ -32,8 +32,8 @@ class EventHandler {
         // Only respond to players who are in the game (avoid reacting to GM/bystander chatter)
         if (!game.players.has(message.author.id)) return;
 
-        // Check aiSpeakChance: 0 = disabled, 0–1 = probability, default 1.0
-        const chance = game.aiSpeakChance ?? 1.0;
+        // Check aiSpeakChance: 0 = disabled, 0–1 = probability, default 1.0 (global setting)
+        const chance = this.bot.aiSpeakChance ?? 1.0;
         if (chance === 0 || Math.random() > chance) return;
 
         // Delay first so it feels like the AI is reading and thinking, then generate + send
@@ -119,20 +119,6 @@ class EventHandler {
                 return;
             }
 
-            // Check if it's a character registration command (Google Sheets)
-            const registrationCommandNames = ['register', 'setmastersheet', 'template'];
-
-            if (registrationCommandNames.includes(commandName)) {
-                if (commandName === 'register') {
-                    await this.bot.characterRegistration.handleRegister(interaction);
-                } else if (commandName === 'setmastersheet') {
-                    await this.bot.characterRegistration.handleSetMasterSheet(interaction);
-                } else if (commandName === 'template') {
-                    await this.bot.characterRegistration.handleTemplate(interaction);
-                }
-                return;
-            }
-
             // Check if it's a custom map command
             const customMapCommandNames = ['listmaps', 'usemap', 'previewmap', 'deletemap'];
             if (customMapCommandNames.includes(commandName)) {
@@ -211,6 +197,9 @@ class EventHandler {
                     break;
                 case 'aicanspeak':
                     await this.bot.handleAICanSpeak(interaction);
+                    break;
+                case 'setgm':
+                    await this.bot.handleSetGM(interaction);
                     break;
                 case 'roleplay':
                     await this.bot.setRoleplayMode(interaction);
@@ -334,6 +323,8 @@ class EventHandler {
                 await this.bot.handleGMAIButton(interaction);
             } else if (customId.startsWith('finalize_')) {
                 await this.bot.playerCreation.finalizeCharacterWithAA(interaction);
+            } else if (customId.startsWith('opfor_convert_') || customId.startsWith('opfor_recover_')) {
+                await this.bot.handleOPFORChoiceButton(interaction);
             } else {
                 // Handle basic action buttons and game interaction buttons - route to bot's main handler
                 const basicActionButtons = [

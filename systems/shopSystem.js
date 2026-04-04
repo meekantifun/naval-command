@@ -1207,8 +1207,9 @@ class ShopSystem {
 	        actionRows.push(new ActionRowBuilder().addComponents(categoryButtons.slice(i, i + 5)));
 	    }
 
-	    const playerData = this.bot.playerData.get(interaction.user.id);
-	    const currency = playerData?.currency || 0;
+	    const playerEntry = this.bot.getGuildPlayerData(interaction.guildId, interaction.user.id);
+	    const activeChar = this.getActiveCharacter(playerEntry);
+	    const currency = activeChar?.currency || 0;
 
 	    const shopEmbed = new EmbedBuilder()
 	        .setTitle('🛒 Naval Equipment Shop')
@@ -1229,8 +1230,9 @@ class ShopSystem {
 	    }
 
 	    const items = this.getItemsByCategory(categoryId);
-	    const playerData = this.bot.playerData.get(interaction.user.id);
-	    const currency = playerData?.currency || 0;
+	    const playerEntry = this.bot.getGuildPlayerData(interaction.guildId, interaction.user.id);
+	    const activeChar = this.getActiveCharacter(playerEntry);
+	    const currency = activeChar?.currency || 0;
 
 	    if (items.length === 0) {
 	        return interaction.update({ 
@@ -1243,7 +1245,7 @@ class ShopSystem {
 	    // Create item buttons (max 20 items per page)
 	    const itemButtons = items.slice(0, 20).map(item => {
 	        const affordable = currency >= item.price;
-	        const meetsRequirements = this.checkRequirements(item, playerData);
+	        const meetsRequirements = this.checkRequirements(item, playerEntry);
 	        
 	        return new ButtonBuilder()
 	            .setCustomId(`shop_buy_${item.id}_${interaction.user.id}`)
@@ -1267,7 +1269,7 @@ class ShopSystem {
 
 	    const itemDescriptions = items.slice(0, 10).map(item => {
 	        const affordable = currency >= item.price;
-	        const meetsRequirements = this.checkRequirements(item, playerData);
+	        const meetsRequirements = this.checkRequirements(item, playerEntry);
 	        const statusIcon = affordable && meetsRequirements ? '✅' : '❌';
 	        
 	        let description = `${statusIcon} **${item.name}** - ${item.price} credits\n${item.description}`;
@@ -1371,10 +1373,11 @@ class ShopSystem {
 	    }
 
 	    if (customId.includes('shop_category_')) {
-	        const categoryId = customId.split('_')[2];
+	        const categoryId = customId.split('_').slice(2, -1).join('_');
 	        await this.showCategoryItems(interaction, categoryId);
 	    } else if (customId.includes('shop_buy_')) {
-	        const itemId = customId.split('_')[2];
+	        // itemId can contain underscores (e.g. all_weather_aircraft) — strip prefix/suffix
+	        const itemId = customId.split('_').slice(2, -1).join('_');
 	        await this.handlePurchase(interaction, itemId);
 	    } else if (customId.includes('shop_back_')) {
 	        await this.showShop(interaction);
@@ -1393,37 +1396,57 @@ class ShopSystem {
 	        return interaction.update({ content: '❌ Item not found!', embeds: [], components: [] });
 	    }
 
-	    const playerData = this.bot.playerData.get(interaction.user.id);
-	    if (!playerData) {
-	        return interaction.update({ content: '❌ Player data not found!', embeds: [], components: [] });
+	    const playerEntry = this.bot.getGuildPlayerData(interaction.guildId, interaction.user.id);
+	    if (!playerEntry) {
+	        return interaction.update({ content: '❌ Player data not found! Use /register first.', embeds: [], components: [] });
+	    }
+
+	    // Navigate to active character (currency and inventory live at character level)
+	    const charName = playerEntry.activeCharacter;
+	    const character = playerEntry.characters instanceof Map
+	        ? playerEntry.characters.get(charName)
+	        : playerEntry.characters?.[charName];
+	    if (!character) {
+	        return interaction.update({ content: '❌ No active character found!', embeds: [], components: [] });
 	    }
 
 	    // Check currency
-	    if (playerData.currency < item.price) {
-	        return interaction.reply({ 
-	            content: `❌ Insufficient funds! You need ${item.price} credits but only have ${playerData.currency}.`, 
-	            flags: MessageFlags.Ephemeral 
+	    if ((character.currency || 0) < item.price) {
+	        return interaction.reply({
+	            content: `❌ Insufficient funds! You need ${item.price} credits but only have ${character.currency || 0}.`,
+	            flags: MessageFlags.Ephemeral
 	        });
 	    }
 
 	    // Check requirements
-	    if (!this.checkRequirements(item, playerData)) {
-	        return interaction.reply({ 
-	            content: `❌ You don't meet the requirements for this item: ${this.formatRequirements(item.requirements)}`, 
-	            flags: MessageFlags.Ephemeral 
+	    if (!this.checkRequirements(item, playerEntry)) {
+	        return interaction.reply({
+	            content: `❌ You don't meet the requirements for this item: ${this.formatRequirements(item.requirements)}`,
+	            flags: MessageFlags.Ephemeral
 	        });
 	    }
 
-	    // Process purchase
-	    playerData.currency -= item.price;
-	    
-	    // Add item to inventory
-	    if (!playerData.inventory) {
-	        playerData.inventory = new Map();
+	    // Process purchase — deduct currency and add to character inventory
+	    character.currency -= item.price;
+
+	    if (!character.inventory) {
+	        character.inventory = new Map();
+	    } else if (!(character.inventory instanceof Map)) {
+	        character.inventory = new Map(Object.entries(character.inventory));
 	    }
 
-	    const currentAmount = playerData.inventory.get(itemId) || 0;
-	    playerData.inventory.set(itemId, currentAmount + 1);
+	    const currentAmount = character.inventory.get(itemId) || 0;
+	    character.inventory.set(itemId, currentAmount + 1);
+
+	    // Auto-activate equipment/aircraft upgrades when first purchased
+	    if (item.type === 'equipment' || item.type === 'aircraft') {
+	        if (!Array.isArray(character.activeUpgrades)) {
+	            character.activeUpgrades = [];
+	        }
+	        if (!character.activeUpgrades.includes(itemId)) {
+	            character.activeUpgrades.push(itemId);
+	        }
+	    }
 
 	    // Save data
 	    this.bot.savePlayerData();
@@ -1432,7 +1455,7 @@ class ShopSystem {
 	        .setTitle('✅ Purchase Successful!')
 	        .setDescription(`You have purchased **${item.name}** for ${item.price} credits!\n\n` +
 	                       `${item.description}\n\n` +
-	                       `💰 **Remaining Currency:** ${playerData.currency} credits`)
+	                       `💰 **Remaining Currency:** ${character.currency} credits`)
 	        .setColor(0x00FF00)
 	        .setFooter({ text: 'Use /equip to use your purchased items!' });
 

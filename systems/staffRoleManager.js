@@ -63,6 +63,67 @@ class StaffRoleManager {
     }
 
     /**
+     * Add a specific user as staff for a guild
+     */
+    addStaffUser(guildId, userId) {
+        const configPath = this.getConfigPath(guildId);
+        const guildFolder = path.dirname(configPath);
+
+        if (!fs.existsSync(guildFolder)) {
+            fs.mkdirSync(guildFolder, { recursive: true });
+        }
+
+        let config = {};
+        if (fs.existsSync(configPath)) {
+            try {
+                config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            } catch (error) {
+                console.warn(`Error loading config for guild ${guildId}, creating new:`, error);
+            }
+        }
+
+        if (!Array.isArray(config.staffUserIds)) config.staffUserIds = [];
+        if (!config.staffUserIds.includes(userId)) config.staffUserIds.push(userId);
+
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+        console.log(`✅ Staff user added for guild ${guildId}: ${userId}`);
+        return true;
+    }
+
+    /**
+     * Check if a specific user is a manually granted staff user
+     */
+    hasStaffUser(guildId, userId) {
+        const configPath = this.getConfigPath(guildId);
+        if (!fs.existsSync(configPath)) return false;
+        try {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            return Array.isArray(config.staffUserIds) && config.staffUserIds.includes(userId);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Remove a specific user from manual staff grants
+     */
+    removeStaffUser(guildId, userId) {
+        const configPath = this.getConfigPath(guildId);
+        if (!fs.existsSync(configPath)) return false;
+        try {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (!Array.isArray(config.staffUserIds)) return false;
+            config.staffUserIds = config.staffUserIds.filter(id => id !== userId);
+            fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+            console.log(`✅ Staff user removed for guild ${guildId}: ${userId}`);
+            return true;
+        } catch (error) {
+            console.error(`Error removing staff user for guild ${guildId}:`, error);
+            return false;
+        }
+    }
+
+    /**
      * Remove the staff role for a guild
      */
     removeStaffRole(guildId) {
@@ -99,6 +160,17 @@ class StaffRoleManager {
         // Administrators always have access
         if (member.permissions.has('Administrator')) {
             return true;
+        }
+
+        // Check for individually granted GM users
+        const configPath = this.getConfigPath(member.guild.id);
+        if (fs.existsSync(configPath)) {
+            try {
+                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                if (Array.isArray(config.staffUserIds) && config.staffUserIds.includes(member.user.id)) {
+                    return true;
+                }
+            } catch (e) { /* ignore */ }
         }
 
         // Check for configured staff role

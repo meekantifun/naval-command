@@ -172,6 +172,9 @@ class BattleManager {
             const weatherMessages = this.bot.processWeatherEvents(game);
             for (const message of weatherMessages) await channel.send(message);
 
+            const reconMessages = this.bot.processReconAircraft(game);
+            for (const message of reconMessages) await channel.send(message);
+
             const formationMessages = this.bot.checkFormationIntegrity(game);
             for (const message of formationMessages) await channel.send(message);
 
@@ -188,8 +191,6 @@ class BattleManager {
                     game.lastInteraction = null;
                 }
 
-                await this.bot.playerTurn(currentPlayer, game, channel);
-
                 if (game.currentObjective && game.currentObjective.check && game.currentObjective.check(game)) {
                     game.objectiveComplete = true;
                     await channel.send(`🎯 Objective "${game.currentObjective.name}" completed!`);
@@ -201,7 +202,9 @@ class BattleManager {
                 }
             }
 
-            await this.bot.aiTurn(game, channel);
+            // Skip AI turn if all players died this round (QRF check handles it next iteration)
+            const anyAlive = Array.from(game.players.values()).some(p => p.alive);
+            if (anyAlive) await this.bot.aiTurn(game, channel);
 
             const recoveryMessages = this.bot.processAircraftRecovery(game);
             for (const message of recoveryMessages) await channel.send(message);

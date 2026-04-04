@@ -1310,7 +1310,11 @@ class CharacterManager {
             description += `❤️ ${data.calculatedHP || 0} HP | 🛡️ ${data.armorThickness || 0}mm armor\n`;
             description += `⭐ Level ${data.level || 1} | 💰 ${data.currency || 0} credits\n`;
             description += `🔫 **Weapons:** ${weaponStr}\n`;
-            description += `🎯 **AA:** ${aaStr}\n\n`;
+            description += `🎯 **AA:** ${aaStr}\n`;
+            if (data.reconAircraft) {
+                description += `🛩️ **Recon:** ${data.reconAircraft.name} (${data.reconAircraft.type})\n`;
+            }
+            description += `\n`;
         });
 
         embed.setDescription(description);

@@ -24,6 +24,7 @@ function GameStarter({ guildId, user }) {
       destroyer: 0,
       light_cruiser: 0,
       heavy_cruiser: 0,
+      battlecruiser: 0,
       battleship: 0,
       carrier: 0
     },
@@ -113,6 +114,7 @@ function GameStarter({ guildId, user }) {
           destroyer: 0,
           light_cruiser: 0,
           heavy_cruiser: 0,
+          battlecruiser: 0,
           battleship: 0,
           carrier: 0
         },
@@ -260,6 +262,19 @@ function GameStarter({ guildId, user }) {
                   onChange={(e) => setFormData({
                     ...formData,
                     customEnemies: {...formData.customEnemies, heavy_cruiser: parseInt(e.target.value) || 0}
+                  })}
+                />
+              </div>
+              <div className="enemy-input">
+                <label>Battlecruisers</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={formData.customEnemies.battlecruiser}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    customEnemies: {...formData.customEnemies, battlecruiser: parseInt(e.target.value) || 0}
                   })}
                 />
               </div>

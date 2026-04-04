@@ -36,8 +36,6 @@ const CharacterCommands = require('./commands/characterCommands');
 const StatusManager = require('./systems/statusManager');
 const CustomMapSystem = require('./systems/customMapSystem');
 const CustomMapCommands = require('./commands/customMapCommands');
-const GoogleSheetsManager = require('./systems/googleSheetsManager');
-const CharacterRegistration = require('./commands/characterRegistration');
 const StaffRoleManager = require('./systems/staffRoleManager');
 const StaffRoleCommands = require('./commands/staffRoleCommands');
 const NameGenerator = require('./utils/nameGenerator');
@@ -93,10 +91,6 @@ class NavalWarfareBot {
 
         // Initialize name generator for random cities/towns
         this.nameGenerator = new NameGenerator();
-
-        // Initialize Google Sheets integration
-        this.sheetsManager = new GoogleSheetsManager(this);
-        this.characterRegistration = new CharacterRegistration(this);
 
         // Initialize staff role management
         this.staffRoleManager = new StaffRoleManager(this);
@@ -531,9 +525,6 @@ class NavalWarfareBot {
             // Add character management commands
             ...this.characterCommands.getCommands(),
 
-            // Add character registration commands (Google Sheets)
-            ...this.characterRegistration.getCommands(),
-
             // Add staff role commands
             ...this.staffRoleCommands.getCommands(),
 
@@ -561,9 +552,6 @@ class NavalWarfareBot {
             console.log(`👥 Serving ${this.client.users.cache.size} users`);
 
             await this.registerCommands();
-
-            // Initialize Google Sheets integration
-            await this.sheetsManager.initialize();
 
             // Initialize status manager
             await this.statusManager.initialize();

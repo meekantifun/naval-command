@@ -21,11 +21,11 @@ class AIConfig {
             shipClass: "AI Destroyer",
             tonnage: 2000,
             speedKnots: 35,
-            armorThickness: { belt: 15, deck: 10, turret: 8 },
+            armorThickness: { belt: 20, deck: 10, turret: 12 },
             baseAccuracy: 75,
             stats: {
                 health: this.calculateHP(2000, 'Destroyer'),
-                armor: this.calculateArmor(15, 10, 8),
+                armor: this.calculateArmor(20, 10, 12),
                 speed: this.calculateSpeed(35),
                 evasion: this.calculateEvasion(35, 2000),
                 range: 8, // Will be set from primary weapon
@@ -67,11 +67,11 @@ class AIConfig {
             shipClass: "AI Destroyer",
             tonnage: 2200,
             speedKnots: 36,
-            armorThickness: { belt: 18, deck: 12, turret: 10 },
+            armorThickness: { belt: 25, deck: 12, turret: 15 },
             baseAccuracy: 80,
             stats: {
                 health: this.calculateHP(2200, 'Destroyer'),
-                armor: this.calculateArmor(18, 12, 10),
+                armor: this.calculateArmor(25, 12, 15),
                 speed: this.calculateSpeed(36),
                 evasion: this.calculateEvasion(36, 2200),
                 range: 8,
@@ -117,11 +117,11 @@ class AIConfig {
             shipClass: "AI Light Cruiser",
             tonnage: 6000,
             speedKnots: 32,
-            armorThickness: { belt: 25, deck: 15, turret: 15 },
+            armorThickness: { belt: 50, deck: 25, turret: 60 },
             baseAccuracy: 80,
             stats: {
                 health: this.calculateHP(6000, 'Light Cruiser'),
-                armor: this.calculateArmor(25, 15, 15),
+                armor: this.calculateArmor(50, 25, 60),
                 speed: this.calculateSpeed(32),
                 evasion: this.calculateEvasion(32, 6000),
                 range: 10,
@@ -167,11 +167,11 @@ class AIConfig {
             shipClass: "AI Heavy Cruiser",
             tonnage: 10000,
             speedKnots: 30,
-            armorThickness: { belt: 40, deck: 20, turret: 25 },
+            armorThickness: { belt: 180, deck: 90, turret: 180 },
             baseAccuracy: 82,
             stats: {
                 health: this.calculateHP(10000, 'Heavy Cruiser'),
-                armor: this.calculateArmor(40, 20, 25),
+                armor: this.calculateArmor(180, 90, 180),
                 speed: this.calculateSpeed(30),
                 evasion: this.calculateEvasion(30, 10000),
                 range: 12,
@@ -230,11 +230,11 @@ class AIConfig {
             shipClass: "AI Battleship",
             tonnage: 35000,
             speedKnots: 23,
-            armorThickness: { belt: 80, deck: 30, turret: 50 },
+            armorThickness: { belt: 280, deck: 100, turret: 380 },
             baseAccuracy: 85,
             stats: {
                 health: this.calculateHP(35000, 'Battleship'),
-                armor: this.calculateArmor(80, 30, 50),
+                armor: this.calculateArmor(280, 100, 380),
                 speed: this.calculateSpeed(23),
                 evasion: this.calculateEvasion(23, 35000),
                 range: 18,
@@ -280,11 +280,11 @@ class AIConfig {
             shipClass: "AI Aircraft Carrier",
             tonnage: 25000,
             speedKnots: 25,
-            armorThickness: { belt: 30, deck: 25, turret: 15 },
+            armorThickness: { belt: 40, deck: 40, turret: 20 },
             baseAccuracy: 70,
             stats: {
                 health: this.calculateHP(25000, 'Aircraft Carrier'),
-                armor: this.calculateArmor(30, 25, 15),
+                armor: this.calculateArmor(40, 40, 20),
                 speed: this.calculateSpeed(25),
                 evasion: this.calculateEvasion(25, 25000),
                 range: 15, // Aircraft range
@@ -352,11 +352,11 @@ class AIConfig {
             shipClass: "AI Aircraft Carrier",
             tonnage: 28000,
             speedKnots: 27,
-            armorThickness: { belt: 35, deck: 30, turret: 20 },
+            armorThickness: { belt: 50, deck: 45, turret: 25 },
             baseAccuracy: 75,
             stats: {
                 health: this.calculateHP(28000, 'Aircraft Carrier'),
-                armor: this.calculateArmor(35, 30, 20),
+                armor: this.calculateArmor(50, 45, 25),
                 speed: this.calculateSpeed(27),
                 evasion: this.calculateEvasion(27, 28000),
                 range: 18, // Aircraft range
@@ -441,11 +441,11 @@ class AIConfig {
             shipClass: "AI Light Aircraft Carrier",
             tonnage: 15000,
             speedKnots: 28,
-            armorThickness: { belt: 20, deck: 15, turret: 10 },
+            armorThickness: { belt: 30, deck: 25, turret: 15 },
             baseAccuracy: 70,
             stats: {
                 health: this.calculateHP(15000, 'Light Aircraft Carrier'),
-                armor: this.calculateArmor(20, 15, 10),
+                armor: this.calculateArmor(30, 25, 15),
                 speed: this.calculateSpeed(28),
                 evasion: this.calculateEvasion(28, 15000),
                 range: 12, // Aircraft range
@@ -515,14 +515,15 @@ class AIConfig {
     // Calculation methods (same as player creation)
     calculateHP(tonnage, shipClass) {
         const shipParams = {
-            'Destroyer': { baseHP: 40, multiplier: 0.012, bonus: 0 },
-            'Light Cruiser': { baseHP: 80, multiplier: 0.008, bonus: 20 },
-            'Heavy Cruiser': { baseHP: 100, multiplier: 0.007, bonus: 30 },
-            'Battleship': { baseHP: 200, multiplier: 0.005, bonus: 100 },
-            'Aircraft Carrier': { baseHP: 150, multiplier: 0.006, bonus: 50 },
-            'Light Aircraft Carrier': { baseHP: 120, multiplier: 0.007, bonus: 30 },
-            'Submarine': { baseHP: 30, multiplier: 0.015, bonus: -10 },
-            'Auxiliary': { baseHP: 60, multiplier: 0.004, bonus: 10 }
+            'Destroyer': { baseHP: 120, multiplier: 0.040, bonus: 0 },
+            'Light Cruiser': { baseHP: 200, multiplier: 0.025, bonus: 30 },
+            'Heavy Cruiser': { baseHP: 200, multiplier: 0.025, bonus: 70 },
+            'Battlecruiser': { baseHP: 250, multiplier: 0.012, bonus: 50 },
+            'Battleship': { baseHP: 300, multiplier: 0.009, bonus: 0 },
+            'Aircraft Carrier': { baseHP: 250, multiplier: 0.010, bonus: 40 },
+            'Light Aircraft Carrier': { baseHP: 200, multiplier: 0.012, bonus: 30 },
+            'Submarine': { baseHP: 100, multiplier: 0.050, bonus: 0 },
+            'Auxiliary': { baseHP: 120, multiplier: 0.015, bonus: 20 }
         };
         
         const params = shipParams[shipClass];
@@ -533,7 +534,7 @@ class AIConfig {
     }
 
     calculateArmor(beltMM, deckMM, turretMM) {
-        const calculatedArmor = (beltMM * 0.6) + (deckMM * 0.25) + (turretMM * 0.15);
+        const calculatedArmor = (beltMM * 0.50) + (deckMM * 0.30) + (turretMM * 0.20);
         return Math.max(5, Math.min(Math.round(calculatedArmor), 500));
     }
 

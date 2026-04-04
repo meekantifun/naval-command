@@ -212,6 +212,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [confirmEndBattle, setConfirmEndBattle] = useState(false);
   const [startingBattle, setStartingBattle] = useState(false);
   const [opforChoiceData, setOpforChoiceData] = useState(null);
+  const opforChoiceShown = useRef(false);
   const [endingTurn, setEndingTurn] = useState(false);
   const [gmWeather, setGmWeather] = useState('clear');
   const [gmWeatherDelay, setGmWeatherDelay] = useState(0);
@@ -261,15 +262,18 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }
   }, [gameState]);
 
-  // Show OPFOR choice modal when battle ends and current user was sunk
+  // Show OPFOR choice modal once when battle ends and current user was sunk.
+  // opforChoiceShown ref prevents the modal from re-opening after the user dismisses it,
+  // which would otherwise happen because setting opforChoiceData(null) re-triggers this effect.
   useEffect(() => {
-    if (gameState?.phase === 'ended' && gameState.opforChoices?.length > 0) {
+    if (gameState?.phase === 'ended' && gameState.opforChoices?.length > 0 && !opforChoiceShown.current) {
       const myChoice = gameState.opforChoices.find(c => c.userId === user.id);
-      if (myChoice && !opforChoiceData) {
+      if (myChoice) {
+        opforChoiceShown.current = true;
         setOpforChoiceData(myChoice);
       }
     }
-  }, [gameState, user.id, opforChoiceData]);
+  }, [gameState, user.id]);
 
   // Keep selectedAircraft in sync with fresh game state
   useEffect(() => {
