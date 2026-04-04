@@ -252,6 +252,14 @@ class BattleManager {
         }
 
         this.bot.savePlayerData();
+
+        if (game.mapFiles && game.mapFiles.length > 0) {
+            const fs = require('fs');
+            for (const filepath of game.mapFiles) {
+                try { fs.unlinkSync(filepath); } catch { /* already gone */ }
+            }
+        }
+
         this.bot.games.delete(game.channelId);
 
         await channel.send('🏁 Battle ended! Players have been awarded XP and currency.');
