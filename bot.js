@@ -23159,20 +23159,21 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 aipause: rp.aiPause ?? false
             };
 
-            // setgm — read staff config
-            const staffRoleId = this.staffRoleManager.getStaffRoleId(guildId);
-            const staffRole = staffRoleId && guild ? guild.roles.cache.get(staffRoleId) : null;
+            // setgm — read staff config (single file read)
+            let staffRoleId = null;
             let staffUserIds = [];
             try {
                 const configPath = this.staffRoleManager.getConfigPath(guildId);
-                const raw = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
-                staffUserIds = raw.staffUserIds || [];
+                const staffConf = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                staffRoleId = staffConf.staffRoleId || null;
+                staffUserIds = staffConf.staffUserIds || [];
             } catch {}
+            const staffRole = staffRoleId && guild ? guild.roles.cache.get(staffRoleId) : null;
             const users = staffUserIds.map(id => {
                 const member = guild?.members.cache.get(id);
                 return { id, displayName: member?.user?.tag ?? id };
             });
-            const setgm = { roleId: staffRoleId ?? null, roleName: staffRole?.name ?? null, users };
+            const setgm = { roleId: staffRoleId, roleName: staffRole?.name ?? null, users };
 
             // setlogchannel (console log channel stored in guildConfig)
             const logChannelId = guildConf.logChannelId ?? null;
