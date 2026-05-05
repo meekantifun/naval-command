@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ConfigurationsPanel.css';
 
-function Toggle({ value, onChange }) {
+function Toggle({ value, onChange, disabled }) {
   return (
     <button
       className={`config-toggle ${value ? 'on' : 'off'}`}
       onClick={() => onChange(!value)}
       type="button"
+      disabled={disabled}
     >
       <span className="toggle-knob" />
     </button>
@@ -127,7 +128,7 @@ function RoleplayCard({ guildId, initial }) {
         </div>
         <div className={`config-row ${!enabled ? 'dimmed' : ''}`}>
           <span className="config-label">AI Pause</span>
-          <Toggle value={aipause} onChange={setAipause} />
+          <Toggle value={aipause} onChange={setAipause} disabled={!enabled} />
           <span className="config-value-hint">Pause after AI turn for GM narration</span>
         </div>
       </div>
@@ -167,6 +168,7 @@ function ConfigurationsPanel({ guildId }) {
     <div className="configurations-panel">
       <AiCanSpeakCard guildId={guildId} initial={config.aicanspeak} />
       <RoleplayCard guildId={guildId} initial={config.roleplay} />
+      {/* SetGmCard and log channel cards added in later tasks */}
     </div>
   );
 }
