@@ -131,6 +131,7 @@ class NavalWarfareBot {
 
         this.roleplayMode = true;
         this.roleplayTimeout = 300000; // 5 minutes
+        this.aiPause = false;
     }
 
     /**
