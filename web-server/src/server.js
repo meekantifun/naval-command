@@ -900,6 +900,82 @@ app.post('/api/admin/guild-config/:guildId/currency-icon', ensureAuthenticated, 
   }
 });
 
+// ── Configurations Panel Proxy Routes ──────────────────────────────────────────
+
+// Configurations panel — fetch current config state
+app.get('/api/admin/config/:guildId', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.get(`/api/admin/config/${req.params.guildId}`);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+// Guild channels and roles for dropdowns
+app.get('/api/admin/guild/:guildId/metadata', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.get(`/api/admin/guild/${req.params.guildId}/metadata`);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/aicanspeak', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/aicanspeak', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/roleplay', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/roleplay', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/setgm', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/setgm', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.delete('/api/admin/config/setgm', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.delete('/api/admin/config/setgm', { data: req.body });
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/setlogchannel', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/setlogchannel', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/setmsglogchannel', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/setmsglogchannel', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
 // ── Reviews ───────────────────────────────────────────────────────────────────
 
 const REVIEWS_FILE = path.join(__dirname, '../data/reviews.json');
