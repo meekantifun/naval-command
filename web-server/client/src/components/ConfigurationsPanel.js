@@ -278,7 +278,7 @@ function SetGmCard({ guildId, initial, roles }) {
                 </div>
               ))}
               <div className="config-role-dropdown-footer">
-                Showing {filteredRoles.length} of {roles.length} roles
+                Showing {filteredRoles.length} of {roles.length} roles — keep typing to narrow results
               </div>
             </div>
           )}
