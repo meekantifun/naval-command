@@ -328,6 +328,91 @@ function SetGmCard({ guildId, initial, roles }) {
   );
 }
 
+function LogChannelCard({ guildId, channels, apiPath, title, description, initial }) {
+  const [channelId, setChannelId] = useState(initial?.channelId ?? '');
+  const [status, setStatus] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  const showFeedback = (type, message) => {
+    clearTimeout(timerRef.current);
+    setStatus({ type, message });
+    timerRef.current = setTimeout(() => setStatus(null), 3000);
+  };
+
+  const handleSave = async () => {
+    if (saving || !channelId) return showFeedback('error', 'Select a channel first.');
+    setSaving(true);
+    try {
+      await axios.post(apiPath, { guildId, channelId }, { withCredentials: true });
+      showFeedback('success', 'Saved!');
+    } catch (err) {
+      console.error(`${apiPath} save failed:`, err);
+      showFeedback('error', 'Failed to save. Please try again.');
+    }
+    setSaving(false);
+  };
+
+  const handleClear = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await axios.post(apiPath, { guildId, channelId: null }, { withCredentials: true });
+      setChannelId('');
+      showFeedback('success', 'Cleared.');
+    } catch (err) {
+      console.error(`${apiPath} clear failed:`, err);
+      showFeedback('error', 'Failed to clear.');
+    }
+    setSaving(false);
+  };
+
+  const currentChannel = channels.find(c => c.id === channelId);
+
+  return (
+    <div className="config-card">
+      <div className="config-card-header">
+        <div>
+          <div className="config-card-title">{title}</div>
+          <div className="config-card-desc">{description}</div>
+        </div>
+        <div className={`config-status-badge ${channelId ? 'active' : 'inactive'}`}>
+          {channelId ? 'SET' : 'NOT SET'}
+        </div>
+      </div>
+      <div className="config-card-body">
+        <div className="config-row">
+          <span className="config-label">Channel</span>
+          <select
+            className="config-select"
+            value={channelId}
+            onChange={e => setChannelId(e.target.value)}
+          >
+            <option value="">— Select a channel —</option>
+            {channels.map(c => (
+              <option key={c.id} value={c.id}>#{c.name}</option>
+            ))}
+          </select>
+        </div>
+        {currentChannel && (
+          <div className="config-current-hint">Currently: #{currentChannel.name}</div>
+        )}
+      </div>
+      <div className="config-card-footer">
+        <CardFeedback status={status} />
+        <div className="config-footer-actions">
+          <button className="config-clear-btn" onClick={handleClear} disabled={saving}>Clear</button>
+          <button className="config-save-btn" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConfigurationsPanel({ guildId }) {
   const [config, setConfig] = useState(null);
   // metadata (channels + roles) is consumed by SetGmCard and LogChannelCard added in later tasks
@@ -364,7 +449,24 @@ function ConfigurationsPanel({ guildId }) {
       <AiCanSpeakCard key={`aicanspeak-${guildId}`} guildId={guildId} initial={config.aicanspeak} />
       <RoleplayCard key={`roleplay-${guildId}`} guildId={guildId} initial={config.roleplay} />
       <SetGmCard key={`setgm-${guildId}`} guildId={guildId} initial={config.setgm} roles={metadata.roles} />
-      {/* LogChannelCards added in next task */}
+      <LogChannelCard
+        key={`setlogchannel-${guildId}`}
+        guildId={guildId}
+        channels={metadata.channels}
+        apiPath="/api/admin/config/setlogchannel"
+        title="/setlogchannel"
+        description="Set the channel for console/bot logging"
+        initial={config.setlogchannel}
+      />
+      <LogChannelCard
+        key={`setmsglogchannel-${guildId}`}
+        guildId={guildId}
+        channels={metadata.channels}
+        apiPath="/api/admin/config/setmsglogchannel"
+        title="/setmsglogchannel"
+        description="Set the channel for message edit/delete logging"
+        initial={config.setmsglogchannel}
+      />
     </div>
   );
 }
