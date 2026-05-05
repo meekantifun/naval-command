@@ -23260,12 +23260,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
             if (!guildId) return res.status(400).json({ error: 'guildId required' });
             if (!roleId && !userId) return res.status(400).json({ error: 'roleId or userId required' });
 
-            if (roleId) {
-                this.staffRoleManager.setStaffRoleId(guildId, roleId);
-            } else {
-                this.staffRoleManager.addStaffUser(guildId, userId);
+            try {
+                if (roleId) {
+                    this.staffRoleManager.setStaffRoleId(guildId, roleId);
+                } else {
+                    this.staffRoleManager.addStaffUser(guildId, userId);
+                }
+                res.json({ success: true });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
             }
-            res.json({ success: true });
         });
 
         // DELETE /api/admin/config/setgm — { guildId, roleId? } or { guildId, userId? }
@@ -23274,12 +23278,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
             if (!guildId) return res.status(400).json({ error: 'guildId required' });
             if (!roleId && !userId) return res.status(400).json({ error: 'roleId or userId required' });
 
-            if (roleId) {
-                this.staffRoleManager.removeStaffRole(guildId);
-            } else {
-                this.staffRoleManager.removeStaffUser(guildId, userId);
+            try {
+                if (roleId) {
+                    this.staffRoleManager.removeStaffRole(guildId);
+                } else {
+                    this.staffRoleManager.removeStaffUser(guildId, userId);
+                }
+                res.json({ success: true });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
             }
-            res.json({ success: true });
         });
 
         // Setup a complete game with map generation (Admin Panel)
