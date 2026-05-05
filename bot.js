@@ -23140,6 +23140,73 @@ Use \`/stats\` during a battle to view your current ship statistics!
             res.json(updated);
         });
 
+        // GET /api/admin/config/:guildId — returns current state for all Configurations panel settings
+        app.get('/api/admin/config/:guildId', authenticateAPIKey, (req, res) => {
+            const { guildId } = req.params;
+            const guildConf = this.guildConfigs.get(guildId) || {};
+            const guild = this.client.guilds.cache.get(guildId);
+
+            // aicanspeak
+            const aiSpeakChance = guildConf.aiSpeakChance ?? 1.0;
+            const aicanspeak = { enabled: aiSpeakChance > 0, chance: Math.round(aiSpeakChance * 100) };
+
+            // roleplay
+            const rp = guildConf.roleplay || {};
+            const timeoutMs = rp.timeoutMs ?? 300000;
+            const roleplay = {
+                enabled: rp.enabled ?? true,
+                timeout: this.formatTimeout(timeoutMs).replace(' minutes', 'm').replace(' minute', 'm').replace(' hours', 'h').replace(' hour', 'h').replace(' seconds', 's').replace(' second', 's'),
+                aipause: rp.aiPause ?? false
+            };
+
+            // setgm — read staff config
+            const staffRoleId = this.staffRoleManager.getStaffRoleId(guildId);
+            const staffRole = staffRoleId && guild ? guild.roles.cache.get(staffRoleId) : null;
+            let staffUserIds = [];
+            try {
+                const configPath = this.staffRoleManager.getConfigPath(guildId);
+                const raw = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+                staffUserIds = raw.staffUserIds || [];
+            } catch {}
+            const users = staffUserIds.map(id => {
+                const member = guild?.members.cache.get(id);
+                return { id, displayName: member?.user?.tag ?? id };
+            });
+            const setgm = { roleId: staffRoleId ?? null, roleName: staffRole?.name ?? null, users };
+
+            // setlogchannel (console log channel stored in guildConfig)
+            const logChannelId = guildConf.logChannelId ?? null;
+            const logChannel = logChannelId && guild ? guild.channels.cache.get(logChannelId) : null;
+            const setlogchannel = { channelId: logChannelId, channelName: logChannel?.name ?? null };
+
+            // setmsglogchannel
+            const msgLogChannelId = this.messageLogger ? (this.messageLogger.getLogChannel(guildId) ?? null) : null;
+            const msgLogChannel = msgLogChannelId && guild ? guild.channels.cache.get(msgLogChannelId) : null;
+            const setmsglogchannel = { channelId: msgLogChannelId, channelName: msgLogChannel?.name ?? null };
+
+            res.json({ aicanspeak, roleplay, setgm, setlogchannel, setmsglogchannel });
+        });
+
+        // GET /api/admin/guild/:guildId/metadata — text channels and roles for dropdowns
+        app.get('/api/admin/guild/:guildId/metadata', authenticateAPIKey, (req, res) => {
+            const { guildId } = req.params;
+            const guild = this.client.guilds.cache.get(guildId);
+            if (!guild) return res.status(404).json({ error: 'Guild not found' });
+
+            const { ChannelType } = require('discord.js');
+            const channels = guild.channels.cache
+                .filter(c => c.type === ChannelType.GuildText)
+                .map(c => ({ id: c.id, name: c.name }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            const roles = guild.roles.cache
+                .filter(r => !r.managed && r.id !== guild.id)
+                .map(r => ({ id: r.id, name: r.name, position: r.position }))
+                .sort((a, b) => b.position - a.position);
+
+            res.json({ channels, roles });
+        });
+
         // Setup a complete game with map generation (Admin Panel)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
