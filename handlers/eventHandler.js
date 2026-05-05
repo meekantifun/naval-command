@@ -32,8 +32,9 @@ class EventHandler {
         // Only respond to players who are in the game (avoid reacting to GM/bystander chatter)
         if (!game.players.has(message.author.id)) return;
 
-        // Check aiSpeakChance: 0 = disabled, 0–1 = probability, default 1.0 (global setting)
-        const chance = this.bot.aiSpeakChance ?? 1.0;
+        // Check aiSpeakChance: 0 = disabled, 0–1 = probability, default 1.0 (per-guild setting)
+        const guildConf = this.bot.guildConfigs.get(message.guild?.id) || {};
+        const chance = guildConf.aiSpeakChance ?? 1.0;
         if (chance === 0 || Math.random() > chance) return;
 
         // Delay first so it feels like the AI is reading and thinking, then generate + send

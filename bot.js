@@ -19122,24 +19122,29 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
     async handleAICanSpeak(interaction) {
         const raw = interaction.options.getString('value').trim().toLowerCase();
+        const guildId = interaction.guildId;
+        let chance;
 
         if (raw === 'false') {
-            this.aiSpeakChance = 0;
-            return interaction.reply({ content: '🔇 AI personality responses are now **disabled globally**. The AI will not respond to player messages in any battle.' });
+            chance = 0;
+        } else if (raw === 'true') {
+            chance = 1.0;
+        } else {
+            const num = parseInt(raw, 10);
+            if (isNaN(num) || num < 1 || num > 100) {
+                return interaction.reply({ content: '❌ Value must be `true`, `false`, or a number from **1–100** (percentage chance).', ephemeral: true });
+            }
+            chance = num / 100;
         }
 
-        if (raw === 'true') {
-            this.aiSpeakChance = 1.0;
-            return interaction.reply({ content: '🔊 AI personality responses are now **enabled globally**. The AI will respond to every player message in all battles.' });
-        }
+        const config = this.guildConfigs.get(guildId) || {};
+        config.aiSpeakChance = chance;
+        this.saveGuildConfig(guildId, config);
 
-        const num = parseInt(raw, 10);
-        if (isNaN(num) || num < 1 || num > 100) {
-            return interaction.reply({ content: '❌ Value must be `true`, `false`, or a number from **1–100** (percentage chance).', ephemeral: true });
-        }
-
-        this.aiSpeakChance = num / 100;
-        return interaction.reply({ content: `🎲 AI personality responses set globally to **${num}%** — the AI will respond to roughly ${num} out of every 100 player messages across all battles.` });
+        if (chance === 0) return interaction.reply({ content: '🔇 AI personality responses are now **disabled** for this server.' });
+        if (chance === 1.0) return interaction.reply({ content: '🔊 AI personality responses are now **always on** for this server.' });
+        const pct = Math.round(chance * 100);
+        return interaction.reply({ content: `🎲 AI personality responses set to **${pct}%** for this server.` });
     }
 
     async handleSetGM(interaction) {
