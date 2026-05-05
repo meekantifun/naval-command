@@ -857,6 +857,10 @@ class NavalWarfareBot {
         try {
             this.guildConfigs.set(guildId, JSON.parse(fs.readFileSync(filePath, 'utf8')));
         } catch { this.guildConfigs.set(guildId, {}); }
+
+        // Restore persisted log channel
+        const conf = this.guildConfigs.get(guildId);
+        if (conf?.logChannelId) this.setLoggingChannel(conf.logChannelId);
     }
 
     saveGuildConfig(guildId, config) {
@@ -23283,6 +23287,45 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     this.staffRoleManager.removeStaffRole(guildId);
                 } else {
                     this.staffRoleManager.removeStaffUser(guildId, userId);
+                }
+                res.json({ success: true });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+
+        // POST /api/admin/config/setlogchannel — { guildId, channelId } (channelId null to clear)
+        app.post('/api/admin/config/setlogchannel', authenticateAPIKey, (req, res) => {
+            const { guildId, channelId } = req.body;
+            if (!guildId) return res.status(400).json({ error: 'guildId required' });
+
+            const config = this.guildConfigs.get(guildId) || {};
+            if (channelId) {
+                config.logChannelId = channelId;
+                this.setLoggingChannel(channelId);
+            } else {
+                delete config.logChannelId;
+                this.loggingChannelId = null;
+                if (this.logFlushInterval) {
+                    clearInterval(this.logFlushInterval);
+                    this.logFlushInterval = null;
+                }
+            }
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true });
+        });
+
+        // POST /api/admin/config/setmsglogchannel — { guildId, channelId } (channelId null to clear)
+        app.post('/api/admin/config/setmsglogchannel', authenticateAPIKey, async (req, res) => {
+            const { guildId, channelId } = req.body;
+            if (!guildId) return res.status(400).json({ error: 'guildId required' });
+            if (!this.messageLogger) return res.status(500).json({ error: 'Message logger not initialized' });
+
+            try {
+                if (channelId) {
+                    await this.messageLogger.setLogChannel(guildId, channelId);
+                } else {
+                    await this.messageLogger.removeLogChannel(guildId);
                 }
                 res.json({ success: true });
             } catch (err) {
