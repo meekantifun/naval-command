@@ -179,6 +179,7 @@ function SetGmCard({ guildId, initial, roles }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [status, setStatus] = useState(null);
+  const [busy, setBusy] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
@@ -194,8 +195,10 @@ function SetGmCard({ guildId, initial, roles }) {
   };
 
   const handleSelectRole = async (role) => {
+    if (busy || role.id === currentRole?.id) { setDropdownOpen(false); setSearch(''); return; }
     setDropdownOpen(false);
     setSearch('');
+    setBusy(true);
     try {
       await axios.post('/api/admin/config/setgm', { guildId, roleId: role.id }, { withCredentials: true });
       setCurrentRole(role);
@@ -204,9 +207,12 @@ function SetGmCard({ guildId, initial, roles }) {
       console.error('setgm role failed:', err);
       showFeedback('error', 'Failed to set GM role.');
     }
+    setBusy(false);
   };
 
   const handleRemoveRole = async () => {
+    if (busy || !currentRole) return;
+    setBusy(true);
     try {
       await axios.delete('/api/admin/config/setgm', { data: { guildId, roleId: currentRole.id }, withCredentials: true });
       setCurrentRole(null);
@@ -215,22 +221,33 @@ function SetGmCard({ guildId, initial, roles }) {
       console.error('setgm role remove failed:', err);
       showFeedback('error', 'Failed to remove GM role.');
     }
+    setBusy(false);
   };
 
   const handleAddUser = async () => {
-    if (!newUserId.trim()) return;
+    const trimmed = newUserId.trim();
+    if (!trimmed) return;
+    if (!/^\d{17,20}$/.test(trimmed)) {
+      showFeedback('error', 'Please enter a valid Discord user ID (17–20 digit number).');
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
     try {
-      await axios.post('/api/admin/config/setgm', { guildId, userId: newUserId.trim() }, { withCredentials: true });
-      setUsers(prev => [...prev, { id: newUserId.trim(), displayName: newUserId.trim() }]);
+      await axios.post('/api/admin/config/setgm', { guildId, userId: trimmed }, { withCredentials: true });
+      setUsers(prev => [...prev, { id: trimmed, displayName: trimmed }]);
       setNewUserId('');
       showFeedback('success', 'User added as GM.');
     } catch (err) {
       console.error('setgm add user failed:', err);
       showFeedback('error', 'Failed to add user.');
     }
+    setBusy(false);
   };
 
   const handleRemoveUser = async (userId) => {
+    if (busy) return;
+    setBusy(true);
     try {
       await axios.delete('/api/admin/config/setgm', { data: { guildId, userId }, withCredentials: true });
       setUsers(prev => prev.filter(u => u.id !== userId));
@@ -239,6 +256,7 @@ function SetGmCard({ guildId, initial, roles }) {
       console.error('setgm remove user failed:', err);
       showFeedback('error', 'Failed to remove user.');
     }
+    setBusy(false);
   };
 
   return (
