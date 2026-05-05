@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ConfigurationsPanel.css';
 
@@ -28,17 +28,30 @@ function AiCanSpeakCard({ guildId, initial }) {
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [chance, setChance] = useState(initial?.chance ?? 100);
   const [status, setStatus] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  const showFeedback = (type, message) => {
+    clearTimeout(timerRef.current);
+    setStatus({ type, message });
+    timerRef.current = setTimeout(() => setStatus(null), 3000);
+  };
 
   const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
     setStatus(null);
     const value = !enabled ? 'false' : String(chance);
     try {
       await axios.post('/api/admin/config/aicanspeak', { guildId, value }, { withCredentials: true });
-      setStatus({ type: 'success', message: 'Saved!' });
-    } catch {
-      setStatus({ type: 'error', message: 'Failed to save. Please try again.' });
+      showFeedback('success', 'Saved!');
+    } catch (err) {
+      console.error('aicanspeak save failed:', err);
+      showFeedback('error', 'Failed to save. Please try again.');
     }
-    setTimeout(() => setStatus(null), 3000);
+    setSaving(false);
   };
 
   return (
@@ -74,7 +87,9 @@ function AiCanSpeakCard({ guildId, initial }) {
       </div>
       <div className="config-card-footer">
         <CardFeedback status={status} />
-        <button className="config-save-btn" onClick={handleSave}>Save</button>
+        <button className="config-save-btn" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </button>
       </div>
     </div>
   );
@@ -85,16 +100,29 @@ function RoleplayCard({ guildId, initial }) {
   const [timeout, setTimeout2] = useState(initial?.timeout ?? '5m');
   const [aipause, setAipause] = useState(initial?.aipause ?? false);
   const [status, setStatus] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  const showFeedback = (type, message) => {
+    clearTimeout(timerRef.current);
+    setStatus({ type, message });
+    timerRef.current = setTimeout(() => setStatus(null), 3000);
+  };
 
   const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
     setStatus(null);
     try {
       await axios.post('/api/admin/config/roleplay', { guildId, enabled, timeout, aipause }, { withCredentials: true });
-      setStatus({ type: 'success', message: 'Saved!' });
-    } catch {
-      setStatus({ type: 'error', message: 'Failed to save. Please try again.' });
+      showFeedback('success', 'Saved!');
+    } catch (err) {
+      console.error('roleplay save failed:', err);
+      showFeedback('error', 'Failed to save. Please try again.');
     }
-    setTimeout(() => setStatus(null), 3000);
+    setSaving(false);
   };
 
   return (
@@ -134,7 +162,9 @@ function RoleplayCard({ guildId, initial }) {
       </div>
       <div className="config-card-footer">
         <CardFeedback status={status} />
-        <button className="config-save-btn" onClick={handleSave}>Save</button>
+        <button className="config-save-btn" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </button>
       </div>
     </div>
   );
@@ -142,18 +172,25 @@ function RoleplayCard({ guildId, initial }) {
 
 function ConfigurationsPanel({ guildId }) {
   const [config, setConfig] = useState(null);
+  // metadata (channels + roles) is consumed by SetGmCard and LogChannelCard added in later tasks
   const [metadata, setMetadata] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     if (!guildId) return;
+    setConfig(null);
+    setMetadata(null);
+    setLoadError(null);
     Promise.all([
       axios.get(`/api/admin/config/${guildId}`, { withCredentials: true }),
       axios.get(`/api/admin/guild/${guildId}/metadata`, { withCredentials: true })
     ]).then(([configRes, metaRes]) => {
       setConfig(configRes.data);
       setMetadata(metaRes.data);
-    }).catch(() => setLoadError('Failed to load configuration. Is the bot online?'));
+    }).catch(err => {
+      console.error('ConfigurationsPanel load failed:', err);
+      setLoadError('Failed to load configuration. Is the bot online?');
+    });
   }, [guildId]);
 
   if (loadError) {
@@ -166,8 +203,8 @@ function ConfigurationsPanel({ guildId }) {
 
   return (
     <div className="configurations-panel">
-      <AiCanSpeakCard guildId={guildId} initial={config.aicanspeak} />
-      <RoleplayCard guildId={guildId} initial={config.roleplay} />
+      <AiCanSpeakCard key={`aicanspeak-${guildId}`} guildId={guildId} initial={config.aicanspeak} />
+      <RoleplayCard key={`roleplay-${guildId}`} guildId={guildId} initial={config.roleplay} />
       {/* SetGmCard and log channel cards added in later tasks */}
     </div>
   );
