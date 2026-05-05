@@ -23208,6 +23208,80 @@ Use \`/stats\` during a battle to view your current ship statistics!
             res.json({ channels, roles });
         });
 
+        // POST /api/admin/config/aicanspeak — { guildId, value: "true"|"false"|"50" }
+        app.post('/api/admin/config/aicanspeak', authenticateAPIKey, (req, res) => {
+            const { guildId, value } = req.body;
+            if (!guildId || value === undefined) return res.status(400).json({ error: 'guildId and value required' });
+
+            const raw = String(value).trim().toLowerCase();
+            let chance;
+            if (raw === 'false') {
+                chance = 0;
+            } else if (raw === 'true') {
+                chance = 1.0;
+            } else {
+                const num = parseInt(raw, 10);
+                if (isNaN(num) || num < 1 || num > 100) return res.status(400).json({ error: 'value must be true, false, or 1-100' });
+                chance = num / 100;
+            }
+
+            const config = this.guildConfigs.get(guildId) || {};
+            config.aiSpeakChance = chance;
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true, aiSpeakChance: chance });
+        });
+
+        // POST /api/admin/config/roleplay — { guildId, enabled, timeout, aipause }
+        app.post('/api/admin/config/roleplay', authenticateAPIKey, (req, res) => {
+            const { guildId, enabled, timeout, aipause } = req.body;
+            if (!guildId || enabled === undefined) return res.status(400).json({ error: 'guildId and enabled required' });
+
+            const timeoutMs = this.parseTimeString(timeout || '5m') ?? 300000;
+
+            // Apply to any active games in this guild
+            for (const [, game] of this.games) {
+                if (game.guildId === guildId) {
+                    game.roleplayMode = enabled;
+                    game.roleplayTimeout = timeoutMs;
+                    if (aipause !== undefined) game.aiPause = aipause;
+                }
+            }
+
+            // Persist per-guild
+            const config = this.guildConfigs.get(guildId) || {};
+            config.roleplay = { enabled, timeoutMs, aiPause: aipause ?? false };
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true });
+        });
+
+        // POST /api/admin/config/setgm — { guildId, roleId? } or { guildId, userId? }
+        app.post('/api/admin/config/setgm', authenticateAPIKey, (req, res) => {
+            const { guildId, roleId, userId } = req.body;
+            if (!guildId) return res.status(400).json({ error: 'guildId required' });
+            if (!roleId && !userId) return res.status(400).json({ error: 'roleId or userId required' });
+
+            if (roleId) {
+                this.staffRoleManager.setStaffRoleId(guildId, roleId);
+            } else {
+                this.staffRoleManager.addStaffUser(guildId, userId);
+            }
+            res.json({ success: true });
+        });
+
+        // DELETE /api/admin/config/setgm — { guildId, roleId? } or { guildId, userId? }
+        app.delete('/api/admin/config/setgm', authenticateAPIKey, (req, res) => {
+            const { guildId, roleId, userId } = req.body;
+            if (!guildId) return res.status(400).json({ error: 'guildId required' });
+            if (!roleId && !userId) return res.status(400).json({ error: 'roleId or userId required' });
+
+            if (roleId) {
+                this.staffRoleManager.removeStaffRole(guildId);
+            } else {
+                this.staffRoleManager.removeStaffUser(guildId, userId);
+            }
+            res.json({ success: true });
+        });
+
         // Setup a complete game with map generation (Admin Panel)
         app.post('/api/admin/start-game', authenticateAPIKey, async (req, res) => {
             try {
