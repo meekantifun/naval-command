@@ -1686,6 +1686,13 @@ class NavalWarfareBot {
 
         const game = new NavalBattle(channelId, maxPlayers, interaction.user.id, this);
         game.guildId = interaction.guildId;
+        // Apply per-guild roleplay defaults if configured
+        const guildRoleplay = (this.guildConfigs.get(interaction.guildId) || {}).roleplay;
+        if (guildRoleplay) {
+            game.roleplayMode = guildRoleplay.enabled;
+            game.roleplayTimeout = guildRoleplay.timeoutMs;
+            game.aiPause = guildRoleplay.aiPause ?? false;
+        }
         game.gmUsername = interaction.user.displayName || interaction.user.username || null;
         this.games.set(channelId, game);
 
@@ -20031,6 +20038,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
             game.roleplayTimeout = timeoutMs;
             if (aiPause !== null) game.aiPause = aiPause;
             console.log(`🎭 Set roleplay timeout for active game: ${timeoutMs}ms (${this.formatTimeout(timeoutMs)})`);
+            const guildId = interaction.guildId;
+            const gConfig = this.guildConfigs.get(guildId) || {};
+            gConfig.roleplay = { enabled, timeoutMs, aiPause: game.aiPause };
+            this.saveGuildConfig(guildId, gConfig);
 
             const status = enabled ? 'enabled' : 'disabled';
             const timeoutDescription = enabled ? `\n⏱️ Timeout: ${this.formatTimeout(timeoutMs)}` : '';
@@ -20047,6 +20058,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
             this.roleplayMode = enabled;
             this.roleplayTimeout = timeoutMs;
             if (aiPause !== null) this.aiPause = aiPause;
+            const guildId = interaction.guildId;
+            const gConfig = this.guildConfigs.get(guildId) || {};
+            gConfig.roleplay = { enabled, timeoutMs, aiPause: this.aiPause };
+            this.saveGuildConfig(guildId, gConfig);
             console.log(`🎭 Set global default roleplay timeout: ${timeoutMs}ms (${this.formatTimeout(timeoutMs)})`);
 
             const status = enabled ? 'enabled' : 'disabled';
