@@ -7,14 +7,18 @@ const PRESETS = [
   // { id: 'preset_1', url: 'https://...', label: 'Naval Blue' },
 ];
 
-function downloadImage(url) {
+function downloadImage(url, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https://') ? https : http;
     const request = client.get(url, (res) => {
       // Handle redirects
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        if (maxRedirects === 0) {
+          res.resume();
+          return reject(new Error('Too many redirects downloading image'));
+        }
         res.resume();
-        return downloadImage(res.headers.location).then(resolve).catch(reject);
+        return downloadImage(res.headers.location, maxRedirects - 1).then(resolve).catch(reject);
       }
       if (res.statusCode !== 200) {
         res.resume();

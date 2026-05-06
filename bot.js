@@ -600,8 +600,10 @@ class NavalWarfareBot {
             const activePresets = PRESETS.filter(p => welcome.presets?.[p.id] !== false);
             const pool = [...activePresets, ...(welcome.customImages || [])];
 
+            const hasText = text.length > 0;
+
             if (pool.length === 0) {
-                await channel.send(text);
+                if (hasText) await channel.send(text);
                 return;
             }
 
@@ -611,10 +613,10 @@ class NavalWarfareBot {
             try {
                 const imageBuffer = await generateWelcomeImage(selected.url, avatarUrl, member.user.username, member.guild.memberCount);
                 const attachment = new AttachmentBuilder(imageBuffer, { name: 'welcome.png' });
-                await channel.send({ content: text, files: [attachment] });
+                await channel.send({ ...(hasText ? { content: text } : {}), files: [attachment] });
             } catch (err) {
                 console.error('Welcome image generation failed:', err);
-                await channel.send(text);
+                if (hasText) await channel.send(text);
             }
         });
 
@@ -23416,6 +23418,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
         app.post('/api/admin/config/welcome/custom', authenticateAPIKey, (req, res) => {
             const { guildId, url, label } = req.body;
             if (!guildId || !url) return res.status(400).json({ error: 'guildId and url required' });
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                return res.status(400).json({ error: 'URL must begin with http:// or https://' });
+            }
 
             const config = this.guildConfigs.get(guildId) || {};
             if (!config.welcome) config.welcome = {};
