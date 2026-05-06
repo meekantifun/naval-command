@@ -502,7 +502,7 @@ function WelcomeMessageCard({ guildId, initial, channels, roles }) {
     if (!el) { setMessage(m => m + text); return; }
     const start = el.selectionStart;
     const end = el.selectionEnd;
-    setMessage(message.slice(0, start) + text + message.slice(end));
+    setMessage(m => m.slice(0, start) + text + m.slice(end));
     requestAnimationFrame(() => {
       el.selectionStart = el.selectionEnd = start + text.length;
       el.focus();
