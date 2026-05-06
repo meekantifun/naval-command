@@ -478,4 +478,154 @@ function ConfigurationsPanel({ guildId }) {
   );
 }
 
+function WelcomeMessageCard({ guildId, initial, channels, roles }) {
+  const [enabled, setEnabled] = useState(initial?.enabled ?? false);
+  const [channelId, setChannelId] = useState(initial?.channelId ?? '');
+  const [message, setMessage] = useState(initial?.message ?? 'Welcome to the server, @user!');
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [channelDropOpen, setChannelDropOpen] = useState(false);
+  const [roleDropOpen, setRoleDropOpen] = useState(false);
+  const timerRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  function showFeedback(type, msg) {
+    clearTimeout(timerRef.current);
+    setStatus({ type, message: msg });
+    timerRef.current = setTimeout(() => setStatus(null), 3000);
+  }
+
+  function insertAtCursor(text) {
+    const el = textareaRef.current;
+    if (!el) { setMessage(m => m + text); return; }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    setMessage(message.slice(0, start) + text + message.slice(end));
+    requestAnimationFrame(() => {
+      el.selectionStart = el.selectionEnd = start + text.length;
+      el.focus();
+    });
+  }
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await axios.post('/api/admin/config/welcome', {
+        guildId,
+        enabled,
+        channelId: channelId || null,
+        message,
+      });
+      showFeedback('success', 'Saved!');
+    } catch {
+      showFeedback('error', 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="config-card">
+      <div className="config-card-header">
+        <div>
+          <div className="config-card-title">Welcome Message</div>
+          <div className="config-card-desc">Send a greeting when a new member joins</div>
+        </div>
+        <span className={`config-status-badge ${enabled ? 'active' : 'inactive'}`}>
+          {enabled ? 'ENABLED' : 'DISABLED'}
+        </span>
+      </div>
+      <div className="config-card-body">
+        <div className="config-row">
+          <span className="config-label">Welcome Message</span>
+          <Toggle value={enabled} onChange={setEnabled} />
+          <span className="config-value-hint">{enabled ? 'On' : 'Off'}</span>
+        </div>
+        <div className="config-row">
+          <span className="config-label">Channel</span>
+          <select
+            className="config-select"
+            value={channelId}
+            onChange={e => setChannelId(e.target.value)}
+          >
+            <option value="">— select a channel —</option>
+            {channels.map(c => (
+              <option key={c.id} value={c.id}>#{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="config-section-label" style={{ marginTop: 8 }}>Welcome Message</div>
+        <div className="welcome-insert-helpers">
+          <button
+            type="button"
+            className="welcome-insert-btn user-btn"
+            onMouseDown={e => { e.preventDefault(); insertAtCursor('@user'); }}
+          >@user</button>
+          <div className="welcome-insert-dropdown-wrapper">
+            <button
+              type="button"
+              className="welcome-insert-btn channel-btn"
+              onClick={() => { setChannelDropOpen(o => !o); setRoleDropOpen(false); }}
+              onBlur={() => setTimeout(() => setChannelDropOpen(false), 150)}
+            >
+              Insert #channel <span className="insert-arrow">▾</span>
+            </button>
+            {channelDropOpen && (
+              <div className="welcome-insert-dropdown">
+                {channels.map(c => (
+                  <div
+                    key={c.id}
+                    className="welcome-insert-option"
+                    onMouseDown={() => { insertAtCursor(`<#${c.id}>`); setChannelDropOpen(false); }}
+                  >#{c.name}</div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="welcome-insert-dropdown-wrapper">
+            <button
+              type="button"
+              className="welcome-insert-btn role-btn"
+              onClick={() => { setRoleDropOpen(o => !o); setChannelDropOpen(false); }}
+              onBlur={() => setTimeout(() => setRoleDropOpen(false), 150)}
+            >
+              Insert @role <span className="insert-arrow">▾</span>
+            </button>
+            {roleDropOpen && (
+              <div className="welcome-insert-dropdown">
+                {roles.map(r => (
+                  <div
+                    key={r.id}
+                    className="welcome-insert-option"
+                    onMouseDown={() => { insertAtCursor(`<@&${r.id}>`); setRoleDropOpen(false); }}
+                  >@{r.name}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <textarea
+          ref={textareaRef}
+          className="welcome-textarea"
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          rows={3}
+        />
+        <div className="welcome-hint">@user is replaced with a mention of the new member</div>
+      </div>
+      <div className="config-card-footer">
+        <CardFeedback status={status} />
+        <button
+          className="config-save-btn"
+          onClick={handleSave}
+          disabled={saving}
+        >{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+    </div>
+  );
+}
+
 export default ConfigurationsPanel;

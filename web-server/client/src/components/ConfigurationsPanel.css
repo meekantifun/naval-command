@@ -295,3 +295,76 @@
   color: var(--text-muted, #7c8db5);
   font-size: 14px;
 }
+
+/* Welcome Message card */
+.welcome-insert-helpers {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.welcome-insert-btn {
+  background: var(--bg-input, #313244);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.welcome-insert-btn.user-btn { color: #89b4fa; }
+.welcome-insert-btn.channel-btn { color: #cba6f7; }
+.welcome-insert-btn.role-btn { color: #f38ba8; }
+
+.insert-arrow {
+  color: var(--text-primary, #cdd6f4);
+  margin-left: 4px;
+}
+
+.welcome-insert-dropdown-wrapper {
+  position: relative;
+}
+
+.welcome-insert-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  background: #1e2030;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  z-index: 20;
+  overflow-y: auto;
+  max-height: 200px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.welcome-insert-option {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary, #cdd6f4);
+  cursor: pointer;
+}
+
+.welcome-insert-option:hover { background: #313244; }
+
+.welcome-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-input, #313244);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text-primary, #cdd6f4);
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.welcome-hint {
+  font-size: 11px;
+  color: var(--text-muted, #585b70);
+  margin-top: 5px;
+}
