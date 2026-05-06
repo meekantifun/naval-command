@@ -36,12 +36,6 @@ class MessageLogCommands {
                 .setDescription('Show current message logging configuration')
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
-            // Message logger statistics
-            new SlashCommandBuilder()
-                .setName('msgloggerstats')
-                .setDescription('Show message logger statistics')
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
-
             // Clear message cache
             new SlashCommandBuilder()
                 .setName('clearmsgcache')
@@ -70,9 +64,6 @@ class MessageLogCommands {
                 break;
             case 'msglogchannelinfo':
                 await this.handleLogChannelInfo(interaction, messageLogger);
-                break;
-            case 'msgloggerstats':
-                await this.handleLoggerStats(interaction, messageLogger);
                 break;
             case 'clearmsgcache':
                 await this.handleClearMessageCache(interaction, messageLogger);
@@ -226,54 +217,6 @@ class MessageLogCommands {
             )
             .setTimestamp()
             .setFooter({ text: `Guild: ${interaction.guild.name}` });
-
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-    }
-
-    async handleLoggerStats(interaction, messageLogger) {
-        const stats = messageLogger.getStatistics();
-        const allChannels = messageLogger.getAllLogChannels();
-
-        const embed = new EmbedBuilder()
-            .setTitle('📊 Message Logger Statistics')
-            .setColor('#9B59B6')
-            .addFields(
-                {
-                    name: '🌐 Configured Guilds',
-                    value: `${stats.configuredGuilds}`,
-                    inline: true
-                },
-                {
-                    name: '💾 Cached Messages',
-                    value: `${stats.cachedMessages.toLocaleString()}`,
-                    inline: true
-                },
-                {
-                    name: '📊 Memory Usage',
-                    value: `~${Math.round(stats.cachedMessages * 0.5)} KB`,
-                    inline: true
-                }
-            )
-            .setTimestamp()
-            .setFooter({ text: 'Message Logger Statistics' });
-
-        // Add list of configured guilds (if not too many)
-        if (allChannels.length <= 10) {
-            const guildsList = [];
-            for (const { guildId, channelId } of allChannels) {
-                const guild = this.bot.client.guilds.cache.get(guildId);
-                const channel = guild?.channels.cache.get(channelId);
-                guildsList.push(`**${guild?.name || 'Unknown'}**: ${channel ? `#${channel.name}` : 'Channel not found'}`);
-            }
-
-            if (guildsList.length > 0) {
-                embed.addFields({
-                    name: '🏰 Configured Guilds',
-                    value: guildsList.join('\n'),
-                    inline: false
-                });
-            }
-        }
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }

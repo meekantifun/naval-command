@@ -467,8 +467,6 @@ class NavalWarfareBot {
             new SlashCommandBuilder().setName('end').setDescription('End the current battle').setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('shop').setDescription('View the equipment shop'),
             new SlashCommandBuilder().setName('stats').setDescription('View your current stats'),
-            new SlashCommandBuilder().setName('equipment').setDescription('View detailed equipment mastery')
-                .addStringOption(option => option.setName('item').setDescription('Specific equipment to view (optional)')),
             new SlashCommandBuilder().setName('clearpins').setDescription('Clear all pinned messages in the channel').setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
             new SlashCommandBuilder().setName('kill').setDescription('[DEBUG] Instantly kill any player or AI')
                 .addStringOption(option => option.setName('target').setDescription('Target to kill').setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -1079,7 +1077,6 @@ class NavalWarfareBot {
             case 'newchar': await this.createPlayers(interaction); break;
             case 'fire': await this.setFire(interaction); break;
             case 'flood': await this.setFlood(interaction); break;
-            case 'equipment': await this.showEquipmentStats(interaction); break;
             case 'speak':      await this.handleGMSpeak(interaction); break;
             case 'aicanspeak': await this.handleAICanSpeak(interaction); break;
             case 'setgm': await this.handleSetGM(interaction); break;
@@ -3593,48 +3590,6 @@ class NavalWarfareBot {
         return playerEntry.characters.get(playerEntry.activeCharacter);
     }
 
-    async showEquipmentStats(interaction) {
-        const itemName = interaction.options.getString('item');
-        const playerData = this.getGuildPlayerData(interaction.guildId, interaction.user.id);
-
-        if (!playerData) {
-            return interaction.reply({
-                content: '❌ No player data found!',
-                flags: MessageFlags.Ephemeral
-            });
-        }
-        
-        let equipmentEmbed;
-        
-        if (itemName) {
-            // Try to find equipment by partial name match
-            const equipmentEntries = Array.from(playerData.equipmentLevels?.entries() || []);
-            const foundEntry = equipmentEntries.find(([id, equipment]) => 
-                equipment.name.toLowerCase().includes(itemName.toLowerCase()) ||
-                id.toLowerCase().includes(itemName.toLowerCase())
-            );
-            
-            if (foundEntry) {
-                equipmentEmbed = this.levelingSystem.createEquipmentStatsEmbed(interaction.user.id, foundEntry[0]);
-            } else {
-                return interaction.reply({ 
-                    content: `❌ Equipment "${itemName}" not found in your mastery data!`,
-                    flags: MessageFlags.Ephemeral 
-                });
-            }
-        } else {
-            equipmentEmbed = this.levelingSystem.createEquipmentStatsEmbed(interaction.user.id);
-        }
-        
-        if (!equipmentEmbed) {
-            return interaction.reply({ 
-                content: '❌ No equipment mastery data found!',
-                flags: MessageFlags.Ephemeral 
-            });
-        }
-        
-        await interaction.reply({ embeds: [equipmentEmbed], flags: MessageFlags.Ephemeral });
-    }
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║                        SQUADRON & AIRCRAFT MANAGEMENT                        ║

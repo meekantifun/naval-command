@@ -190,9 +190,6 @@ class EventHandler {
                 case 'flood':
                     await this.bot.setFlood(interaction);
                     break;
-                case 'equipment':
-                    await this.bot.showEquipmentStats(interaction);
-                    break;
                 case 'speak':
                     await this.bot.handleGMSpeak(interaction);
                     break;
