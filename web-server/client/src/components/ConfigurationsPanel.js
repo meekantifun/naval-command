@@ -474,6 +474,162 @@ function ConfigurationsPanel({ guildId }) {
         description="Set the channel for message edit/delete logging"
         initial={config.setmsglogchannel}
       />
+      <WelcomeMessageCard
+        key={`welcome-msg-${guildId}`}
+        guildId={guildId}
+        channels={metadata.channels}
+        roles={metadata.roles}
+        initial={config.welcome}
+      />
+      <WelcomeImagesCard
+        key={`welcome-img-${guildId}`}
+        guildId={guildId}
+        initial={config.welcome}
+      />
+    </div>
+  );
+}
+
+function WelcomeImagesCard({ guildId, initial }) {
+  const [presets, setPresets] = useState(initial?.presets ?? []);
+  const [customImages, setCustomImages] = useState(initial?.customImages ?? []);
+  const [newUrl, setNewUrl] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [status, setStatus] = useState(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  function showFeedback(type, msg) {
+    clearTimeout(timerRef.current);
+    setStatus({ type, message: msg });
+    timerRef.current = setTimeout(() => setStatus(null), 3000);
+  }
+
+  async function handleTogglePreset(presetId, enabled) {
+    try {
+      await axios.post('/api/admin/config/welcome/preset', { guildId, presetId, enabled });
+      setPresets(ps => ps.map(p => p.id === presetId ? { ...p, enabled } : p));
+    } catch {
+      showFeedback('error', 'Failed to update preset.');
+    }
+  }
+
+  async function handleAddCustom() {
+    const url = newUrl.trim();
+    if (!url) return;
+    try {
+      const res = await axios.post('/api/admin/config/welcome/custom', {
+        guildId,
+        url,
+        label: newLabel.trim() || url,
+      });
+      setCustomImages(ci => [...ci, res.data.image]);
+      setNewUrl('');
+      setNewLabel('');
+    } catch {
+      showFeedback('error', 'Failed to add image.');
+    }
+  }
+
+  async function handleRemoveCustom(id) {
+    try {
+      await axios.delete('/api/admin/config/welcome/custom', { data: { guildId, id } });
+      setCustomImages(ci => ci.filter(img => img.id !== id));
+    } catch {
+      showFeedback('error', 'Failed to remove image.');
+    }
+  }
+
+  const activeCount = presets.filter(p => p.enabled).length + customImages.length;
+
+  return (
+    <div className="config-card">
+      <div className="config-card-header">
+        <div>
+          <div className="config-card-title">Welcome Images</div>
+          <div className="config-card-desc">One image is picked randomly when a member joins</div>
+        </div>
+        <span className={`config-status-badge ${activeCount > 0 ? 'active' : 'inactive'}`}>
+          {activeCount} ACTIVE
+        </span>
+      </div>
+      <div className="config-card-body">
+        {presets.length > 0 && (
+          <>
+            <div className="config-section-label">Preset Images</div>
+            <div className="welcome-image-list">
+              {presets.map(preset => (
+                <div key={preset.id} className={`welcome-image-row${preset.enabled ? '' : ' welcome-image-row--off'}`}>
+                  <img
+                    src={preset.url}
+                    alt={preset.label}
+                    className="welcome-thumbnail"
+                    onError={e => { e.target.style.visibility = 'hidden'; }}
+                  />
+                  <span className="welcome-image-label">{preset.label}</span>
+                  <Toggle
+                    value={preset.enabled}
+                    onChange={val => handleTogglePreset(preset.id, val)}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <div className="config-section-label" style={{ marginTop: presets.length > 0 ? 14 : 0 }}>
+          Custom Images
+        </div>
+        <div className="welcome-image-list">
+          {customImages.length === 0 && (
+            <div className="welcome-hint" style={{ marginBottom: 8 }}>No custom images added yet.</div>
+          )}
+          {customImages.map(img => (
+            <div key={img.id} className="welcome-image-row">
+              <img
+                src={img.url}
+                alt={img.label}
+                className="welcome-thumbnail"
+                onError={e => { e.target.style.opacity = '0.25'; }}
+              />
+              <span className="welcome-image-label">{img.label || img.url}</span>
+              <button
+                type="button"
+                className="config-remove-link"
+                onClick={() => handleRemoveCustom(img.id)}
+              >Remove</button>
+            </div>
+          ))}
+        </div>
+        <div className="welcome-add-row">
+          <input
+            type="text"
+            className="config-text-input welcome-url-input"
+            placeholder="Image URL..."
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddCustom()}
+          />
+          <input
+            type="text"
+            className="config-text-input welcome-label-input"
+            placeholder="Label (optional)"
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+          />
+          <button
+            type="button"
+            className="config-add-btn"
+            onClick={handleAddCustom}
+            disabled={!newUrl.trim()}
+          >Add</button>
+        </div>
+        <div className="welcome-hint">Recommended size: 900×300px. Image must be publicly accessible.</div>
+        {status && <CardFeedback status={status} />}
+      </div>
+      <div className="config-card-footer">
+        <span className="config-value-hint">Changes saved automatically</span>
+      </div>
     </div>
   );
 }
