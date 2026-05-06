@@ -3,8 +3,16 @@ const http = require('http');
 const sharp = require('sharp');
 
 const PRESETS = [
-  // URLs filled in by project owner before deployment
-  // { id: 'preset_1', url: 'https://...', label: 'Naval Blue' },
+  { id: 'preset_1',  url: 'https://naval-command.com/welcome-bg/newUserBG1.jpg',  label: 'Background 1'  },
+  { id: 'preset_2',  url: 'https://naval-command.com/welcome-bg/newUserBG2.jpg',  label: 'Background 2'  },
+  { id: 'preset_3',  url: 'https://naval-command.com/welcome-bg/newUserBG3.jpg',  label: 'Background 3'  },
+  { id: 'preset_4',  url: 'https://naval-command.com/welcome-bg/newUserBG4.jpg',  label: 'Background 4'  },
+  { id: 'preset_5',  url: 'https://naval-command.com/welcome-bg/newUserBG5.jpg',  label: 'Background 5'  },
+  { id: 'preset_6',  url: 'https://naval-command.com/welcome-bg/newUserBG6.jpg',  label: 'Background 6'  },
+  { id: 'preset_7',  url: 'https://naval-command.com/welcome-bg/newUserBG7.jpg',  label: 'Background 7'  },
+  { id: 'preset_8',  url: 'https://naval-command.com/welcome-bg/newUserBG8.jpg',  label: 'Background 8'  },
+  { id: 'preset_9',  url: 'https://naval-command.com/welcome-bg/newUserBG9.jpg',  label: 'Background 9'  },
+  { id: 'preset_10', url: 'https://naval-command.com/welcome-bg/newUserBG10.jpg', label: 'Background 10' },
 ];
 
 function downloadImage(url, maxRedirects = 5) {
