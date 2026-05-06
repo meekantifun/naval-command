@@ -1,0 +1,297 @@
+.configurations-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.config-card {
+  background: var(--bg-secondary, #1e2030);
+  border: 1px solid var(--border-color, #313244);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.config-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-color, #313244);
+}
+
+.config-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #cdd6f4);
+  font-family: monospace;
+}
+
+.config-card-desc {
+  font-size: 12px;
+  color: var(--text-muted, #7c8db5);
+  margin-top: 3px;
+}
+
+.config-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.config-status-badge.active { background: rgba(166, 227, 161, 0.15); color: #a6e3a1; }
+.config-status-badge.inactive { background: rgba(88, 91, 112, 0.2); color: #7c8db5; }
+
+.config-card-body {
+  padding: 14px 20px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.config-row.dimmed {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.config-label {
+  font-size: 13px;
+  color: var(--text-muted, #7c8db5);
+  min-width: 130px;
+}
+
+.config-value-hint {
+  font-size: 12px;
+  color: var(--text-muted, #585b70);
+}
+
+.config-number-input {
+  width: 64px;
+  background: var(--bg-input, #313244);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 13px;
+  text-align: center;
+}
+
+.config-text-input {
+  background: var(--bg-input, #313244);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 6px;
+  padding: 7px 12px;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 13px;
+  width: 120px;
+}
+
+.config-text-input.full { width: 100%; box-sizing: border-box; }
+
+.config-select {
+  flex: 1;
+  background: var(--bg-input, #313244);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 6px;
+  padding: 7px 12px;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 13px;
+}
+
+/* Toggle */
+.config-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.config-toggle.on { background: #89b4fa; }
+.config-toggle.off { background: #45475a; }
+.config-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  transition: left 0.2s;
+}
+.config-toggle.on .toggle-knob { left: 23px; }
+.config-toggle.off .toggle-knob { left: 3px; }
+
+/* Card footer */
+.config-card-footer {
+  padding: 10px 20px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border-color, #313244);
+}
+
+.config-footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.config-save-btn {
+  background: #89b4fa;
+  color: #1e1e2e;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.config-save-btn:hover:not(:disabled) { background: #a6c8ff; }
+.config-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.config-clear-btn {
+  background: transparent;
+  color: var(--text-muted, #7c8db5);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.config-clear-btn:hover:not(:disabled) { border-color: #f38ba8; color: #f38ba8; }
+.config-clear-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.config-add-btn {
+  background: #89b4fa;
+  color: #1e1e2e;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.config-add-btn:hover { background: #a6c8ff; }
+
+/* Feedback */
+.card-feedback {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.card-feedback.success { color: #a6e3a1; background: rgba(166, 227, 161, 0.1); }
+.card-feedback.error { color: #f38ba8; background: rgba(243, 139, 168, 0.1); }
+
+/* SetGm card */
+.config-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted, #7c8db5);
+  margin-bottom: 8px;
+}
+
+.config-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input, #313244);
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: var(--text-primary, #cdd6f4);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.config-tag-remove {
+  background: none;
+  border: none;
+  color: #f38ba8;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+.config-role-search-wrapper { position: relative; }
+
+.config-role-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1e2030;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  z-index: 20;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.config-role-option {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary, #cdd6f4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-role-option:hover { background: #313244; }
+
+.role-at { color: #89b4fa; }
+
+.config-role-dropdown-footer {
+  border-top: 1px solid #313244;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: #585b70;
+}
+
+.config-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-input, #313244);
+  border-radius: 6px;
+  padding: 7px 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-primary, #cdd6f4);
+}
+
+.config-remove-link {
+  background: none;
+  border: none;
+  color: #f38ba8;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.config-current-hint {
+  font-size: 11px;
+  color: var(--text-muted, #585b70);
+  margin-top: -4px;
+  padding-left: 2px;
+}
+
+.config-loading, .config-load-error {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted, #7c8db5);
+  font-size: 14px;
+}
