@@ -9,7 +9,7 @@ const PRESETS = [
 
 function downloadImage(url) {
   return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
+    const client = url.startsWith('https://') ? https : http;
     const request = client.get(url, (res) => {
       // Handle redirects
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -21,7 +21,16 @@ function downloadImage(url) {
         return reject(new Error(`HTTP ${res.statusCode} downloading image`));
       }
       const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
+      let totalSize = 0;
+      const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+      res.on('data', chunk => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_SIZE) {
+          res.destroy();
+          return reject(new Error('Image too large (max 20MB)'));
+        }
+        chunks.push(chunk);
+      });
       res.on('end', () => resolve(Buffer.concat(chunks)));
       res.on('error', reject);
     }).on('error', reject);
@@ -29,14 +38,18 @@ function downloadImage(url) {
 }
 
 async function generateWelcomeImage(backgroundUrl, avatarUrl, username, memberCount) {
-  // Background: download and cover-crop to 900×300
-  const bgBuf = await downloadImage(backgroundUrl);
+  // Download both images in parallel
+  const [bgBuf, avatarBuf] = await Promise.all([
+    downloadImage(backgroundUrl),
+    downloadImage(avatarUrl),
+  ]);
+
+  // Background: cover-crop to 900×300
   const background = await sharp(bgBuf)
     .resize(900, 300, { fit: 'cover' })
     .toBuffer();
 
-  // Avatar: download, resize to 100×100, apply circular mask
-  const avatarBuf = await downloadImage(avatarUrl);
+  // Avatar: resize to 100×100, apply circular mask
   const circMask100 = Buffer.from(
     '<svg width="100" height="100"><circle cx="50" cy="50" r="50" fill="white"/></svg>'
   );
@@ -70,7 +83,7 @@ async function generateWelcomeImage(backgroundUrl, avatarUrl, username, memberCo
   const textOverlay = Buffer.from(
     `<svg width="900" height="300" xmlns="http://www.w3.org/2000/svg">` +
     `<text x="165" y="145" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="white">Welcome, ${safeUsername}!</text>` +
-    `<text x="165" y="170" font-family="Arial,sans-serif" font-size="14" fill="white" fill-opacity="0.5">Member #${memberCount}</text>` +
+    `<text x="165" y="170" font-family="Arial,sans-serif" font-size="14" fill="white" fill-opacity="0.5">Member #${Number(memberCount) || 0}</text>` +
     `</svg>`
   );
 
