@@ -10,7 +10,7 @@ if (!process.env.DISCORD_TOKEN) {
     process.exit(1);
 }
 
-const {Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, PermissionFlagsBits,ModalBuilder,TextInputBuilder,TextInputStyle, MessageFlags, StringSelectMenuBuilder} = require('discord.js');
+const {Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, PermissionFlagsBits,ModalBuilder,TextInputBuilder,TextInputStyle, MessageFlags, StringSelectMenuBuilder, AttachmentBuilder} = require('discord.js');
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
@@ -42,6 +42,8 @@ const NameGenerator = require('./utils/nameGenerator');
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { PRESETS, generateWelcomeImage } = require('./systems/welcomeImageGenerator');
+const { randomUUID } = require('crypto');
 
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -580,6 +582,40 @@ class NavalWarfareBot {
 
         this.client.on('resume', () => {
             console.log(`🔁 Bot resumed connection to Discord`);
+        });
+
+        this.client.on('guildMemberAdd', async (member) => {
+            const conf = this.guildConfigs.get(member.guild.id) || {};
+            const welcome = conf.welcome;
+            if (!welcome?.enabled || !welcome?.channelId) return;
+
+            const channel = member.guild.channels.cache.get(welcome.channelId);
+            if (!channel) {
+                console.warn(`Welcome: configured channel ${welcome.channelId} not found in ${member.guild.id}`);
+                return;
+            }
+
+            const text = (welcome.message || '').replace(/@user/g, `<@${member.id}>`);
+
+            const activePresets = PRESETS.filter(p => welcome.presets?.[p.id] !== false);
+            const pool = [...activePresets, ...(welcome.customImages || [])];
+
+            if (pool.length === 0) {
+                await channel.send(text);
+                return;
+            }
+
+            const selected = pool[Math.floor(Math.random() * pool.length)];
+            const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
+
+            try {
+                const imageBuffer = await generateWelcomeImage(selected.url, avatarUrl, member.user.username, member.guild.memberCount);
+                const attachment = new AttachmentBuilder(imageBuffer, { name: 'welcome.png' });
+                await channel.send({ content: text, files: [attachment] });
+            } catch (err) {
+                console.error('Welcome image generation failed:', err);
+                await channel.send(text);
+            }
         });
 
         // Log rate limits
