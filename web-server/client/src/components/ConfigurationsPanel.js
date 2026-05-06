@@ -336,6 +336,10 @@ function LogChannelCard({ guildId, channels, apiPath, title, description, initia
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
+  useEffect(() => {
+    setChannelId(initial?.channelId ?? '');
+  }, [initial]);
+
   const showFeedback = (type, message) => {
     clearTimeout(timerRef.current);
     setStatus({ type, message });
@@ -343,7 +347,8 @@ function LogChannelCard({ guildId, channels, apiPath, title, description, initia
   };
 
   const handleSave = async () => {
-    if (saving || !channelId) return showFeedback('error', 'Select a channel first.');
+    if (!channelId) { showFeedback('error', 'Select a channel first.'); return; }
+    if (saving) return;
     setSaving(true);
     try {
       await axios.post(apiPath, { guildId, channelId }, { withCredentials: true });
@@ -351,12 +356,13 @@ function LogChannelCard({ guildId, channels, apiPath, title, description, initia
     } catch (err) {
       console.error(`${apiPath} save failed:`, err);
       showFeedback('error', 'Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleClear = async () => {
-    if (saving) return;
+    if (saving || !channelId) return;
     setSaving(true);
     try {
       await axios.post(apiPath, { guildId, channelId: null }, { withCredentials: true });
@@ -365,11 +371,12 @@ function LogChannelCard({ guildId, channels, apiPath, title, description, initia
     } catch (err) {
       console.error(`${apiPath} clear failed:`, err);
       showFeedback('error', 'Failed to clear.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
-  const currentChannel = channels.find(c => c.id === channelId);
+  const savedChannel = channels.find(c => c.id === (initial?.channelId ?? ''));
 
   return (
     <div className="config-card">
@@ -378,8 +385,8 @@ function LogChannelCard({ guildId, channels, apiPath, title, description, initia
           <div className="config-card-title">{title}</div>
           <div className="config-card-desc">{description}</div>
         </div>
-        <div className={`config-status-badge ${channelId ? 'active' : 'inactive'}`}>
-          {channelId ? 'SET' : 'NOT SET'}
+        <div className={`config-status-badge ${initial?.channelId ? 'active' : 'inactive'}`}>
+          {initial?.channelId ? 'SET' : 'NOT SET'}
         </div>
       </div>
       <div className="config-card-body">
@@ -396,14 +403,14 @@ function LogChannelCard({ guildId, channels, apiPath, title, description, initia
             ))}
           </select>
         </div>
-        {currentChannel && (
-          <div className="config-current-hint">Currently: #{currentChannel.name}</div>
+        {savedChannel && (
+          <div className="config-current-hint">Currently saved: #{savedChannel.name}</div>
         )}
       </div>
       <div className="config-card-footer">
         <CardFeedback status={status} />
         <div className="config-footer-actions">
-          <button className="config-clear-btn" onClick={handleClear} disabled={saving}>Clear</button>
+          <button className="config-clear-btn" onClick={handleClear} disabled={saving || !channelId}>Clear</button>
           <button className="config-save-btn" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save'}
           </button>
