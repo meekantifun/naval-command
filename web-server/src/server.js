@@ -976,6 +976,42 @@ app.post('/api/admin/config/setmsglogchannel', ensureAuthenticated, async (req, 
   }
 });
 
+app.post('/api/admin/config/welcome', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/welcome', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/welcome/preset', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/welcome/preset', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/welcome/custom', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/welcome/custom', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.delete('/api/admin/config/welcome/custom', ensureAuthenticated, async (req, res) => {
+  try {
+    const response = await botAPI.delete('/api/admin/config/welcome/custom', { data: req.body });
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
 // ── Reviews ───────────────────────────────────────────────────────────────────
 
 const REVIEWS_FILE = path.join(__dirname, '../data/reviews.json');
