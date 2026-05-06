@@ -23225,7 +23225,23 @@ Use \`/stats\` during a battle to view your current ship statistics!
             const msgLogChannel = msgLogChannelId && guild ? guild.channels.cache.get(msgLogChannelId) : null;
             const setmsglogchannel = { channelId: msgLogChannelId, channelName: msgLogChannel?.name ?? null };
 
-            res.json({ aicanspeak, roleplay, setgm, setlogchannel, setmsglogchannel });
+            // welcome — enrich raw presets map into array with metadata from PRESETS constant
+            const wc = guildConf.welcome || {};
+            const welcomePresets = PRESETS.map(p => ({
+                id: p.id,
+                url: p.url,
+                label: p.label,
+                enabled: wc.presets?.[p.id] !== false
+            }));
+            const welcome = {
+                enabled: wc.enabled ?? false,
+                channelId: wc.channelId ?? null,
+                message: wc.message ?? 'Welcome to the server, @user!',
+                presets: welcomePresets,
+                customImages: wc.customImages ?? []
+            };
+
+            res.json({ aicanspeak, roleplay, setgm, setlogchannel, setmsglogchannel, welcome });
         });
 
         // GET /api/admin/guild/:guildId/metadata — text channels and roles for dropdowns
@@ -23367,6 +23383,60 @@ Use \`/stats\` during a battle to view your current ship statistics!
             } catch (err) {
                 res.status(500).json({ error: err.message });
             }
+        });
+
+        // POST /api/admin/config/welcome — { guildId, enabled, channelId, message }
+        app.post('/api/admin/config/welcome', authenticateAPIKey, (req, res) => {
+            const { guildId, enabled, channelId, message } = req.body;
+            if (!guildId) return res.status(400).json({ error: 'guildId required' });
+
+            const config = this.guildConfigs.get(guildId) || {};
+            if (!config.welcome) config.welcome = {};
+            config.welcome.enabled = !!enabled;
+            config.welcome.channelId = channelId || null;
+            config.welcome.message = message ?? 'Welcome to the server, @user!';
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true });
+        });
+
+        // POST /api/admin/config/welcome/preset — { guildId, presetId, enabled }
+        app.post('/api/admin/config/welcome/preset', authenticateAPIKey, (req, res) => {
+            const { guildId, presetId, enabled } = req.body;
+            if (!guildId || !presetId) return res.status(400).json({ error: 'guildId and presetId required' });
+
+            const config = this.guildConfigs.get(guildId) || {};
+            if (!config.welcome) config.welcome = {};
+            if (!config.welcome.presets) config.welcome.presets = {};
+            config.welcome.presets[presetId] = !!enabled;
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true });
+        });
+
+        // POST /api/admin/config/welcome/custom — { guildId, url, label }
+        app.post('/api/admin/config/welcome/custom', authenticateAPIKey, (req, res) => {
+            const { guildId, url, label } = req.body;
+            if (!guildId || !url) return res.status(400).json({ error: 'guildId and url required' });
+
+            const config = this.guildConfigs.get(guildId) || {};
+            if (!config.welcome) config.welcome = {};
+            if (!config.welcome.customImages) config.welcome.customImages = [];
+            const image = { id: randomUUID(), url, label: label || url };
+            config.welcome.customImages.push(image);
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true, image });
+        });
+
+        // DELETE /api/admin/config/welcome/custom — { guildId, id }
+        app.delete('/api/admin/config/welcome/custom', authenticateAPIKey, (req, res) => {
+            const { guildId, id } = req.body;
+            if (!guildId || !id) return res.status(400).json({ error: 'guildId and id required' });
+
+            const config = this.guildConfigs.get(guildId) || {};
+            if (config.welcome?.customImages) {
+                config.welcome.customImages = config.welcome.customImages.filter(img => img.id !== id);
+                this.saveGuildConfig(guildId, config);
+            }
+            res.json({ success: true });
         });
 
         // Setup a complete game with map generation (Admin Panel)
