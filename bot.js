@@ -24706,41 +24706,61 @@ class NavalBattle {
     hasVisionOf(targetPos, side) {
         if (!targetPos || !this.map) return true;
 
-        // Weather-based spotting range (cells). Ships beyond this distance cannot be seen.
-        const WEATHER_SPOT_RANGE = { hurricane: 12, thunderstorm: 20, fog: 28, foggy: 28 };
-        const spotRange = WEATHER_SPOT_RANGE[this.weather] ?? null;
+        // Find the ship sitting at targetPos (for submarine depth checks)
+        const findShipAt = (pos) => {
+            for (const p of this.players.values()) { if (p.position === pos) return p; }
+            for (const e of this.enemies.values()) { if (e.position === pos) return e; }
+            return null;
+        };
+        const targetShip = findShipAt(targetPos);
 
-        const withinSpotRange = (fromPos) => {
-            if (spotRange === null || !fromPos) return true;
-            const a = this.coordToNumbers(fromPos);
+        const WEATHER_SPOT_RANGE = { hurricane: 12, thunderstorm: 20, fog: 28, foggy: 28 };
+        const baseSpotRange = WEATHER_SPOT_RANGE[this.weather] ?? null;
+
+        // Enemy spot range is halved when target is a periscope-depth sub
+        const enemyMult = targetShip ? diveSystem.getEnemySpotMultiplier(targetShip) : 1.0;
+
+        // Per-spotter range check: subs have reduced own spot range by depth
+        const withinRange = (spotter, weatherRange) => {
+            if (weatherRange === null || !spotter.position) return true;
+            let effectiveRange = Math.floor(weatherRange * enemyMult);
+            if (diveSystem.isSubmarine(spotter)) {
+                effectiveRange = Math.min(effectiveRange, diveSystem.getEffectiveSpotRange(spotter, effectiveRange));
+            }
+            const a = this.coordToNumbers(spotter.position);
             const b = this.coordToNumbers(targetPos);
             if (!a || !b) return true;
-            return Math.hypot(b.x - a.x, b.y - a.y) <= spotRange;
+            return Math.hypot(b.x - a.x, b.y - a.y) <= effectiveRange;
         };
 
-        // Aircraft use tighter spotting ranges in bad weather
         const AIRCRAFT_SPOT_RANGE = { hurricane: 5, thunderstorm: 3, fog: 10, foggy: 10 };
-        const acSpotRange = AIRCRAFT_SPOT_RANGE[this.weather] ?? null;
-        const withinAircraftSpotRange = (fromPos) => {
-            if (acSpotRange === null || !fromPos) return true;
-            const a = this.coordToNumbers(fromPos);
+        const baseAcRange = AIRCRAFT_SPOT_RANGE[this.weather] ?? null;
+        const withinAcRange = (aircraft, weatherRange) => {
+            if (weatherRange === null || !aircraft.position) return true;
+            const effectiveRange = Math.floor(weatherRange * enemyMult);
+            const a = this.coordToNumbers(aircraft.position);
             const b = this.coordToNumbers(targetPos);
             if (!a || !b) return true;
-            return Math.hypot(b.x - a.x, b.y - a.y) <= acSpotRange;
+            return Math.hypot(b.x - a.x, b.y - a.y) <= effectiveRange;
         };
 
         if (side === 'player') {
             for (const p of this.players.values()) {
-                if (p.alive && p.position && withinSpotRange(p.position) && this.hasLineOfSight(p.position, targetPos)) return true;
+                if (!p.alive || !p.position) continue;
+                if (targetShip && !diveSystem.canSpot(p, targetShip)) continue;
+                if (withinRange(p, baseSpotRange) && this.hasLineOfSight(p.position, targetPos)) return true;
             }
             for (const aircraft of this.aircraft?.values() || []) {
-                if (aircraft.owner === 'player' && aircraft.alive && aircraft.position &&
-                    withinAircraftSpotRange(aircraft.position) && this.hasLineOfSight(aircraft.position, targetPos)) return true;
+                if (aircraft.owner !== 'player' || !aircraft.alive || !aircraft.position) continue;
+                if (targetShip && !diveSystem.canSpot(aircraft, targetShip)) continue;
+                if (withinAcRange(aircraft, baseAcRange) && this.hasLineOfSight(aircraft.position, targetPos)) return true;
             }
             return false;
         } else {
             for (const enemy of this.enemies.values()) {
-                if (enemy.alive && enemy.position && withinSpotRange(enemy.position) && this.hasLineOfSight(enemy.position, targetPos)) return true;
+                if (!enemy.alive || !enemy.position) continue;
+                if (targetShip && !diveSystem.canSpot(enemy, targetShip)) continue;
+                if (withinRange(enemy, baseSpotRange) && this.hasLineOfSight(enemy.position, targetPos)) return true;
             }
             return false;
         }
