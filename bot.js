@@ -5915,6 +5915,10 @@ class NavalWarfareBot {
             // Process turn effects first
             const turnMessages = this.processTurnEffects(player, game);
             for (const message of turnMessages) await channel.send(message);
+            if (diveSystem.isSubmarine(player)) {
+                const depthMsg = diveSystem.getDepthContextMessage(player);
+                if (depthMsg) await channel.send(depthMsg);
+            }
 
             if (!player.alive) {
                 resolve(); // Immediately resolve if player is dead
@@ -18093,7 +18097,18 @@ class NavalWarfareBot {
     processTurnEffects(player, game) {
         const messages = [];
         let totalDamage = 0;
-        
+
+        // ── Submarine dive tick ───────────────────────────────────────
+        if (diveSystem.isSubmarine(player)) {
+            const tick = diveSystem.processDiveTick(player);
+            if (tick.forcedSurface) {
+                messages.push(
+                    `⚠️ **${player.username || player.shipClass}** ran out of oxygen and was forced to surface!`
+                );
+            }
+        }
+        // ─────────────────────────────────────────────────────────────
+
         // Process fire damage
         if (player.onFire && player.fireTimer > 0) {
             const fireDamage = Math.min(Math.ceil(player.maxHealth * 0.02), 10);
