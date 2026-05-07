@@ -8343,6 +8343,17 @@ class NavalWarfareBot {
             return interaction.update({ content: `❌ ${_depthCheck.reason}`, embeds: [], components: [] });
         }
 
+        // Enforce attacker's own depth weapon restrictions (submarines)
+        if (diveSystem.isSubmarine(player)) {
+            const ownDepth = player.depth || 'surface';
+            if (ownDepth !== 'surface' && _weaponTypeStr === 'gun') {
+                return interaction.update({ content: '❌ Deck guns cannot be used while submerged.', embeds: [], components: [] });
+            }
+            if (ownDepth === 'veryDeep' && _weaponTypeStr === 'torpedo') {
+                return interaction.update({ content: '❌ Torpedoes cannot be fired at Very Deep depth.', embeds: [], components: [] });
+            }
+        }
+
         // Enforce once-per-turn firing restrictions
         if (!player.weaponsFiredThisTurn) player.weaponsFiredThisTurn = new Set();
         if (weaponType === 'torpedoes' && player.weaponsFiredThisTurn.has('torpedoes')) {
@@ -8764,7 +8775,14 @@ class NavalWarfareBot {
         
         const weatherModifier = this.getWeatherAccuracyModifier(weather);
         baseAccuracy *= weatherModifier;
-        
+
+        // Submarine firing torpedoes at Deep depth: −20% accuracy
+        if (diveSystem.isSubmarine(attacker) &&
+            (attacker.depth || 'surface') === 'deep' &&
+            weapon?.ammoTypes?.includes('torpedo')) {
+            baseAccuracy *= 0.80;
+        }
+
         return Math.max(0.05, Math.min(0.95, baseAccuracy));
     }
 
@@ -20894,7 +20912,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     oxygen: p.oxygen ?? null,
                     maxOxygen: p.maxOxygen ?? null,
                     hasDepthCharges: p.hasDepthCharges ?? false,
-                    type: p.type,
+                    type: p.type ?? (p.shipClass?.toLowerCase().includes('submarine') ? 'submarine' : undefined),
                     inventory: Object.fromEntries(
                       this.getPlayerInventory(game.guildId, p.userId || p.id) ?? []
                     )
