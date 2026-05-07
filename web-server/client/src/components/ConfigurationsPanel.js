@@ -544,7 +544,7 @@ function WelcomeImagesCard({ guildId, initial }) {
   const activeCount = presets.filter(p => p.enabled).length + customImages.length;
 
   return (
-    <div className="config-card">
+    <div className="config-card config-card--full">
       <div className="config-card-header">
         <div>
           <div className="config-card-title">Welcome Images</div>

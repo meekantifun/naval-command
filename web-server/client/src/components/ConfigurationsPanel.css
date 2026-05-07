@@ -3,7 +3,10 @@
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
   padding: 16px 0;
-  align-items: start;
+}
+
+.config-card--full {
+  grid-column: 1 / -1;
 }
 
 .config-card {
