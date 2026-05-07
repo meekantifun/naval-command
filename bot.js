@@ -7170,8 +7170,10 @@ class NavalWarfareBot {
             const bestTarget = GameUtils.findBestTarget(ai, game, focusTarget);
 
             // ── AI submarine depth decision ──────────────────────────────────────
+            // AI does not track actionPoints during aiTurn — dive is free for AI,
+            // mirroring how all other AI actions (move, attack) have no AP cost.
             if (diveSystem.isSubmarine(ai)) {
-                const oxygenPct   = (ai.oxygen ?? ai.maxOxygen ?? 10) / (ai.maxOxygen ?? 10);
+                const oxygenPct   = (ai.oxygen ?? ai.maxOxygen ?? 10) / ((ai.maxOxygen ?? 10) || 10);
                 const isSubmerged = (ai.depth || 'surface') !== 'surface';
                 const inRange     = !!bestTarget &&
                     game.calculateDistance(ai.position, bestTarget.position) <= (ai.stats?.range ?? 8);

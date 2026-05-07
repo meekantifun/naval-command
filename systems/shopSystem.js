@@ -661,7 +661,8 @@ class ShopSystem {
 	        rarity: 'uncommon',
 	        requirements: { level: 5 },
 	        stackable: false,
-	        emoji: '🔊'
+	        emoji: '🔊',
+	        stats: { detect_submerged: true },
 	    });
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -872,7 +873,7 @@ class ShopSystem {
 	        category: 'equipment',
 	        price: 800,
 	        description: 'Equips your dive bombers with depth charges. 1×1 tile AoE against submerged submarines.',
-	        type: 'aircraft',
+	        type: 'equipment',
 	        rarity: 'rare',
 	        requirements: { level: 7, shipClass: ['Aircraft Carrier', 'Light Aircraft Carrier'] },
 	        stackable: false,
