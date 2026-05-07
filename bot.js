@@ -26,6 +26,7 @@ const LevelingSystem = require('./systems/levelingSystem');
 const { AA_CALIBERS, AA_MOUNT_MULTIPLIERS, AI_CARRIER_AIRCRAFT } = require('./utils/gameConfig');
 const GameUtils = require('./utils/gameUtils');
 const BattleManager = require('./systems/battleManager');
+const diveSystem = require('./systems/diveSystem');
 const CombatSystem = require('./systems/combatSystem');
 const MapSystem = require('./systems/mapSystem');
 const SpawnManager = require('./systems/spawnManager');
@@ -5435,7 +5436,24 @@ class NavalWarfareBot {
             
             // *** SPAWN ENEMIES FIRST (from GM configuration) ***
             await this.spawnConfiguredEnemies(game);
-            
+
+            // ── Submarine / ASW initialization ───────────────────────────────────
+            const ASW_TYPES = new Set(['destroyer', 'lightcruiser', 'light cruiser', 'light_cruiser', 'cruiser', 'heavy_cruiser', 'heavycruiser']);
+            for (const ship of [...game.players.values(), ...game.enemies.values()]) {
+                diveSystem.initSubmarine(ship);
+                if (ASW_TYPES.has((ship.type || ship.shipClass || '').toLowerCase())) {
+                    ship.hasDepthCharges = true;
+                }
+                // Apply sonar/ASW flags from character activeUpgrades
+                const charData = this.playerData?.get(game.guildId)?.get(ship.userId || ship.id);
+                const upgrades = charData?.activeUpgrades ?? ship.activeUpgrades;
+                if (Array.isArray(upgrades)) {
+                    if (upgrades.includes('sonar'))       ship.hasSonar   = true;
+                    if (upgrades.includes('asw_upgrade')) ship.aswUpgrade = true;
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────────
+
             // *** THEN SET UP OBJECTIVES (which may use existing enemies) ***
             const objectiveType = game.setupState.objectiveConfig.type;
             const objective = this.missions.getObjective(objectiveType);

@@ -4,7 +4,6 @@
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 const { MessageFlags } = require('discord.js');
-const diveSystem = require('./diveSystem');
 
 class BattleManager {
     constructor(bot) {
@@ -68,30 +67,6 @@ class BattleManager {
         try {
             await game.initializeBattle();
             await this.bot.spawnConfiguredEnemies(game);
-
-            // Initialize submarine state and ASW flags for all ships
-            const allShips = [
-                ...game.players.values(),
-                ...game.enemies.values()
-            ];
-            for (const ship of allShips) {
-                // Initialize submarine dive fields (no-op for non-submarines)
-                diveSystem.initSubmarine(ship);
-
-                // Set depth charge flag for eligible surface ship types
-                const shipTypeLower = (ship.type || ship.shipClass || '').toLowerCase();
-                if (['destroyer', 'lightcruiser', 'light cruiser', 'cruiser'].some(t => shipTypeLower === t || shipTypeLower.startsWith(t))) {
-                    ship.hasDepthCharges = true;
-                }
-
-                // Apply sonar/ASW flags from activeUpgrades (persistent character data)
-                const character = this.bot.playerData?.get(ship.id);
-                const upgrades = character?.activeUpgrades ?? ship?.activeUpgrades;
-                if (Array.isArray(upgrades)) {
-                    if (upgrades.includes('sonar'))       ship.hasSonar   = true;
-                    if (upgrades.includes('asw_upgrade')) ship.aswUpgrade = true;
-                }
-            }
 
             const objectiveType = game.setupState.objectiveConfig.type;
             const objective = this.bot.missions.getObjective(objectiveType);
