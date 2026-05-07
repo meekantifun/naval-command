@@ -22,13 +22,13 @@ class MessageLogCommands {
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true)
                 )
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
             // Remove message log channel
             new SlashCommandBuilder()
                 .setName('removemsglogchannel')
                 .setDescription('Remove message logging for this server')
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
             // Show current log channel
             new SlashCommandBuilder()

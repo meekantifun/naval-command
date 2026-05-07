@@ -500,14 +500,14 @@ class NavalWarfareBot {
                     option.setName('aipause')
                         .setDescription('When true, pause after AI turn so GM can narrate AI actions before player turns begin')
                         .setRequired(false))
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
             new SlashCommandBuilder().setName('setgm').setDescription('[Admin] Set a role or user as GM for this server')
                 .addRoleOption(option => option.setName('role').setDescription('Role to grant GM permissions').setRequired(false))
                 .addUserOption(option => option.setName('user').setDescription('User to grant GM permissions').setRequired(false))
                 .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
             new SlashCommandBuilder().setName('setlogchannel').setDescription('Set the channel for console logging')
                 .addChannelOption(option => option.setName('channel').setDescription('Channel to send logs to').setRequired(true))
-                .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
             new SlashCommandBuilder().setName('purge').setDescription('Delete a specified number of messages from the channel')
                 .addIntegerOption(option =>
                     option.setName('amount')

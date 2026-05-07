@@ -160,6 +160,23 @@ const ensureAuthenticated = (req, res, next) => {
   res.status(401).json({ error: 'Not authenticated' });
 };
 
+// Administrator-only middleware — requires Discord Administrator permission in the target guild
+const requireAdmin = async (req, res, next) => {
+  const guildId = req.body?.guildId || req.query?.guildId;
+  if (!guildId) return res.status(400).json({ error: 'guildId required' });
+  try {
+    const response = await botAPI.get('/api/admin/check-permission', {
+      params: { userId: req.user.id, guildId }
+    });
+    if (!response.data.isAdmin) {
+      return res.status(403).json({ error: 'Administrator permission required' });
+    }
+    next();
+  } catch {
+    res.status(403).json({ error: 'Could not verify permissions' });
+  }
+};
+
 // Routes
 
 // Auth routes
@@ -931,7 +948,7 @@ app.post('/api/admin/config/aicanspeak', ensureAuthenticated, async (req, res) =
   }
 });
 
-app.post('/api/admin/config/roleplay', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/roleplay', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/roleplay', req.body);
     res.json(response.data);
@@ -958,7 +975,7 @@ app.delete('/api/admin/config/setgm', ensureAuthenticated, async (req, res) => {
   }
 });
 
-app.post('/api/admin/config/setlogchannel', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/setlogchannel', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/setlogchannel', req.body);
     res.json(response.data);
@@ -967,7 +984,7 @@ app.post('/api/admin/config/setlogchannel', ensureAuthenticated, async (req, res
   }
 });
 
-app.post('/api/admin/config/setmsglogchannel', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/setmsglogchannel', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/setmsglogchannel', req.body);
     res.json(response.data);
@@ -976,7 +993,7 @@ app.post('/api/admin/config/setmsglogchannel', ensureAuthenticated, async (req, 
   }
 });
 
-app.post('/api/admin/config/welcome', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/welcome', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/welcome', req.body);
     res.json(response.data);
@@ -985,7 +1002,7 @@ app.post('/api/admin/config/welcome', ensureAuthenticated, async (req, res) => {
   }
 });
 
-app.post('/api/admin/config/welcome/preset', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/welcome/preset', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/welcome/preset', req.body);
     res.json(response.data);
@@ -994,7 +1011,7 @@ app.post('/api/admin/config/welcome/preset', ensureAuthenticated, async (req, re
   }
 });
 
-app.post('/api/admin/config/welcome/custom', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/welcome/custom', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/welcome/custom', req.body);
     res.json(response.data);
@@ -1003,7 +1020,7 @@ app.post('/api/admin/config/welcome/custom', ensureAuthenticated, async (req, re
   }
 });
 
-app.delete('/api/admin/config/welcome/custom', ensureAuthenticated, async (req, res) => {
+app.delete('/api/admin/config/welcome/custom', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.delete('/api/admin/config/welcome/custom', { data: req.body });
     res.json(response.data);
