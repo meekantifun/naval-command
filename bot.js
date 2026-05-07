@@ -6158,7 +6158,7 @@ class NavalWarfareBot {
         if (player.onFire) statusInfo += '🔥 On Fire! ';
         if (player.flooding) statusInfo += '🌊 Flooding! ';
         if (player.damageControlCooldown > 0) statusInfo += `🔧 Damage Control: ${player.damageControlCooldown} turns `;
-        
+
         if (statusInfo) {
             embed.addFields([{
                 name: '⚠️ Status Effects',
@@ -6166,7 +6166,19 @@ class NavalWarfareBot {
                 inline: false
             }]);
         }
-        
+
+        // Add submarine depth and oxygen status
+        if (diveSystem.isSubmarine(player)) {
+            const depthIcons = { surface: '🌊', periscope: '🔭', deep: '🌑', veryDeep: '⬛' };
+            const depth = player.depth || 'surface';
+            const icon  = depthIcons[depth] ?? '🌊';
+            embed.addFields([{
+                name: `${icon} Depth`,
+                value: `**${diveSystem.formatDepth(depth)}** | O₂: ${player.oxygen ?? '?'}/${player.maxOxygen ?? '?'}`,
+                inline: true
+            }]);
+        }
+
         // Add carrier-specific information
         if (player.shipClass.includes('Carrier')) {
             const playerAircraft = Array.from(game.aircraft?.values() || []).filter(a => 
