@@ -221,6 +221,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [gmSpawnMode, setGmSpawnMode] = useState(false);
   const [gmStatusTarget, setGmStatusTarget] = useState('');
   const [gmStatusAction, setGmStatusAction] = useState('fire');
+  const [diveDepth, setDiveDepth] = useState('periscope');
   const [gmControlledAI, setGmControlledAI] = useState(null); // enemy object being controlled
   const [gmAIMoveCoord, setGmAIMoveCoord] = useState('');
   const [gmAIAttackTarget, setGmAIAttackTarget] = useState('');
@@ -1535,19 +1536,15 @@ function GameView({ channelId, user, onBack, onLogout }) {
                         <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
                           Depth:{' '}
                           <strong style={{ color: '#4a9eff' }}>
-                            {selectedPlayer.depth === 'surface'   && '🌊 Surface'}
-                            {selectedPlayer.depth === 'periscope' && '🔭 Periscope'}
-                            {selectedPlayer.depth === 'deep'      && '🌑 Deep'}
-                            {selectedPlayer.depth === 'veryDeep'  && '⬛ Very Deep'}
-                            {!selectedPlayer.depth                && '🌊 Surface'}
+                            {({ surface: '🌊 Surface', periscope: '🔭 Periscope', deep: '🌑 Deep', veryDeep: '⬛ Very Deep' })[selectedPlayer.depth || 'surface'] ?? '🌊 Surface'}
                           </strong>
                           {' '}| O₂:{' '}
                           <strong>{selectedPlayer.oxygen ?? '?'}/{selectedPlayer.maxOxygen ?? '?'}</strong>
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                           <select
-                            id="dive-depth-sel"
-                            defaultValue="periscope"
+                            value={diveDepth}
+                            onChange={e => setDiveDepth(e.target.value)}
                             style={{ fontSize: '12px', padding: '2px 4px', borderRadius: '4px' }}
                           >
                             <option value="periscope">Periscope</option>
@@ -1560,15 +1557,14 @@ function GameView({ channelId, user, onBack, onLogout }) {
                             disabled={
                               selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
                               selectedPlayer.depth === 'veryDeep' ||
-                              (selectedPlayer.oxygen ?? 1) <= 0
+                              (selectedPlayer.oxygen ?? 1) <= 0  // null oxygen = uninitialized, treat as available
                             }
                             onClick={async () => {
-                              const depth = document.getElementById('dive-depth-sel').value;
                               try {
                                 await axios.post(`${API_URL}/api/game/${channelId}/dive`,
-                                  { depth, characterAlias: selectedPlayer.characterAlias },
+                                  { depth: diveDepth, characterAlias: selectedPlayer.characterAlias },
                                   { withCredentials: true });
-                                addLogEntry(`🤿 Diving to ${depth}`, 'action');
+                                addLogEntry(`🤿 Diving to ${diveDepth}`, 'action');
                               } catch (err) {
                                 alert(err.response?.data?.error || 'Failed to dive');
                               }
