@@ -37,7 +37,6 @@ const StatusManager = require('./systems/statusManager');
 const CustomMapSystem = require('./systems/customMapSystem');
 const CustomMapCommands = require('./commands/customMapCommands');
 const StaffRoleManager = require('./systems/staffRoleManager');
-const StaffRoleCommands = require('./commands/staffRoleCommands');
 const NameGenerator = require('./utils/nameGenerator');
 const express = require('express');
 const cors = require('cors');
@@ -96,7 +95,6 @@ class NavalWarfareBot {
 
         // Initialize staff role management
         this.staffRoleManager = new StaffRoleManager(this);
-        this.staffRoleCommands = new StaffRoleCommands(this);
 
         // Initialize custom map system
         this.customMapSystem = new CustomMapSystem(this);
@@ -525,16 +523,10 @@ class NavalWarfareBot {
             // Add character management commands
             ...this.characterCommands.getCommands(),
 
-            // Add staff role commands
-            ...this.staffRoleCommands.getCommands(),
-
             // Add custom map commands
             ...this.customMapCommands.getCommands()
         ];
 
-        // Log staff role commands for debugging
-        const staffRoleCommands = this.staffRoleCommands.getCommands();
-        console.log(`📋 Staff role commands: ${staffRoleCommands.length} command(s) - ${staffRoleCommands.map(c => c.name).join(', ')}`);
 
         try {
             require('sharp');

@@ -114,12 +114,6 @@ class EventHandler {
                 return;
             }
 
-            // Check if it's a staff role command
-            if (commandName === 'staffrole') {
-                await this.bot.staffRoleCommands.handleStaffRole(interaction);
-                return;
-            }
-
             // Check if it's a custom map command
             const customMapCommandNames = ['listmaps', 'usemap', 'previewmap', 'deletemap'];
             if (customMapCommandNames.includes(commandName)) {
