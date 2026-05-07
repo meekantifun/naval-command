@@ -652,6 +652,18 @@ class ShopSystem {
 	        emoji: '🆘'
 	    });
 
+	    this.addItem('sonar', {
+	        name: 'Sonar Array',
+	        category: 'equipment',
+	        price: 600,
+	        description: 'Detects submerged submarines at any depth. Does not grant targeting — detection only.',
+	        type: 'equipment',
+	        rarity: 'uncommon',
+	        requirements: { level: 5 },
+	        stackable: false,
+	        emoji: '🔊'
+	    });
+
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║                          ADDITIONAL WEAPON ITEMS                             ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -853,6 +865,18 @@ class ShopSystem {
 	        stackable: true,
 	        maxStack: 2,
 	        emoji: '👁️'
+	    });
+
+	    this.addItem('asw_upgrade', {
+	        name: 'ASW Strike Package',
+	        category: 'equipment',
+	        price: 800,
+	        description: 'Equips your dive bombers with depth charges. 1×1 tile AoE against submerged submarines.',
+	        type: 'aircraft',
+	        rarity: 'rare',
+	        requirements: { level: 7, shipClass: ['Aircraft Carrier', 'Light Aircraft Carrier'] },
+	        stackable: false,
+	        emoji: '💣'
 	    });
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
