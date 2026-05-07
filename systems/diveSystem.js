@@ -18,14 +18,14 @@ const TARGETING_MATRIX = {
 };
 
 function isSubmarine(ship) {
-    return ship?.type === 'submarine' || ship?.shipClass?.toLowerCase().includes('submarine');
+    return ship?.type === 'submarine' || !!ship?.shipClass?.toLowerCase().includes('submarine');
 }
 
 // Dive to targetDepth. Costs 1 AP. Can jump multiple levels at once. Only descends.
 function dive(submarine, targetDepth) {
     if (!isSubmarine(submarine)) return { success: false, message: 'Only submarines can dive.' };
     if (!DEPTH_LEVELS.includes(targetDepth) || targetDepth === 'surface') {
-        return { success: false, message: 'Invalid depth. Choose: periscope, deep, or verydeep.' };
+        return { success: false, message: 'Invalid depth. Choose: periscope, deep, or veryDeep.' };
     }
     const currentIndex = DEPTH_LEVELS.indexOf(submarine.depth || 'surface');
     const targetIndex  = DEPTH_LEVELS.indexOf(targetDepth);
@@ -52,15 +52,17 @@ function surface(submarine) {
 function processDiveTick(submarine) {
     if (!isSubmarine(submarine)) return { forcedSurface: false, oxygenRemaining: null };
     const depth = submarine.depth || 'surface';
+    const rule = DEPTH_RULES[depth];
 
     if (depth === 'surface') {
         submarine.oxygen = Math.min(
             submarine.maxOxygen ?? 10,
-            (submarine.oxygen ?? submarine.maxOxygen ?? 10) + 2
+            (submarine.oxygen ?? submarine.maxOxygen ?? 10) + rule.oxygenRegen
         );
         return { forcedSurface: false, oxygenRemaining: submarine.oxygen };
     }
 
+    // Drain rate: 1 per turn when submerged (uniform across all submerged depths)
     submarine.oxygen = Math.max(0, (submarine.oxygen ?? submarine.maxOxygen ?? 10) - 1);
     if (submarine.oxygen <= 0) {
         submarine.depth = 'surface';
@@ -129,7 +131,7 @@ function getDepthContextMessage(submarine) {
     const o = submarine.oxygen ?? '?', mo = submarine.maxOxygen ?? '?';
     return {
         surface:   `🌊 **Surface** | All weapons. Full speed. O₂: ${o}/${mo} (+2 this turn).`,
-        periscope: `🔭 **Periscope** | Torpedoes only. Enemy spot range ×0.5. Speed −25%. O₂: ${o}/${mo}.`,
+        periscope: `🔭 **Periscope** | Torpedoes & bombs allowed. Enemy spot range ×0.5. Speed −25%. O₂: ${o}/${mo}.`,
         deep:      `🌑 **Deep** | Depth charges only can reach you. Torpedoes −20% acc. Speed −50%. O₂: ${o}/${mo}.`,
         veryDeep:  `⬛ **Very Deep** | Immune. Cannot fire. Speed −90%. O₂: ${o}/${mo}.`,
     }[depth] ?? '';
