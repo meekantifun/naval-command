@@ -526,6 +526,24 @@ class NavalWarfareBot {
                         .setRequired(true)
                 ),
 
+            new SlashCommandBuilder()
+                .setName('dive')
+                .setDescription('Dive your submarine to a depth level (costs 1 AP)')
+                .addStringOption(opt =>
+                    opt.setName('depth')
+                        .setDescription('Target depth')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Periscope', value: 'periscope' },
+                            { name: 'Deep',      value: 'deep'      },
+                            { name: 'Very Deep', value: 'veryDeep'  }
+                        )
+                ),
+
+            new SlashCommandBuilder()
+                .setName('surface')
+                .setDescription('Surface your submarine immediately (free action — no AP cost)'),
+
             // Add moderation commands
             ...this.moderationSystem.getCommands(),
 
@@ -8657,6 +8675,39 @@ class NavalWarfareBot {
         dc.ammo--;
         player.actionPoints--;
         await interaction.reply({ content: lines.join('\n') });
+        await this.updateGameDisplay(game, interaction.channel);
+    }
+
+    async executeDive(interaction) {
+        const game = this.getGameForChannel(interaction.channelId);
+        if (!game) return interaction.reply({ content: 'No active battle.', flags: MessageFlags.Ephemeral });
+        const player = game.players.get(interaction.user.id);
+        if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
+        if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can dive.', flags: MessageFlags.Ephemeral });
+        if (player.actionPoints <= 0) return interaction.reply({ content: 'No action points remaining.', flags: MessageFlags.Ephemeral });
+
+        const targetDepth = interaction.options.getString('depth');
+        const result = diveSystem.dive(player, targetDepth);
+        if (!result.success) return interaction.reply({ content: `❌ ${result.message}`, flags: MessageFlags.Ephemeral });
+
+        player.actionPoints -= result.apCost;
+        await interaction.reply({
+            content: `🤿 ${result.message} | O₂: ${player.oxygen}/${player.maxOxygen} | AP: ${player.actionPoints}`
+        });
+        await this.updateGameDisplay(game, interaction.channel);
+    }
+
+    async executeSurface(interaction) {
+        const game = this.getGameForChannel(interaction.channelId);
+        if (!game) return interaction.reply({ content: 'No active battle.', flags: MessageFlags.Ephemeral });
+        const player = game.players.get(interaction.user.id);
+        if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
+        if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can surface.', flags: MessageFlags.Ephemeral });
+
+        const result = diveSystem.surface(player);
+        if (!result.success) return interaction.reply({ content: `❌ ${result.message}`, flags: MessageFlags.Ephemeral });
+
+        await interaction.reply({ content: `🌊 ${result.message}` });
         await this.updateGameDisplay(game, interaction.channel);
     }
 

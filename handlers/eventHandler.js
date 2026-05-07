@@ -205,6 +205,12 @@ class EventHandler {
                 case 'depthcharge':
                     await this.bot.executeDepthCharge(interaction);
                     break;
+                case 'dive':
+                    await this.bot.executeDive(interaction);
+                    break;
+                case 'surface':
+                    await this.bot.executeSurface(interaction);
+                    break;
                 default:
                     await interaction.reply({ content: 'Unknown command!', flags: MessageFlags.Ephemeral });
             }
