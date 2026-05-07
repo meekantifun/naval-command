@@ -20890,6 +20890,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     hasApBombs: this.isUpgradeActive(game.guildId, p.userId || p.id, 'ap_bombs'),
                     hasAirSupportMarker: this.getInventoryCount(game.guildId, p.userId || p.id, 'air_support_marker') > 0,
                     luckyCharm: p.luckyCharm ?? false,
+                    depth: p.depth ?? 'surface',
+                    oxygen: p.oxygen ?? null,
+                    maxOxygen: p.maxOxygen ?? null,
+                    hasDepthCharges: p.hasDepthCharges ?? false,
+                    type: p.type,
                     inventory: Object.fromEntries(
                       this.getPlayerInventory(game.guildId, p.userId || p.id) ?? []
                     )
@@ -22114,6 +22119,88 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (error) {
                 console.error('Error using air support:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Submarine: dive to target depth (costs 1 AP)
+        app.post('/api/game/:channelId/dive', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, depth } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player?.alive) return res.status(404).json({ error: 'Player not found in game' });
+                if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can dive.' });
+                if ((player.actionPoints ?? 0) <= 0) return res.status(400).json({ error: 'No action points remaining.' });
+                const result = diveSystem.dive(player, depth);
+                if (!result.success) return res.status(400).json({ error: result.message });
+                player.actionPoints -= result.apCost;
+                await this.broadcastGameUpdate(channelId);
+                res.json({ depth: player.depth, oxygen: player.oxygen, maxOxygen: player.maxOxygen, actionPoints: player.actionPoints });
+            } catch (err) {
+                console.error('Error diving:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Submarine: surface (free action)
+        app.post('/api/game/:channelId/surface', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player?.alive) return res.status(404).json({ error: 'Player not found in game' });
+                if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can surface.' });
+                const result = diveSystem.surface(player);
+                if (!result.success) return res.status(400).json({ error: result.message });
+                await this.broadcastGameUpdate(channelId);
+                res.json({ depth: player.depth, oxygen: player.oxygen, maxOxygen: player.maxOxygen });
+            } catch (err) {
+                console.error('Error surfacing:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Ship depth charge drop (DD/CL/CA — 2×2 AoE)
+        app.post('/api/game/:channelId/depthcharge', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, coordinate } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player?.alive) return res.status(404).json({ error: 'Player not found in game' });
+                if (!player.hasDepthCharges) return res.status(400).json({ error: 'Your ship has no depth charges.' });
+                if (!(player.weapons?.depthCharges?.ammo > 0)) return res.status(400).json({ error: 'No depth charges remaining.' });
+                if ((player.actionPoints ?? 0) <= 0) return res.status(400).json({ error: 'No action points remaining.' });
+                if (!game.map?.has(coordinate)) return res.status(400).json({ error: `Invalid coordinate: ${coordinate}` });
+
+                const targetXY = game.coordToNumbers(coordinate);
+                const hits = [];
+                for (const ship of [...game.players.values(), ...game.enemies.values()]) {
+                    if (!ship.alive || !diveSystem.isSubmarine(ship)) continue;
+                    if ((ship.depth || 'surface') === 'surface') continue;
+                    const sXY = game.coordToNumbers(ship.position);
+                    if (Math.abs(sXY.x - targetXY.x) <= 1 && Math.abs(sXY.y - targetXY.y) <= 1) hits.push(ship);
+                }
+
+                const dc = player.weapons.depthCharges;
+                const hitResults = hits.map(sub => {
+                    const dmg = Math.floor(dc.damage * (0.85 + Math.random() * 0.3));
+                    sub.currentHealth = Math.max(0, sub.currentHealth - dmg);
+                    if (sub.currentHealth <= 0) sub.alive = false;
+                    return { name: sub.username || sub.shipClass, damage: dmg, sunk: !sub.alive };
+                });
+                dc.ammo--;
+                player.actionPoints--;
+                await this.broadcastGameUpdate(channelId);
+                res.json({ hits: hitResults, ammoRemaining: dc.ammo, actionPoints: player.actionPoints });
+            } catch (err) {
+                console.error('Error dropping depth charges:', err);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });

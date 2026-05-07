@@ -451,6 +451,36 @@ app.post('/api/game/:channelId/end-turn', ensureAuthenticated, async (req, res) 
   }
 });
 
+app.post('/api/game/:channelId/dive', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/dive`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to dive' });
+  }
+});
+
+app.post('/api/game/:channelId/surface', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/surface`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to surface' });
+  }
+});
+
+app.post('/api/game/:channelId/depthcharge', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/depthcharge`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to drop depth charges' });
+  }
+});
+
 app.post('/api/game/:channelId/gm-toggle', ensureAuthenticated, async (req, res) => {
   try {
     const r = await botAPI.post(`/api/game/${req.params.channelId}/gm-toggle`,

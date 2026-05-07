@@ -1529,6 +1529,94 @@ function GameView({ channelId, user, onBack, onLogout }) {
                         ✈️ Air Support
                       </button>
                     )}
+                    {/* ── Submarine Controls ── only shown for submarine ships */}
+                    {selectedPlayer.type === 'submarine' && (
+                      <div style={{ marginTop: '6px', border: '1px solid #4a9eff44', borderRadius: '6px', padding: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                          Depth:{' '}
+                          <strong style={{ color: '#4a9eff' }}>
+                            {selectedPlayer.depth === 'surface'   && '🌊 Surface'}
+                            {selectedPlayer.depth === 'periscope' && '🔭 Periscope'}
+                            {selectedPlayer.depth === 'deep'      && '🌑 Deep'}
+                            {selectedPlayer.depth === 'veryDeep'  && '⬛ Very Deep'}
+                            {!selectedPlayer.depth                && '🌊 Surface'}
+                          </strong>
+                          {' '}| O₂:{' '}
+                          <strong>{selectedPlayer.oxygen ?? '?'}/{selectedPlayer.maxOxygen ?? '?'}</strong>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <select
+                            id="dive-depth-sel"
+                            defaultValue="periscope"
+                            style={{ fontSize: '12px', padding: '2px 4px', borderRadius: '4px' }}
+                          >
+                            <option value="periscope">Periscope</option>
+                            <option value="deep">Deep</option>
+                            <option value="veryDeep">Very Deep</option>
+                          </select>
+                          <button
+                            className="btn btn-primary"
+                            style={{ fontSize: '12px', padding: '4px 8px' }}
+                            disabled={
+                              selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
+                              selectedPlayer.depth === 'veryDeep' ||
+                              (selectedPlayer.oxygen ?? 1) <= 0
+                            }
+                            onClick={async () => {
+                              const depth = document.getElementById('dive-depth-sel').value;
+                              try {
+                                await axios.post(`${API_URL}/api/game/${channelId}/dive`,
+                                  { depth, characterAlias: selectedPlayer.characterAlias },
+                                  { withCredentials: true });
+                                addLogEntry(`🤿 Diving to ${depth}`, 'action');
+                              } catch (err) {
+                                alert(err.response?.data?.error || 'Failed to dive');
+                              }
+                            }}
+                          >🤿 Dive</button>
+                          <button
+                            className="btn btn-info"
+                            style={{ fontSize: '12px', padding: '4px 8px' }}
+                            disabled={!selectedPlayer.depth || selectedPlayer.depth === 'surface'}
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${API_URL}/api/game/${channelId}/surface`,
+                                  { characterAlias: selectedPlayer.characterAlias },
+                                  { withCredentials: true });
+                                addLogEntry('🌊 Surfacing', 'action');
+                              } catch (err) {
+                                alert(err.response?.data?.error || 'Failed to surface');
+                              }
+                            }}
+                          >🌊 Surface</button>
+                        </div>
+                      </div>
+                    )}
+                    {/* ── Depth Charge Button ── only for ships with depth charges, with a cell selected */}
+                    {selectedPlayer.hasDepthCharges && selectedCell && (
+                      <button
+                        className="btn btn-danger"
+                        style={{ marginTop: '4px' }}
+                        disabled={
+                          selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
+                          !(selectedPlayer.weapons?.depthCharges?.ammo > 0)
+                        }
+                        onClick={async () => {
+                          try {
+                            const result = await axios.post(`${API_URL}/api/game/${channelId}/depthcharge`,
+                              { coordinate: selectedCell, characterAlias: selectedPlayer.characterAlias },
+                              { withCredentials: true });
+                            const hitCount = result.data.hits?.length ?? 0;
+                            addLogEntry(`💣 Depth charges at ${selectedCell} — ${hitCount} sub(s) hit`, 'attack');
+                            setSelectedCell(null);
+                          } catch (err) {
+                            alert(err.response?.data?.error || 'Failed to drop depth charges');
+                          }
+                        }}
+                      >
+                        💣 Depth Charge {selectedCell} ({selectedPlayer.weapons?.depthCharges?.ammo ?? 0} left)
+                      </button>
+                    )}
                     <button className="btn btn-secondary" onClick={handleEndTurn} disabled={endingTurn}>
                       {endingTurn ? 'Ending...' : '✋ End Turn'}
                     </button>
