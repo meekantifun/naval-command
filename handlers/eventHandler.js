@@ -202,6 +202,9 @@ class EventHandler {
                 case 'purge':
                     await this.bot.purgeMessages(interaction);
                     break;
+                case 'depthcharge':
+                    await this.bot.executeDepthCharge(interaction);
+                    break;
                 default:
                     await interaction.reply({ content: 'Unknown command!', flags: MessageFlags.Ephemeral });
             }

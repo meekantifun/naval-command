@@ -517,6 +517,14 @@ class NavalWarfareBot {
                         .setMinValue(1)
                         .setMaxValue(100))
                 .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+            new SlashCommandBuilder()
+                .setName('depthcharge')
+                .setDescription('Drop depth charges at a coordinate (2×2 AoE) to damage submerged submarines')
+                .addStringOption(opt =>
+                    opt.setName('coordinate')
+                        .setDescription('Grid coordinate to target, e.g. E5')
+                        .setRequired(true)
+                ),
 
             // Add moderation commands
             ...this.moderationSystem.getCommands(),
@@ -8273,6 +8281,18 @@ class NavalWarfareBot {
             return interaction.update({ content: '❌ No line of sight to target! Another ship or aircraft must have eyes on them first.', embeds: [], components: [] });
         }
 
+        // Depth/canTarget check — verify this weapon can hit the target at its current depth
+        const _getWeaponType = (wType, sType) => {
+            if (wType === 'torpedoes' || sType === 'torpedo') return 'torpedo';
+            if (sType === 'bomb') return 'bomb';
+            return 'gun';
+        };
+        const _weaponTypeStr = _getWeaponType(weaponType, shellType);
+        const _depthCheck = diveSystem.canTarget(player, target, _weaponTypeStr);
+        if (!_depthCheck.canTarget) {
+            return interaction.update({ content: `❌ ${_depthCheck.reason}`, embeds: [], components: [] });
+        }
+
         // Enforce once-per-turn firing restrictions
         if (!player.weaponsFiredThisTurn) player.weaponsFiredThisTurn = new Set();
         if (weaponType === 'torpedoes' && player.weaponsFiredThisTurn.has('torpedoes')) {
@@ -8601,6 +8621,43 @@ class NavalWarfareBot {
             return ' (Overpenetration)';
         }
         return '';
+    }
+
+    async executeDepthCharge(interaction) {
+        const game = this.getGameForChannel(interaction.channelId);
+        if (!game) return interaction.reply({ content: 'No active battle.', flags: MessageFlags.Ephemeral });
+        const player = game.players.get(interaction.user.id);
+        if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
+        if (!player.hasDepthCharges) return interaction.reply({ content: 'Your ship has no depth charges.', flags: MessageFlags.Ephemeral });
+        if (!(player.weapons?.depthCharges?.ammo > 0)) return interaction.reply({ content: 'No depth charges remaining.', flags: MessageFlags.Ephemeral });
+        if (player.actionPoints <= 0) return interaction.reply({ content: 'No action points remaining.', flags: MessageFlags.Ephemeral });
+
+        const coord = interaction.options.getString('coordinate');
+        if (!game.map?.has(coord)) return interaction.reply({ content: `Invalid coordinate: ${coord}`, flags: MessageFlags.Ephemeral });
+
+        const targetXY = game.coordToNumbers(coord);
+        const hits = [];
+        for (const ship of [...game.players.values(), ...game.enemies.values()]) {
+            if (!ship.alive || !diveSystem.isSubmarine(ship)) continue;
+            if ((ship.depth || 'surface') === 'surface') continue;
+            const sXY = game.coordToNumbers(ship.position);
+            if (Math.abs(sXY.x - targetXY.x) <= 1 && Math.abs(sXY.y - targetXY.y) <= 1) hits.push(ship);
+        }
+
+        const dc = player.weapons.depthCharges;
+        const lines = [`💣 **${player.username}** drops depth charges at **${coord}**!`];
+        for (const sub of hits) {
+            const dmg = Math.floor(dc.damage * (0.85 + Math.random() * 0.3));
+            sub.currentHealth = Math.max(0, sub.currentHealth - dmg);
+            if (sub.currentHealth <= 0) sub.alive = false;
+            lines.push(`💥 **${sub.username || sub.shipClass}** takes ${dmg} damage!${sub.alive ? '' : ' 💀 Sunk!'}`);
+        }
+        if (!hits.length) lines.push('No submerged submarines in the blast radius.');
+
+        dc.ammo--;
+        player.actionPoints--;
+        await interaction.reply({ content: lines.join('\n') });
+        await this.updateGameDisplay(game, interaction.channel);
     }
 
     calculateAccuracy(attacker, target, distance, weapon, weather) {
