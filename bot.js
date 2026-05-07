@@ -7162,7 +7162,8 @@ class NavalWarfareBot {
                             this.broadcastLogEntry(game.channelId, `👁️ ${aiName} lost contact at ${nearestKP.position}`);
                         } else {
                             const oldPos = ai.position;
-                            const newPos = game.moveTowards(ai.position, nearestKP.position, ai.stats.speed);
+                            const newPos = game.moveTowards(ai.position, nearestKP.position,
+                                diveSystem.isSubmarine(ai) ? diveSystem.getEffectiveSpeed(ai) : ai.stats.speed);
                             if (newPos !== oldPos) {
                                 const oldCell = game.getMapCell(oldPos);
                                 if (oldCell) oldCell.occupant = null;
@@ -7184,7 +7185,8 @@ class NavalWarfareBot {
                         ai.wanderTarget = this.getWanderPosition(ai, game);
                     }
                     const oldPos = ai.position;
-                    const newPos = game.moveTowards(ai.position, ai.wanderTarget, ai.stats.speed);
+                    const newPos = game.moveTowards(ai.position, ai.wanderTarget,
+                        diveSystem.isSubmarine(ai) ? diveSystem.getEffectiveSpeed(ai) : ai.stats.speed);
                     if (newPos !== oldPos) {
                         const oldCell = game.getMapCell(oldPos);
                         if (oldCell) oldCell.occupant = null;
@@ -7233,7 +7235,8 @@ class NavalWarfareBot {
 
                     if (retreatDest && !nearAuxiliary) {
                         const oldPos  = ai.position;
-                        const newPos  = game.moveTowards(ai.position, retreatDest, ai.stats.speed);
+                        const newPos  = game.moveTowards(ai.position, retreatDest,
+                            diveSystem.isSubmarine(ai) ? diveSystem.getEffectiveSpeed(ai) : ai.stats.speed);
                         if (newPos !== oldPos) {
                             const oldCell = game.getMapCell(oldPos);
                             if (oldCell) oldCell.occupant = null;
@@ -7283,7 +7286,8 @@ class NavalWarfareBot {
                     if (waypoint) { moveTarget = waypoint; usingCover = true; }
                 }
 
-                const newPos  = game.moveTowards(ai.position, moveTarget, ai.stats.speed);
+                const newPos  = game.moveTowards(ai.position, moveTarget,
+                    diveSystem.isSubmarine(ai) ? diveSystem.getEffectiveSpeed(ai) : ai.stats.speed);
                 this.updateAIDirection(ai, oldPos, newPos);
 
                 const oldCell = game.getMapCell(oldPos);
@@ -7542,10 +7546,13 @@ class NavalWarfareBot {
             });
         }
 
+        const displayRange = diveSystem.isSubmarine(player)
+            ? diveSystem.getEffectiveSpeed(player)
+            : (player.stats.speed || 3);
         const embed = new EmbedBuilder()
             .setTitle('🚢 Movement Options - Visual Map')
             .setDescription(`**${player.shipClass}** at **${player.position}**\n` +
-                           `Range: **${player.stats.speed}** cells (circular)\n\n` +
+                           `Range: **${displayRange}** cells (circular)\n\n` +
                            `📍 **White coordinates** on the map show where you can move\n` +
                            `💡 Use \`/move <coordinate>\` to move to any highlighted position`)
             .addFields(moveFields.slice(0, 2)) // Show first 2 fields only
@@ -7558,7 +7565,7 @@ class NavalWarfareBot {
                 }
             ])
             .setColor(0x0099FF)
-            .setFooter({ text: `Movement range: ${player.stats.speed} cells • ${validMoves.length} valid positions` });
+            .setFooter({ text: `Movement range: ${displayRange} cells • ${validMoves.length} valid positions` });
 
         await interaction.editReply({
             embeds: [embed],
@@ -7644,10 +7651,13 @@ class NavalWarfareBot {
         const deltaY = Math.abs(destPos.y - currentPos.y);
         const distance = Math.max(deltaX, deltaY); // Chebyshev distance
         
-        if (distance > (player.stats.speed || 3)) {
-            return interaction.reply({ 
-                content: `❌ Too far! Max: ${player.stats.speed || 3}, Distance: ${distance}`,
-                flags: MessageFlags.Ephemeral 
+        const maxMoveRange = diveSystem.isSubmarine(player)
+            ? diveSystem.getEffectiveSpeed(player)
+            : (player.stats.speed || 3);
+        if (distance > maxMoveRange) {
+            return interaction.reply({
+                content: `❌ Too far! Max: ${maxMoveRange}, Distance: ${distance}`,
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -7663,7 +7673,9 @@ class NavalWarfareBot {
     getValidMovementPositions(player, game) {
         const validMoves = [];
         const currentPos = this.coordToNumbers(player.position);
-        const range = player.stats.speed || 3;
+        const range = diveSystem.isSubmarine(player)
+            ? diveSystem.getEffectiveSpeed(player)
+            : (player.stats.speed || 3);
 
         // Use circular movement - check all positions within range radius
         for (let dx = -range; dx <= range; dx++) {
