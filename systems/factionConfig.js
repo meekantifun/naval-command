@@ -72,6 +72,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 300,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -109,6 +117,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 16, penetration: 320,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -146,6 +162,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 300,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -183,6 +207,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 16, penetration: 315,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -220,6 +252,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 305,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -257,6 +297,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 16, penetration: 325,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -294,6 +342,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 12, penetration: 340,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -331,6 +387,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 16, penetration: 360,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -368,6 +432,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 308,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -405,6 +477,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 16, penetration: 328,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -444,6 +524,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 200, penetration: 80,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -481,6 +569,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 240, penetration: 85,
                     quality: 'High', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -518,6 +614,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 180, penetration: 80,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -555,6 +659,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 220, penetration: 85,
                     quality: 'High', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -592,6 +704,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 200, penetration: 80,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -629,6 +749,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 240, penetration: 85,
                     quality: 'High', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -666,6 +794,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 300,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -703,6 +839,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 16, penetration: 320,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -740,6 +884,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 200, penetration: 80,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -777,6 +929,14 @@ class FactionConfig {
                     range: this.calculateGunRange(76),
                     reload: 1, ammo: 240, penetration: 85,
                     quality: 'High', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -825,6 +985,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 16, penetration: 350,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -870,6 +1038,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 20, penetration: 360,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -915,6 +1091,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 16, penetration: 350,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -960,6 +1144,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 20, penetration: 370,
                     quality: 'High', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -1396,6 +1588,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 1200,
+            maxOxygen: 10,
             speedKnots: 17,
             armorThickness: { belt: 22, deck: 13, turret: 10 },
             baseAccuracy: 80,
@@ -1433,6 +1626,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 1400,
+            maxOxygen: 10,
             speedKnots: 18,
             armorThickness: { belt: 26, deck: 15, turret: 12 },
             baseAccuracy: 84,
@@ -1470,6 +1664,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 1800,
+            maxOxygen: 10,
             speedKnots: 18,
             armorThickness: { belt: 24, deck: 14, turret: 11 },
             baseAccuracy: 82,
@@ -1507,6 +1702,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 2000,
+            maxOxygen: 10,
             speedKnots: 19,
             armorThickness: { belt: 28, deck: 16, turret: 13 },
             baseAccuracy: 86,
@@ -1544,6 +1740,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 2500,
+            maxOxygen: 10,
             speedKnots: 19,
             armorThickness: { belt: 24, deck: 14, turret: 11 },
             baseAccuracy: 83,
@@ -1581,6 +1778,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 2800,
+            maxOxygen: 10,
             speedKnots: 20,
             armorThickness: { belt: 28, deck: 16, turret: 13 },
             baseAccuracy: 87,
@@ -1715,6 +1913,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 4, ammo: 20, penetration: 400,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -1752,6 +1958,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 4, ammo: 24, penetration: 420,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -1797,6 +2011,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 16, penetration: 370,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -1842,6 +2064,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 20, penetration: 385,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -1887,6 +2117,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 20, penetration: 390,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -1932,6 +2170,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 24, penetration: 410,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2168,6 +2414,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 10, penetration: 275,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2205,6 +2459,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 12, penetration: 340,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2242,6 +2504,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 12, penetration: 345,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2279,6 +2549,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 12, penetration: 342,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2316,6 +2594,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 14, penetration: 348,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2353,6 +2639,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 295,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2390,6 +2684,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 18, penetration: 290,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2427,6 +2729,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 14, penetration: 292,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2464,6 +2774,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 285,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2501,6 +2819,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 14, penetration: 288,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2538,6 +2864,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 10, penetration: 298,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2575,6 +2909,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 300,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2615,6 +2957,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 278,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2660,6 +3010,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 8, penetration: 275,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2697,6 +3055,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 12, penetration: 335,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2734,6 +3100,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 276,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2771,6 +3145,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 16, penetration: 288,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2808,6 +3190,14 @@ class FactionConfig {
                     range: this.calculateGunRange(127),
                     reload: 2, ammo: 200, penetration: 108,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2845,6 +3235,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 285,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2882,6 +3280,14 @@ class FactionConfig {
                     range: this.calculateGunRange(100),
                     reload: 1, ammo: 200, penetration: 88,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2919,6 +3325,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 10, penetration: 298,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -2959,6 +3373,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 16, penetration: 338,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3004,6 +3426,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 18, penetration: 342,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3041,6 +3471,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 14, penetration: 332,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3086,6 +3524,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 18, penetration: 345,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3123,6 +3569,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 6, ammo: 14, penetration: 330,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3168,6 +3622,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 290,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3213,6 +3675,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 282,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3258,6 +3728,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 10, penetration: 295,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3295,6 +3773,14 @@ class FactionConfig {
                     range: this.calculateGunRange(100),
                     reload: 1, ammo: 240, penetration: 84,
                     quality: 'Standard', ammoTypes: ['ap', 'he']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3340,6 +3826,14 @@ class FactionConfig {
                     range: this.calculateGunRange(533),
                     reload: 5, ammo: 12, penetration: 283,
                     quality: 'Standard', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3850,6 +4344,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 4, ammo: 16, penetration: 420,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3895,6 +4397,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 14, penetration: 400,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -3995,6 +4505,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 6000,
+            maxOxygen: 10,
             speedKnots: 20,
             armorThickness: { belt: 45, deck: 28, turret: 22 },
             baseAccuracy: 92,
@@ -4067,6 +4578,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 16, penetration: 460,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -4202,6 +4721,14 @@ class FactionConfig {
                     range: this.calculateGunRange(610),
                     reload: 5, ammo: 16, penetration: 430,
                     quality: 'Exceptional', ammoTypes: ['torpedo']
+                },
+                depthCharges: {
+                    name: 'Depth Charge Racks',
+                    damage: 60,
+                    range: 4,
+                    ammo: 8,
+                    aoeRadius: 1,
+                    ammoTypes: ['depthcharge'],
                 }
             }
         });
@@ -4249,6 +4776,7 @@ class FactionConfig {
             type: 'submarine',
             shipClass: 'AI Submarine',
             tonnage: 8000,
+            maxOxygen: 10,
             speedKnots: 20,
             armorThickness: { belt: 55, deck: 35, turret: 28 },
             baseAccuracy: 93,
