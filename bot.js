@@ -7168,6 +7168,24 @@ class NavalWarfareBot {
 
             // Choose best attack target (focus fire + wound priority)
             const bestTarget = GameUtils.findBestTarget(ai, game, focusTarget);
+
+            // ── AI submarine depth decision ──────────────────────────────────────
+            if (diveSystem.isSubmarine(ai)) {
+                const oxygenPct   = (ai.oxygen ?? ai.maxOxygen ?? 10) / (ai.maxOxygen ?? 10);
+                const isSubmerged = (ai.depth || 'surface') !== 'surface';
+                const inRange     = !!bestTarget &&
+                    game.calculateDistance(ai.position, bestTarget.position) <= (ai.stats?.range ?? 8);
+
+                if (isSubmerged && (oxygenPct < 0.3 || (ai.depth === 'veryDeep' && inRange))) {
+                    diveSystem.surface(ai);
+                } else if (!isSubmerged && oxygenPct > 0.5 && !inRange) {
+                    diveSystem.dive(ai, 'periscope');
+                } else if (ai.depth === 'periscope' && oxygenPct > 0.4 && aiHPPct < 0.6) {
+                    diveSystem.dive(ai, 'deep');
+                }
+            }
+            // ────────────────────────────────────────────────────────────────────
+
             if (!bestTarget) {
                 // No players currently visible — investigate last known position or wander
                 const knownEntries = Object.entries(game.lastKnownPositions || {});
