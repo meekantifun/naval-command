@@ -3130,7 +3130,7 @@ class PlayerCreationModule {
     }
 
     async promptReconAircraft(interaction, tempData) {
-        const reconEligible = ['Battleship', 'Heavy Cruiser', 'Light Cruiser'].includes(tempData.shipClass);
+        const reconEligible = ['Battleship', 'Battlecruiser', 'Heavy Cruiser', 'Light Cruiser'].includes(tempData.shipClass);
         if (!reconEligible) {
             return this.finalizeCharacterCreation(interaction, tempData);
         }
