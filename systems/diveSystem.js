@@ -26,7 +26,7 @@ function descend(submarine) {
     if (currentIndex >= DEPTH_LEVELS.length - 1) {
         return { success: false, message: 'Already at Running Deep. Cannot descend further.' };
     }
-    if ((submarine.oxygen ?? 0) <= 0) {
+    if ((submarine.oxygen ?? submarine.maxOxygen ?? 4) <= 0) {
         return { success: false, message: 'No air remaining — surface to replenish oxygen before diving.' };
     }
     submarine.depth = DEPTH_LEVELS[currentIndex + 1];
@@ -65,7 +65,7 @@ function toggleCrashDive(submarine) {
 function executeCrashDive(submarine) {
     if (!isSubmarine(submarine)) return { success: false };
     submarine.depth = 'runningDeep';
-    submarine.crashDiveApDebt = (submarine.crashDiveApDebt ?? 0) + 1;
+    submarine.crashDiveApDebt = Math.max(submarine.crashDiveApDebt ?? 0, 1);
     return { success: true };
 }
 
