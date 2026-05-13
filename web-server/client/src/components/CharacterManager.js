@@ -470,6 +470,27 @@ function CharacterManager({ guildId, user }) {
 
       <div className="manager-section">
         <h3>All Characters ({filteredChars.length !== characters.length ? `${filteredChars.length} of ${characters.length}` : characters.length})</h3>
+        {characters.length > 0 && (
+          <div className="char-filter-bar">
+            <input
+              type="text"
+              className="char-search-input"
+              placeholder="Search by name or Discord ID…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            <select
+              className="char-class-select"
+              value={classFilter}
+              onChange={e => setClassFilter(e.target.value)}
+            >
+              <option value="">All Classes</option>
+              {availableClasses.map(cls => (
+                <option key={cls} value={cls}>{cls}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {filteredChars.length === 0 ? (
           <p className="no-data">{characters.length === 0 ? 'No characters found. Create one above!' : 'No characters match your search.'}</p>
         ) : (

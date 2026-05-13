@@ -893,3 +893,46 @@
   margin-left: auto;
 }
 .btn-cancel:hover { background: #475569; color: #e2e8f0; }
+
+/* ── Character filter toolbar ── */
+.char-filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.char-search-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-0);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.char-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.char-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.char-class-select {
+  width: 160px;
+  padding: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-0);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.char-class-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
