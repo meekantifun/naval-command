@@ -421,6 +421,27 @@ class NavalWarfareBot {
         }
     }
 
+    async handleSetStatusChannel(interaction) {
+        const channel = interaction.options.getChannel('channel');
+        const config = this.guildConfigs.get(interaction.guildId) || {};
+
+        if (channel) {
+            if (!channel.isTextBased()) {
+                return interaction.reply({ content: '❌ Please select a text channel.', flags: MessageFlags.Ephemeral });
+            }
+            config.statusChannelId = channel.id;
+            this.statusManager.setGuildChannel(interaction.guildId, channel.id);
+            this.saveGuildConfig(interaction.guildId, config);
+            await this.statusManager.updateGuildStatus(interaction.guildId);
+            await interaction.reply({ content: `✅ Bot status will now be posted in ${channel}.`, flags: MessageFlags.Ephemeral });
+        } else {
+            delete config.statusChannelId;
+            this.statusManager.removeGuildChannel(interaction.guildId);
+            this.saveGuildConfig(interaction.guildId, config);
+            await interaction.reply({ content: '✅ Status channel cleared.', flags: MessageFlags.Ephemeral });
+        }
+    }
+
     // Force resync user data to fix inconsistencies
     async forceResyncUser(guildId, userId) {
         if (this.characterManager) {
@@ -508,6 +529,9 @@ class NavalWarfareBot {
                 .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
             new SlashCommandBuilder().setName('setlogchannel').setDescription('Set the channel for console logging')
                 .addChannelOption(option => option.setName('channel').setDescription('Channel to send logs to').setRequired(true))
+                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+            new SlashCommandBuilder().setName('setstatuschannel').setDescription('[Admin] Set the channel where bot status is posted')
+                .addChannelOption(option => option.setName('channel').setDescription('Channel to post status in (omit to disable)').setRequired(false))
                 .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
             new SlashCommandBuilder().setName('purge').setDescription('Delete a specified number of messages from the channel')
                 .addIntegerOption(option =>
@@ -911,9 +935,10 @@ class NavalWarfareBot {
             this.guildConfigs.set(guildId, JSON.parse(fs.readFileSync(filePath, 'utf8')));
         } catch { this.guildConfigs.set(guildId, {}); }
 
-        // Restore persisted log channel
+        // Restore persisted log channel and status channel
         const conf = this.guildConfigs.get(guildId);
         if (conf?.logChannelId) this.setLoggingChannel(conf.logChannelId);
+        if (conf?.statusChannelId) this.statusManager.setGuildChannel(guildId, conf.statusChannelId);
     }
 
     saveGuildConfig(guildId, config) {
@@ -1104,6 +1129,7 @@ class NavalWarfareBot {
             case 'surface':          await this.executeSurface(interaction); break;
             case 'ballastblow':      await this.executeBallastBlow(interaction); break;
             case 'crashdivetoggle':  await this.executeCrashDiveToggle(interaction); break;
+            case 'setstatuschannel': await this.handleSetStatusChannel(interaction); break;
         }
     }
 
@@ -1758,7 +1784,7 @@ class NavalWarfareBot {
         this.games.set(channelId, game);
 
         // Update status when new sortie starts
-        await this.statusManager.updateStatus();
+        await this.statusManager.updateGuildStatus(game.guildId);
 
         // Initialize setup state with current step tracking
         game.setupState = {
@@ -5893,7 +5919,7 @@ class NavalWarfareBot {
         this.games.delete(game.channelId);
 
         // Update status when sortie ends
-        await this.statusManager.updateStatus();
+        await this.statusManager.updateGuildStatus(game.guildId);
 
         await channel.send('🏁 Battle ended! Players have been awarded XP and currency.');
     }
@@ -5943,10 +5969,6 @@ class NavalWarfareBot {
             // Process turn effects first
             const turnMessages = this.processTurnEffects(player, game);
             for (const message of turnMessages) await channel.send(message);
-            if (diveSystem.isSubmarine(player)) {
-                const depthMsg = diveSystem.getDepthContextMessage(player);
-                if (depthMsg) await channel.send(depthMsg);
-            }
 
             if (!player.alive) {
                 resolve(); // Immediately resolve if player is dead
@@ -5963,6 +5985,7 @@ class NavalWarfareBot {
                 player.crashDiveApDebt = 0;
             }
             player.weaponsFiredThisTurn = new Set();
+            this.broadcastGameUpdate(game.channelId).catch(() => {});
 
             // Reset action points for this player's deployed aircraft
             if (game.aircraft) {
@@ -6013,6 +6036,12 @@ class NavalWarfareBot {
                     embeds: [turnEmbed],
                     components: actionRows
                 });
+            }
+
+            // Send submarine depth status privately (DM if available, otherwise battle channel)
+            if (diveSystem.isSubmarine(player)) {
+                const depthMsg = diveSystem.getDepthContextMessage(player);
+                if (depthMsg) await turnChannel.send(depthMsg).catch(() => {});
             }
 
             // Store the turn message ID for this player
@@ -19717,7 +19746,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
             console.log(`  🗂️ Removed game from games collection: ${interaction.channelId}`);
 
             // Update status when sortie ends
-            await this.statusManager.updateStatus();
+            await this.statusManager.updateGuildStatus(interaction.guildId);
 
             // === 9. FINAL SUCCESS MESSAGE ===
             await interaction.reply({
@@ -23236,6 +23265,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     if (characterData.stats) characterData.stats.health = hp;
                 }
 
+                const RECON_ELIGIBLE = ['Battleship', 'Battlecruiser', 'Heavy Cruiser', 'Light Cruiser'];
+                if (!RECON_ELIGIBLE.includes(characterData.shipClass)) characterData.reconAircraft = null;
+
                 // Add/update character
                 playerData[userId].characters[characterName] = characterData;
 
@@ -23664,6 +23696,11 @@ Use \`/stats\` during a battle to view your current ship statistics!
             const logChannel = logChannelId && guild ? guild.channels.cache.get(logChannelId) : null;
             const setlogchannel = { channelId: logChannelId, channelName: logChannel?.name ?? null };
 
+            // setstatuschannel
+            const statusChannelId = guildConf.statusChannelId ?? null;
+            const statusChannel = statusChannelId && guild ? guild.channels.cache.get(statusChannelId) : null;
+            const setstatuschannel = { channelId: statusChannelId, channelName: statusChannel?.name ?? null };
+
             // setmsglogchannel
             const msgLogChannelId = this.messageLogger ? (this.messageLogger.getLogChannel(guildId) ?? null) : null;
             const msgLogChannel = msgLogChannelId && guild ? guild.channels.cache.get(msgLogChannelId) : null;
@@ -23685,7 +23722,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 customImages: wc.customImages ?? []
             };
 
-            res.json({ aicanspeak, roleplay, setgm, setlogchannel, setmsglogchannel, welcome });
+            res.json({ aicanspeak, roleplay, setgm, setlogchannel, setmsglogchannel, setstatuschannel, welcome });
         });
 
         // GET /api/admin/guild/:guildId/metadata — text channels and roles for dropdowns
@@ -23806,6 +23843,24 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     clearInterval(this.logFlushInterval);
                     this.logFlushInterval = null;
                 }
+            }
+            this.saveGuildConfig(guildId, config);
+            res.json({ success: true });
+        });
+
+        // POST /api/admin/config/setstatuschannel — { guildId, channelId } (channelId null to clear)
+        app.post('/api/admin/config/setstatuschannel', authenticateAPIKey, async (req, res) => {
+            const { guildId, channelId } = req.body;
+            if (!guildId) return res.status(400).json({ error: 'guildId required' });
+
+            const config = this.guildConfigs.get(guildId) || {};
+            if (channelId) {
+                config.statusChannelId = channelId;
+                this.statusManager.setGuildChannel(guildId, channelId);
+                await this.statusManager.updateGuildStatus(guildId);
+            } else {
+                delete config.statusChannelId;
+                this.statusManager.removeGuildChannel(guildId);
             }
             this.saveGuildConfig(guildId, config);
             res.json({ success: true });
@@ -23972,7 +24027,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 this.games.set(channelId, game);
 
                 // Update bot status
-                await this.statusManager.updateStatus();
+                await this.statusManager.updateGuildStatus(game.guildId);
 
                 // Get mission name
                 const missionNames = {
@@ -24295,7 +24350,7 @@ class NavalBattle {
 
         // Update status when player joins
         if (global.navalBot && global.navalBot.statusManager) {
-            global.navalBot.statusManager.updateStatus();
+            global.navalBot.statusManager.updateGuildStatus(this.guildId);
         }
 
         return true;
