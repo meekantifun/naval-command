@@ -949,6 +949,9 @@ class CharacterManager {
                 currency: newCurrency
             };
 
+            const RECON_ELIGIBLE = ['Battleship', 'Battlecruiser', 'Heavy Cruiser', 'Light Cruiser'];
+            if (!RECON_ELIGIBLE.includes(newShipClass)) updatedCharacter.reconAircraft = null;
+
             // Recalculate stats based on new values
             updatedCharacter.calculatedHP = this.bot.playerCreation.calculateShipHP(newTonnage, newShipClass);
             updatedCharacter.calculatedSpeed = Math.floor(newSpeed / 5);
