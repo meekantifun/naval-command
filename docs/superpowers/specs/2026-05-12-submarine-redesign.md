@@ -18,16 +18,16 @@ Three depth levels:
 | Depth | Speed Mult | Enemy Spot Range | Can Fire | Vulnerable To |
 |-------|-----------|-----------------|----------|---------------|
 | `surface` | ×1.0 | Normal | Guns, AA, Torpedoes | Everything |
-| `periscope` | ×0.75 | ×0.5 | Torpedoes only | Guns, torpedoes, bombs, depth charges |
-| `runningDeep` | ×0.75 | Undetectable | Nothing | ASW weapons only |
+| `periscope` | ×0.50 | ×0.5 | Torpedoes only | Guns, torpedoes, bombs, depth charges |
+| `runningDeep` | ×0.50 | Undetectable | Nothing | ASW weapons only |
 
 ```js
 DEPTH_LEVELS = ['surface', 'periscope', 'runningDeep']
 
 DEPTH_RULES = {
     surface:     { speedMult: 1.00, spotMult: 1.0,  spotMax: null, oxygenRegen: 2 },
-    periscope:   { speedMult: 0.75, spotMult: 0.5,  spotMax: null, oxygenRegen: 0 },
-    runningDeep: { speedMult: 0.75, spotMult: null, spotMax: 0,    oxygenRegen: 0 },
+    periscope:   { speedMult: 0.50, spotMult: 0.5,  spotMax: null, oxygenRegen: 0 },
+    runningDeep: { speedMult: 0.50, spotMult: null, spotMax: 0,    oxygenRegen: 0 },
 }
 
 TARGETING_MATRIX = {

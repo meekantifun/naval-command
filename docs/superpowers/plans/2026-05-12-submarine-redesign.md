@@ -45,8 +45,8 @@ const DEPTH_LEVELS = ['surface', 'periscope', 'runningDeep'];
 
 const DEPTH_RULES = {
     surface:     { speedMult: 1.00, spotMult: 1.0,  spotMax: null, oxygenRegen: 2 },
-    periscope:   { speedMult: 0.75, spotMult: 0.5,  spotMax: null, oxygenRegen: 0 },
-    runningDeep: { speedMult: 0.75, spotMult: null, spotMax: 0,    oxygenRegen: 0 },
+    periscope:   { speedMult: 0.50, spotMult: 0.5,  spotMax: null, oxygenRegen: 0 },
+    runningDeep: { speedMult: 0.50, spotMult: null, spotMax: 0,    oxygenRegen: 0 },
 };
 
 // depth → weaponType → whether that weapon can hit a sub at that depth
