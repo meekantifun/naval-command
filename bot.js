@@ -23266,7 +23266,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
 
                 const RECON_ELIGIBLE = ['Battleship', 'Battlecruiser', 'Heavy Cruiser', 'Light Cruiser'];
-                if (!RECON_ELIGIBLE.includes(characterData.shipClass)) characterData.reconAircraft = null;
+                if (characterData.shipClass && !RECON_ELIGIBLE.includes(characterData.shipClass)) characterData.reconAircraft = null;
 
                 // Add/update character
                 playerData[userId].characters[characterName] = characterData;
