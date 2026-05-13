@@ -1,74 +1,147 @@
 // systems/diveSystem.js
 
-const DEPTH_LEVELS = ['surface', 'periscope', 'deep', 'veryDeep'];
+const DEPTH_LEVELS = ['surface', 'periscope', 'runningDeep'];
 
 const DEPTH_RULES = {
-    surface:   { speedMult: 1.00, spotMult: 1.0, spotMax: null, oxygenRegen: 2 },
-    periscope: { speedMult: 0.75, spotMult: 0.5, spotMax: null, oxygenRegen: 0 },
-    deep:      { speedMult: 0.50, spotMult: null, spotMax: 3,   oxygenRegen: 0 },
-    veryDeep:  { speedMult: 0.10, spotMult: null, spotMax: 0,   oxygenRegen: 0 },
+    surface:     { speedMult: 1.00, spotMult: 1.0,  spotMax: null, oxygenRegen: 2 },
+    periscope:   { speedMult: 0.50, spotMult: 0.5,  spotMax: null, oxygenRegen: 0 },
+    runningDeep: { speedMult: 0.50, spotMult: null, spotMax: 0,    oxygenRegen: 0 },
 };
 
 // depth → weaponType → whether that weapon can hit a sub at that depth
 const TARGETING_MATRIX = {
-    surface:   { gun: true,  torpedo: true,  bomb: true,  shipDepthCharge: false, planeDepthCharge: false },
-    periscope: { gun: false, torpedo: true,  bomb: true,  shipDepthCharge: true,  planeDepthCharge: true  },
-    deep:      { gun: false, torpedo: false, bomb: false, shipDepthCharge: true,  planeDepthCharge: true  },
-    veryDeep:  { gun: false, torpedo: false, bomb: false, shipDepthCharge: true,  planeDepthCharge: true  },
+    surface:     { gun: true,  torpedo: true,  bomb: true,  shipDepthCharge: false, planeDepthCharge: false },
+    periscope:   { gun: true,  torpedo: true,  bomb: true,  shipDepthCharge: true,  planeDepthCharge: true  },
+    runningDeep: { gun: false, torpedo: false, bomb: false, shipDepthCharge: true,  planeDepthCharge: true  },
 };
 
 function isSubmarine(ship) {
     return ship?.type === 'submarine' || !!ship?.shipClass?.toLowerCase().includes('submarine');
 }
 
-// Dive to targetDepth. Costs 1 AP. Can jump multiple levels at once. Only descends.
-function dive(submarine, targetDepth) {
+// Descend exactly 1 level. Costs 1 AP.
+function descend(submarine) {
     if (!isSubmarine(submarine)) return { success: false, message: 'Only submarines can dive.' };
-    if (!DEPTH_LEVELS.includes(targetDepth) || targetDepth === 'surface') {
-        return { success: false, message: 'Invalid depth. Choose: periscope, deep, or veryDeep.' };
-    }
     const currentIndex = DEPTH_LEVELS.indexOf(submarine.depth || 'surface');
-    const targetIndex  = DEPTH_LEVELS.indexOf(targetDepth);
-    if (targetIndex <= currentIndex) {
-        return { success: false, message: `Already at or deeper than ${formatDepth(targetDepth)}. Use /surface to ascend first.` };
+    if (currentIndex >= DEPTH_LEVELS.length - 1) {
+        return { success: false, message: 'Already at Running Deep. Cannot descend further.' };
     }
     if ((submarine.oxygen ?? 0) <= 0) {
         return { success: false, message: 'No air remaining — surface to replenish oxygen before diving.' };
     }
-    submarine.depth = targetDepth;
-    return { success: true, message: `Diving to **${formatDepth(targetDepth)}** depth.`, apCost: 1 };
+    submarine.depth = DEPTH_LEVELS[currentIndex + 1];
+    return { success: true, message: `Descending to **${formatDepth(submarine.depth)}** depth.`, apCost: 1 };
 }
 
-// Surface immediately. Free action. Always goes to Surface (no partial ascent).
-function surface(submarine) {
-    if (!isSubmarine(submarine)) return { success: false, message: 'Only submarines can surface.' };
+// Ascend exactly 1 level. Costs 1 AP.
+function ascend(submarine) {
+    if (!isSubmarine(submarine)) return { success: false, message: 'Only submarines can ascend.' };
+    const currentIndex = DEPTH_LEVELS.indexOf(submarine.depth || 'surface');
+    if (currentIndex <= 0) {
+        return { success: false, message: 'Already at Surface.' };
+    }
+    submarine.depth = DEPTH_LEVELS[currentIndex - 1];
+    return { success: true, message: `Ascending to **${formatDepth(submarine.depth)}** depth.`, apCost: 1 };
+}
+
+// Emergency surface from any depth. Costs 1 AP. Blocks firing that turn.
+function ballastBlow(submarine) {
+    if (!isSubmarine(submarine)) return { success: false, message: 'Only submarines can blow ballast.' };
     if ((submarine.depth || 'surface') === 'surface') return { success: false, message: 'Already at surface.' };
     const prev = submarine.depth;
     submarine.depth = 'surface';
-    return { success: true, message: `Surfacing from **${formatDepth(prev)}** depth.` };
+    submarine.ballastBlewThisTurn = true;
+    return { success: true, message: `Blowing ballast — rising from **${formatDepth(prev)}** to **Surface**!`, apCost: 1 };
 }
 
-// Called at start of each submarine's turn. Ticks oxygen. Forces surface if depleted.
+// Toggle crash dive auto-dive behavior.
+function toggleCrashDive(submarine) {
+    if (!isSubmarine(submarine)) return { success: false, message: 'Only submarines can use crash dive.' };
+    submarine.crashDiveToggle = !submarine.crashDiveToggle;
+    return { success: true, enabled: submarine.crashDiveToggle };
+}
+
+// Immediately crash-dive to runningDeep. Bypasses 1-level rule. Sets AP debt for next turn.
+function executeCrashDive(submarine) {
+    if (!isSubmarine(submarine)) return { success: false };
+    submarine.depth = 'runningDeep';
+    submarine.crashDiveApDebt = (submarine.crashDiveApDebt ?? 0) + 1;
+    return { success: true };
+}
+
+// Called at start of each submarine's turn. Ticks oxygen.
+// Returns { oxygenRemaining, tookDamage, damageAmount }
 function processDiveTick(submarine) {
-    if (!isSubmarine(submarine)) return { forcedSurface: false, oxygenRemaining: null };
+    if (!isSubmarine(submarine)) return { oxygenRemaining: null, tookDamage: false, damageAmount: 0 };
     const depth = submarine.depth || 'surface';
-    const rule = DEPTH_RULES[depth];
+    const rule  = DEPTH_RULES[depth];
 
     if (depth === 'surface') {
         submarine.oxygen = Math.min(
-            submarine.maxOxygen ?? 10,
-            (submarine.oxygen ?? submarine.maxOxygen ?? 10) + rule.oxygenRegen
+            submarine.maxOxygen ?? 4,
+            (submarine.oxygen ?? submarine.maxOxygen ?? 4) + rule.oxygenRegen
         );
-        return { forcedSurface: false, oxygenRemaining: submarine.oxygen };
+        return { oxygenRemaining: submarine.oxygen, tookDamage: false, damageAmount: 0 };
     }
 
-    // Drain rate: 1 per turn when submerged (uniform across all submerged depths)
-    submarine.oxygen = Math.max(0, (submarine.oxygen ?? submarine.maxOxygen ?? 10) - 1);
+    submarine.oxygen = Math.max(0, (submarine.oxygen ?? submarine.maxOxygen ?? 4) - 1);
     if (submarine.oxygen <= 0) {
-        submarine.depth = 'surface';
-        return { forcedSurface: true, oxygenRemaining: 0 };
+        return { oxygenRemaining: 0, tookDamage: true, damageAmount: 10 };
     }
-    return { forcedSurface: false, oxygenRemaining: submarine.oxygen };
+    return { oxygenRemaining: submarine.oxygen, tookDamage: false, damageAmount: 0 };
+}
+
+// Apply/upgrade Armor Break on target. Called on torpedo critical hit.
+// Returns the new tier (1, 2, or 3).
+function applyArmorBreak(target) {
+    const currentReduction = (target.armorBreakTurns ?? 0) > 0 ? (target.armorBreakReduction ?? 0) : 0;
+    if (currentReduction === 0) {
+        target.armorBreakReduction = 3;
+    } else if (currentReduction === 3) {
+        target.armorBreakReduction = 6;
+    } else {
+        target.armorBreakReduction = 9;
+    }
+    target.armorBreakTurns = 2;
+    return target.armorBreakReduction / 3; // 1, 2, or 3
+}
+
+// Returns active ARM reduction from Armor Break (0 if inactive).
+function getArmorBreakReduction(target) {
+    if (!target.armorBreakTurns || target.armorBreakTurns <= 0) return 0;
+    return target.armorBreakReduction ?? 0;
+}
+
+// Returns Armor Break tier (0 = none, 1/2/3).
+function getArmorBreakTier(target) {
+    const reduction = getArmorBreakReduction(target);
+    if (reduction === 0) return 0;
+    if (reduction <= 3) return 1;
+    if (reduction <= 6) return 2;
+    return 3;
+}
+
+// Decrement Armor Break timer. Call in processTurnEffects for every ship.
+function decrementArmorBreak(target) {
+    if ((target.armorBreakTurns ?? 0) > 0) {
+        target.armorBreakTurns--;
+        if (target.armorBreakTurns <= 0) {
+            target.armorBreakReduction = 0;
+        }
+    }
+}
+
+// Add a spotter's ID to the submarine's wake tracking list.
+function addWakeTracking(submarine, spotterId) {
+    if (!submarine.wakeTrackedBy) submarine.wakeTrackedBy = [];
+    if (!submarine.wakeTrackedBy.includes(spotterId)) {
+        submarine.wakeTrackedBy.push(spotterId);
+    }
+}
+
+// Clear wake tracking. Call at start of submarine's turn.
+function clearWakeTracking(submarine) {
+    submarine.wakeTrackedBy = [];
 }
 
 // Effective movement speed at current depth.
@@ -91,14 +164,19 @@ function getEffectiveSpotRange(submarine, baseRange) {
 function getEnemySpotMultiplier(submarine) {
     if (!isSubmarine(submarine)) return 1.0;
     if ((submarine.depth || 'surface') === 'periscope') return 0.5;
-    return 1.0; // deep/veryDeep handled by canSpot
+    return 1.0;
 }
 
-// Whether spotter can detect submarine at all (ignoring range — range handled separately).
+// Whether spotter can detect submarine at all (range handled separately).
 function canSpot(spotter, submarine) {
     if (!isSubmarine(submarine)) return true;
     const depth = submarine.depth || 'surface';
+
+    // Wake tracking overrides all depth concealment for 1 turn
+    if (submarine.wakeTrackedBy?.includes(spotter.id)) return true;
+
     if (depth === 'surface' || depth === 'periscope') return true;
+    // runningDeep: undetectable without sonar
     return !!spotter.hasSonar;
 }
 
@@ -117,12 +195,18 @@ function canTarget(attacker, submarine, weaponType) {
     return { canTarget: true, reason: '' };
 }
 
-// Set depth/oxygen fields on submarine at battle start. No-op for non-subs.
+// Set depth/oxygen/new fields on submarine at battle start. No-op for non-subs.
 function initSubmarine(ship) {
     if (!isSubmarine(ship)) return;
-    if (ship.depth     === undefined) ship.depth     = 'surface';
-    if (ship.maxOxygen === undefined) ship.maxOxygen = ship.definedMaxOxygen ?? 10;
-    if (ship.oxygen    === undefined) ship.oxygen    = ship.maxOxygen;
+    if (ship.depth           === undefined) ship.depth           = 'surface';
+    if (ship.maxOxygen       === undefined) ship.maxOxygen       = 4;
+    if (ship.oxygen          === undefined) ship.oxygen          = ship.maxOxygen;
+    if (ship.crashDiveToggle === undefined) ship.crashDiveToggle = false;
+    if (ship.crashDiveApDebt === undefined) ship.crashDiveApDebt = 0;
+    ship.wakeTrackedBy        = [];
+    ship.armorBreakTurns      = 0;
+    ship.armorBreakReduction  = 0;
+    ship.ballastBlewThisTurn  = false;
 }
 
 // Depth context string for turn-start messages.
@@ -130,19 +214,21 @@ function getDepthContextMessage(submarine) {
     const depth = submarine.depth || 'surface';
     const o = submarine.oxygen ?? '?', mo = submarine.maxOxygen ?? '?';
     return {
-        surface:   `🌊 **Surface** | All weapons. Full speed. O₂: ${o}/${mo} (+2 this turn).`,
-        periscope: `🔭 **Periscope** | Torpedoes & bombs allowed. Enemy spot range ×0.5. Speed −25%. O₂: ${o}/${mo}.`,
-        deep:      `🌑 **Deep** | Depth charges only can reach you. Torpedoes −20% acc. Speed −50%. O₂: ${o}/${mo}.`,
-        veryDeep:  `⬛ **Very Deep** | Immune. Cannot fire. Speed −90%. O₂: ${o}/${mo}.`,
+        surface:     `🌊 **Surface** | Guns, AA & Torpedoes available. Full speed. O₂: ${o}/${mo} (+2 this turn).`,
+        periscope:   `🔭 **Periscope** | Torpedoes only. Enemy spot range ×0.5. Speed −50%. O₂: ${o}/${mo}.`,
+        runningDeep: `🌑 **Running Deep** | Undetectable. Cannot fire. ASW weapons only can reach you. O₂: ${o}/${mo}.`,
     }[depth] ?? '';
 }
 
 function formatDepth(depth) {
-    return { surface: 'Surface', periscope: 'Periscope', deep: 'Deep', veryDeep: 'Very Deep' }[depth] ?? depth;
+    return { surface: 'Surface', periscope: 'Periscope', runningDeep: 'Running Deep' }[depth] ?? depth;
 }
 
 module.exports = {
-    dive, surface, processDiveTick,
+    descend, ascend, ballastBlow, toggleCrashDive, executeCrashDive,
+    processDiveTick,
+    applyArmorBreak, getArmorBreakReduction, getArmorBreakTier, decrementArmorBreak,
+    addWakeTracking, clearWakeTracking,
     getEffectiveSpeed, getEffectiveSpotRange, getEnemySpotMultiplier,
     canSpot, canTarget,
     initSubmarine, getDepthContextMessage, formatDepth, isSubmarine,
