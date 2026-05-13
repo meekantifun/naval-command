@@ -8421,11 +8421,12 @@ class NavalWarfareBot {
             specialEffects += ` 🔩 **Armor Break ${tierLabels[tier]}!** Target ARM −${tier * 3} for 2 turns.`;
         }
 
-        // Wake tracking: torpedo hit reveals attacker submarine to target for 1 turn
+        // Wake tracking: torpedo hit always reveals attacker submarine to that target for 1 turn
+        // (torpedo wake is visible to the target regardless of depth or general spotting)
         if (weaponType === 'torpedoes' && result.hit && diveSystem.isSubmarine(player)) {
-            const targetId = target.id || target.userId;
-            if (targetId && game.hasVisionOf(player.position, 'ai')) {
-                diveSystem.addWakeTracking(player, targetId);
+            const wakeTargetId = target.id || target.userId;
+            if (wakeTargetId) {
+                diveSystem.addWakeTracking(player, wakeTargetId);
                 specialEffects += ' 🌊 *Wake detected — enemy has your bearing for 1 turn!*';
             }
         }
@@ -21425,6 +21426,27 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Line of sight check
                 if (!game.hasVisionOf(target.position, 'player')) {
                     return res.status(400).json({ error: 'No line of sight to target' });
+                }
+
+                // Ballast Blow firing restriction
+                if (player.ballastBlewThisTurn) {
+                    return res.status(400).json({ error: 'Cannot fire this turn — excessive pitching from Ballast Blow.' });
+                }
+
+                // Submarine depth weapon restrictions
+                if (diveSystem.isSubmarine(player)) {
+                    const webWeaponTypeStr = (weaponType === 'torpedoes' || shellType === 'torpedo') ? 'torpedo' : (shellType === 'bomb' ? 'bomb' : 'gun');
+                    const webDepthCheck = diveSystem.canTarget(player, target, webWeaponTypeStr);
+                    if (!webDepthCheck.canTarget) {
+                        return res.status(400).json({ error: webDepthCheck.reason });
+                    }
+                    const webOwnDepth = player.depth || 'surface';
+                    if (webOwnDepth === 'runningDeep') {
+                        return res.status(400).json({ error: 'Cannot fire weapons at Running Deep — surface to engage.' });
+                    }
+                    if (webOwnDepth === 'periscope' && webWeaponTypeStr === 'gun') {
+                        return res.status(400).json({ error: 'Deck guns cannot be used while submerged.' });
+                    }
                 }
 
                 // Enforce once-per-turn firing restrictions
