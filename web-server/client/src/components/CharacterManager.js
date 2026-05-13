@@ -293,6 +293,8 @@ function CharacterManager({ guildId, user }) {
       ]);
       const chars = response.data.characters || [];
       setCharacters(chars);
+      const loadedClasses = new Set(chars.map(c => c.shipClass).filter(Boolean));
+      setClassFilter(prev => loadedClasses.has(prev) ? prev : '');
       const itemMap = {};
       for (const item of (shopRes.data.items || [])) itemMap[item.id] = item;
       setShopItems(itemMap);
