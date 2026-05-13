@@ -22633,9 +22633,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!target || !target.alive) return res.status(404).json({ error: 'Target not found or dead' });
                 const channel = await this.client.channels.fetch(channelId).catch(() => null);
                 if (!channel) return res.status(400).json({ error: 'Cannot access channel' });
-                await this.executeAIAttack(ai, target, game, channel);
+                const aborted = await this.checkCrashDiveReaction(target, ai, game, channel);
+                if (!aborted) await this.executeAIAttack(ai, target, game, channel);
                 await this.broadcastGameUpdate(channelId);
-                res.json({ success: true });
+                res.json({ success: true, aborted: !!aborted });
             } catch (error) {
                 console.error('Error executing GM AI attack:', error);
                 res.status(500).json({ error: 'Internal server error' });
