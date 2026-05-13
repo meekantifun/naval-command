@@ -22236,6 +22236,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // Submarine: descend 1 level (costs 1 AP)
         app.post('/api/game/:channelId/dive', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
@@ -22257,7 +22258,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 this.client.channels.fetch(channelId).then(ch => {
                     if (!ch) return;
                     const pName = player.characterAlias || player.username || 'A player';
-                    ch.send({ content: `🤿 **${pName}** descends to **${diveSystem.formatDepth(player.depth)}** depth. O₂: ${player.oxygen}/${player.maxOxygen}` })
+                    ch.send({ content: `🤿 **${pName}** descends to **${diveSystem.formatDepth(player.depth)}**. O₂: ${player.oxygen}/${player.maxOxygen}` })
                         .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
                         .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
                 }).catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
@@ -22289,7 +22290,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 this.client.channels.fetch(channelId).then(ch => {
                     if (!ch) return;
                     const pName = player.characterAlias || player.username || 'A player';
-                    ch.send({ content: `🌊 **${pName}** ascends to **${diveSystem.formatDepth(player.depth)}** depth.` })
+                    ch.send({ content: `🌊 **${pName}** ascends to **${diveSystem.formatDepth(player.depth)}**.` })
                         .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
                         .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
                 }).catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
