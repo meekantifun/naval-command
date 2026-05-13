@@ -628,6 +628,9 @@ class CharacterManager {
                 hangar: newHangar
             };
 
+            const RECON_ELIGIBLE = ['Battleship', 'Battlecruiser', 'Heavy Cruiser', 'Light Cruiser'];
+            if (!RECON_ELIGIBLE.includes(newShipClass)) updatedCharacter.reconAircraft = null;
+
             // Recalculate stats based on new values
             this.recalculateCharacterStats(updatedCharacter);
 
