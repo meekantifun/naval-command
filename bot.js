@@ -8537,7 +8537,7 @@ class NavalWarfareBot {
         baseDamage = Math.round(baseDamage * overpenetrationModifier);
 
         const penetration = weaponData ? weaponData.penetration : this.getWeaponPenetration(weapon, ammoType);
-        const armor = target.stats.armor || 50;
+        const armor = Math.max(0, (target.stats.armor || 50) - diveSystem.getArmorBreakReduction(target));
         
         const penetrationRatio = penetration / armor;
         const penetrationChance = 1 / (1 + Math.exp(-5 * (penetrationRatio - 1)));
@@ -8815,13 +8815,6 @@ class NavalWarfareBot {
         
         const weatherModifier = this.getWeatherAccuracyModifier(weather);
         baseAccuracy *= weatherModifier;
-
-        // Submarine firing torpedoes at Deep depth: −20% accuracy
-        if (diveSystem.isSubmarine(attacker) &&
-            (attacker.depth || 'surface') === 'deep' &&
-            weapon?.ammoTypes?.includes('torpedo')) {
-            baseAccuracy *= 0.80;
-        }
 
         return Math.max(0.05, Math.min(0.95, baseAccuracy));
     }
