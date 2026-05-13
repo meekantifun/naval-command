@@ -21004,6 +21004,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     maxOxygen: p.maxOxygen ?? null,
                     hasDepthCharges: p.hasDepthCharges ?? false,
                     type: p.type ?? (p.shipClass?.toLowerCase().includes('submarine') ? 'submarine' : undefined),
+                    crashDiveToggle: p.crashDiveToggle ?? false,
+                    ballastBlewThisTurn: p.ballastBlewThisTurn ?? false,
+                    armorBreakTurns: p.armorBreakTurns ?? 0,
+                    armorBreakReduction: p.armorBreakReduction ?? 0,
                     inventory: Object.fromEntries(
                       this.getPlayerInventory(game.guildId, p.userId || p.id) ?? []
                     )
@@ -22232,11 +22236,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // Submarine: dive to target depth (costs 1 AP)
         app.post('/api/game/:channelId/dive', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
-                const { userId, depth } = req.body;
+                const { userId } = req.body;
                 const game = this.games.get(channelId);
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 const player = game.players.get(userId);
@@ -22244,8 +22247,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!player.alive) return res.status(400).json({ error: 'Ship has been sunk' });
                 if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can dive' });
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
-                if (!['periscope', 'deep', 'veryDeep'].includes(depth)) return res.status(400).json({ error: 'Invalid depth value' });
-                const result = diveSystem.dive(player, depth);
+                const result = diveSystem.descend(player);
                 if (!result.success) return res.status(400).json({ error: result.message });
                 this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
@@ -22255,7 +22257,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 this.client.channels.fetch(channelId).then(ch => {
                     if (!ch) return;
                     const pName = player.characterAlias || player.username || 'A player';
-                    ch.send({ content: `🤿 **${pName}** dives to **${diveSystem.formatDepth(player.depth)}** depth. O₂: ${player.oxygen}/${player.maxOxygen}` })
+                    ch.send({ content: `🤿 **${pName}** descends to **${diveSystem.formatDepth(player.depth)}** depth. O₂: ${player.oxygen}/${player.maxOxygen}` })
                         .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
                         .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
                 }).catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
@@ -22265,7 +22267,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
-        // Submarine: surface (free action — no AP cost)
+        // Submarine: ascend 1 level (costs 1 AP)
         app.post('/api/game/:channelId/surface', authenticateAPIKey, async (req, res) => {
             try {
                 const { channelId } = req.params;
@@ -22276,17 +22278,75 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
                 if (!player.alive) return res.status(400).json({ error: 'Ship has been sunk' });
                 if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can surface' });
-                const result = diveSystem.surface(player);
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+                const result = diveSystem.ascend(player);
                 if (!result.success) return res.status(400).json({ error: result.message });
+                this.consumeAction(player);
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
                 await this.broadcastGameUpdate(channelId);
-                res.json({ depth: player.depth, oxygen: player.oxygen, maxOxygen: player.maxOxygen });
+                res.json({ depth: player.depth, oxygen: player.oxygen, maxOxygen: player.maxOxygen, actionPoints: player.actionPoints });
                 this.client.channels.fetch(channelId).then(ch => {
                     if (!ch) return;
                     const pName = player.characterAlias || player.username || 'A player';
-                    ch.send({ content: `🌊 **${pName}** surfaces.` }).catch(() => {});
-                }).catch(() => {});
+                    ch.send({ content: `🌊 **${pName}** ascends to **${diveSystem.formatDepth(player.depth)}** depth.` })
+                        .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                        .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                }).catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
             } catch (err) {
                 console.error('Error surfacing:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Submarine: ballast blow (immediate surface, 1 AP, no firing this turn)
+        app.post('/api/game/:channelId/ballastblow', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (!player.alive) return res.status(400).json({ error: 'Ship has been sunk' });
+                if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can blow ballast' });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+                const result = diveSystem.ballastBlow(player);
+                if (!result.success) return res.status(400).json({ error: result.message });
+                this.consumeAction(player);
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+                await this.broadcastGameUpdate(channelId);
+                res.json({ depth: player.depth, oxygen: player.oxygen, maxOxygen: player.maxOxygen, actionPoints: player.actionPoints });
+                this.client.channels.fetch(channelId).then(ch => {
+                    if (!ch) return;
+                    const pName = player.characterAlias || player.username || 'A player';
+                    ch.send({ content: `💨 **${pName}** blows ballast and rapidly surfaces! Cannot fire this turn.` })
+                        .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                        .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                }).catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (err) {
+                console.error('Error with ballast blow:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Submarine: toggle crash dive auto-reaction (no AP cost)
+        app.post('/api/game/:channelId/crashdivetoggle', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (!player.alive) return res.status(400).json({ error: 'Ship has been sunk' });
+                if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can use crash dive' });
+                const result = diveSystem.toggleCrashDive(player);
+                await this.broadcastGameUpdate(channelId);
+                res.json({ crashDiveToggle: result.enabled });
+            } catch (err) {
+                console.error('Error toggling crash dive:', err);
                 res.status(500).json({ error: 'Internal server error' });
             }
         });
