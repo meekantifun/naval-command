@@ -269,6 +269,8 @@ function CharacterManager({ guildId, user }) {
   const [pendingUpgrades, setPendingUpgrades] = useState(new Set());
   const [shopItems, setShopItems] = useState({});
   const [deleteItemModal, setDeleteItemModal] = useState(null); // { char, itemId, itemName, qty, price }
+  const [searchQuery, setSearchQuery] = useState('');
+  const [classFilter, setClassFilter] = useState('');
 
   const toggleCard = (idx) => {
     setExpandedCards(prev => {
@@ -428,6 +430,12 @@ function CharacterManager({ guildId, user }) {
     return <div className="loading">Loading characters...</div>;
   }
 
+  const q = searchQuery.toLowerCase().trim();
+  const availableClasses = [...new Set(characters.map(c => c.shipClass).filter(Boolean))].sort();
+  const filteredChars = characters
+    .filter(c => classFilter === '' || c.shipClass === classFilter)
+    .filter(c => q === '' || c.name.toLowerCase().includes(q) || (c.userId && c.userId.includes(q)));
+
   return (
     <>
     <div className="character-manager">
@@ -461,12 +469,12 @@ function CharacterManager({ guildId, user }) {
       </div>
 
       <div className="manager-section">
-        <h3>All Characters ({characters.length})</h3>
-        {characters.length === 0 ? (
-          <p className="no-data">No characters found. Create one above!</p>
+        <h3>All Characters ({filteredChars.length !== characters.length ? `${filteredChars.length} of ${characters.length}` : characters.length})</h3>
+        {filteredChars.length === 0 ? (
+          <p className="no-data">{characters.length === 0 ? 'No characters found. Create one above!' : 'No characters match your search.'}</p>
         ) : (
           <div className="character-list">
-            {characters.map((char) => {
+            {filteredChars.map((char) => {
               const cardKey = `${char.userId}:${char.name}`;
               const isExpanded = expandedCards.has(cardKey);
               return (
