@@ -221,7 +221,6 @@ function GameView({ channelId, user, onBack, onLogout }) {
   const [gmSpawnMode, setGmSpawnMode] = useState(false);
   const [gmStatusTarget, setGmStatusTarget] = useState('');
   const [gmStatusAction, setGmStatusAction] = useState('fire');
-  const [diveDepth, setDiveDepth] = useState('periscope');
   const [gmControlledAI, setGmControlledAI] = useState(null); // enemy object being controlled
   const [gmAIMoveCoord, setGmAIMoveCoord] = useState('');
   const [gmAIAttackTarget, setGmAIAttackTarget] = useState('');
@@ -1533,58 +1532,98 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     {/* ── Submarine Controls ── only shown for submarine ships */}
                     {selectedPlayer.type === 'submarine' && (
                       <div style={{ marginTop: '6px', border: '1px solid #4a9eff44', borderRadius: '6px', padding: '8px' }}>
-                        <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                        <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '4px' }}>
                           Depth:{' '}
                           <strong style={{ color: '#4a9eff' }}>
-                            {({ surface: '🌊 Surface', periscope: '🔭 Periscope', deep: '🌑 Deep', veryDeep: '⬛ Very Deep' })[selectedPlayer.depth || 'surface'] ?? '🌊 Surface'}
+                            {({ surface: '🌊 Surface', periscope: '🔭 Periscope', runningDeep: '🌑 Running Deep' })[selectedPlayer.depth || 'surface'] ?? '🌊 Surface'}
                           </strong>
                           {' '}| O₂:{' '}
                           <strong>{selectedPlayer.oxygen ?? '?'}/{selectedPlayer.maxOxygen ?? '?'}</strong>
+                          {selectedPlayer.armorBreakTurns > 0 && (
+                            <span style={{ color: '#ff9800', marginLeft: '6px' }}>
+                              🔩 Armor Break {['', 'I', 'II', 'III'][Math.min(3, Math.round((selectedPlayer.armorBreakReduction ?? 0) / 3))]} ({selectedPlayer.armorBreakTurns}t)
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <select
-                            value={diveDepth}
-                            onChange={e => setDiveDepth(e.target.value)}
-                            style={{ fontSize: '12px', padding: '2px 4px', borderRadius: '4px' }}
-                          >
-                            <option value="periscope">Periscope</option>
-                            <option value="deep">Deep</option>
-                            <option value="veryDeep">Very Deep</option>
-                          </select>
                           <button
                             className="btn btn-primary"
                             style={{ fontSize: '12px', padding: '4px 8px' }}
                             disabled={
                               selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
-                              selectedPlayer.depth === 'veryDeep' ||
-                              (selectedPlayer.oxygen ?? 1) <= 0  // null oxygen = uninitialized, treat as available
+                              selectedPlayer.depth === 'runningDeep' ||
+                              (selectedPlayer.oxygen ?? 1) <= 0
                             }
                             onClick={async () => {
                               try {
                                 await axios.post(`${API_URL}/api/game/${channelId}/dive`,
-                                  { depth: diveDepth, characterAlias: selectedPlayer.characterAlias },
+                                  { characterAlias: selectedPlayer.characterAlias },
                                   { withCredentials: true });
-                                addLogEntry(`🤿 Diving to ${diveDepth}`, 'action');
+                                addLogEntry('🤿 Descending 1 level', 'action');
                               } catch (err) {
                                 alert(err.response?.data?.error || 'Failed to dive');
                               }
                             }}
-                          >🤿 Dive</button>
+                          >🤿 Dive ↓</button>
                           <button
                             className="btn btn-info"
                             style={{ fontSize: '12px', padding: '4px 8px' }}
-                            disabled={!selectedPlayer.depth || selectedPlayer.depth === 'surface'}
+                            disabled={
+                              selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
+                              !selectedPlayer.depth || selectedPlayer.depth === 'surface'
+                            }
                             onClick={async () => {
                               try {
                                 await axios.post(`${API_URL}/api/game/${channelId}/surface`,
                                   { characterAlias: selectedPlayer.characterAlias },
                                   { withCredentials: true });
-                                addLogEntry('🌊 Surfacing', 'action');
+                                addLogEntry('🌊 Ascending 1 level', 'action');
                               } catch (err) {
-                                alert(err.response?.data?.error || 'Failed to surface');
+                                alert(err.response?.data?.error || 'Failed to ascend');
                               }
                             }}
-                          >🌊 Surface</button>
+                          >🌊 Surface ↑</button>
+                          <button
+                            className="btn btn-warning"
+                            style={{ fontSize: '12px', padding: '4px 8px' }}
+                            disabled={
+                              selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions ||
+                              !selectedPlayer.depth || selectedPlayer.depth === 'surface'
+                            }
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${API_URL}/api/game/${channelId}/ballastblow`,
+                                  { characterAlias: selectedPlayer.characterAlias },
+                                  { withCredentials: true });
+                                addLogEntry('💨 Ballast Blow — surfacing rapidly!', 'action');
+                              } catch (err) {
+                                alert(err.response?.data?.error || 'Failed to blow ballast');
+                              }
+                            }}
+                          >💨 Ballast Blow</button>
+                          <button
+                            className="btn btn-secondary"
+                            style={{
+                              fontSize: '12px', padding: '4px 8px',
+                              background: selectedPlayer.crashDiveToggle ? '#2d5a27' : undefined,
+                              borderColor: selectedPlayer.crashDiveToggle ? '#4caf50' : undefined,
+                            }}
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${API_URL}/api/game/${channelId}/crashdivetoggle`,
+                                  { characterAlias: selectedPlayer.characterAlias },
+                                  { withCredentials: true });
+                                addLogEntry(
+                                  selectedPlayer.crashDiveToggle ? '🔴 Crash Dive OFF' : '🟢 Crash Dive ON',
+                                  'action'
+                                );
+                              } catch (err) {
+                                alert(err.response?.data?.error || 'Failed to toggle crash dive');
+                              }
+                            }}
+                          >
+                            {selectedPlayer.crashDiveToggle ? '🟢' : '🔴'} Crash Dive
+                          </button>
                         </div>
                       </div>
                     )}
