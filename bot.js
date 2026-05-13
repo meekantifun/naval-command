@@ -7029,6 +7029,19 @@ class NavalWarfareBot {
         } catch (e) { /* ignore */ }
     }
 
+    async checkCrashDiveReaction(target, ai, game, channel) {
+        if (!diveSystem.isSubmarine(target)) return false;
+        if (!target.crashDiveToggle) return false;
+        if ((target.depth || 'surface') === 'runningDeep') return false;
+        diveSystem.executeCrashDive(target);
+        const tName = target.characterAlias || target.username || target.shipClass;
+        const aiName = GameUtils.getAIDisplayName(ai);
+        await channel.send(
+            `🚨 **${tName}** detects **${aiName}** targeting them — **Crash Dive** engaged! Plunging to Running Deep.`
+        );
+        return true;
+    }
+
     /**
      * Execute an AI weapon attack and send a formatted Discord message.
      * Returns the result from executeAttack.
@@ -7185,17 +7198,17 @@ class NavalWarfareBot {
             // AI does not track actionPoints during aiTurn — dive is free for AI,
             // mirroring how all other AI actions (move, attack) have no AP cost.
             if (diveSystem.isSubmarine(ai)) {
-                const oxygenPct   = (ai.oxygen ?? ai.maxOxygen ?? 10) / ((ai.maxOxygen ?? 10) || 10);
+                const oxygenPct   = (ai.oxygen ?? ai.maxOxygen ?? 4) / ((ai.maxOxygen ?? 4) || 4);
                 const isSubmerged = (ai.depth || 'surface') !== 'surface';
                 const inRange     = !!bestTarget &&
                     game.calculateDistance(ai.position, bestTarget.position) <= (ai.stats?.range ?? 8);
 
-                if (isSubmerged && (oxygenPct < 0.3 || (ai.depth === 'veryDeep' && inRange))) {
-                    diveSystem.surface(ai);
+                if (isSubmerged && (oxygenPct < 0.3 || (ai.depth === 'runningDeep' && inRange))) {
+                    diveSystem.ascend(ai);
                 } else if (!isSubmerged && oxygenPct > 0.5 && !inRange) {
-                    diveSystem.dive(ai, 'periscope');
+                    diveSystem.descend(ai);
                 } else if (ai.depth === 'periscope' && oxygenPct > 0.4 && aiHPPct < 0.6) {
-                    diveSystem.dive(ai, 'deep');
+                    diveSystem.descend(ai);
                 }
             }
             // ────────────────────────────────────────────────────────────────────
@@ -7315,7 +7328,8 @@ class NavalWarfareBot {
                     // Parting shot: fire at best target even while fleeing
                     const retreatDist = game.calculateDistance(ai.position, bestTarget.position);
                     if (retreatDist <= weaponRange) {
-                        await this.executeAIAttack(ai, bestTarget, game, channel);
+                        const aborted = await this.checkCrashDiveReaction(bestTarget, ai, game, channel);
+                        if (!aborted) await this.executeAIAttack(ai, bestTarget, game, channel);
                     }
                 }
 
@@ -7329,7 +7343,8 @@ class NavalWarfareBot {
                         `🎯 **${aiName}** locks onto the weakened **${targetName}** *(${tHPPct}% HP)* — focus fire!`
                     );
                 }
-                await this.executeAIAttack(ai, bestTarget, game, channel);
+                const aborted = await this.checkCrashDiveReaction(bestTarget, ai, game, channel);
+                if (!aborted) await this.executeAIAttack(ai, bestTarget, game, channel);
 
             } else {
                 // ── Out of range: advance ─────────────────────────────────────
@@ -7386,7 +7401,8 @@ class NavalWarfareBot {
                 if (ai.alive) {
                     const newDist = game.calculateDistance(newPos, bestTarget.position);
                     if (newDist <= weaponRange) {
-                        await this.executeAIAttack(ai, bestTarget, game, channel);
+                        const aborted = await this.checkCrashDiveReaction(bestTarget, ai, game, channel);
+                        if (!aborted) await this.executeAIAttack(ai, bestTarget, game, channel);
                     }
                 }
             }
@@ -9086,7 +9102,9 @@ class NavalWarfareBot {
             });
         }
 
-        const result  = await this.executeAIAttack(ai, target, game, interaction.channel);
+        const aborted = await this.checkCrashDiveReaction(target, ai, game, interaction.channel);
+        const result  = aborted ? null : await this.executeAIAttack(ai, target, game, interaction.channel);
+        if (aborted) return interaction.reply({ content: '🚨 Target crash-dived — attack aborted.', flags: MessageFlags.Ephemeral });
         await interaction.update({ content: `✅ Attack executed.`, components: [] });
         await this.updateGameDisplay(game, interaction.channel).catch(() => {});
         await this.broadcastGameUpdate(game.channelId).catch(() => {});
