@@ -6164,6 +6164,8 @@ class NavalWarfareBot {
         let statusInfo = '';
         if (player.onFire) statusInfo += '🔥 On Fire! ';
         if (player.flooding) statusInfo += '🌊 Flooding! ';
+        const abTier = diveSystem.getArmorBreakTier(player);
+        if (abTier > 0) statusInfo += `🔩 Armor Break ${'I'.repeat(abTier)} (${player.armorBreakTurns}t) `;
         if (player.damageControlCooldown > 0) statusInfo += `🔧 Damage Control: ${player.damageControlCooldown} turns `;
 
         if (statusInfo) {
@@ -6176,12 +6178,16 @@ class NavalWarfareBot {
 
         // Add submarine depth and oxygen status
         if (diveSystem.isSubmarine(player)) {
-            const depthIcons = { surface: '🌊', periscope: '🔭', deep: '🌑', veryDeep: '⬛' };
+            const depthIcons = { surface: '🌊', periscope: '🔭', runningDeep: '🌑' };
             const depth = player.depth || 'surface';
             const icon  = depthIcons[depth] ?? '🌊';
+            const crashIcon = player.crashDiveToggle ? '🟢' : '🔴';
+            const tier = diveSystem.getArmorBreakTier(player);
+            const tierLabel = tier > 0 ? ` | 🔩 Armor Break ${'I'.repeat(tier)} (${player.armorBreakTurns}t)` : '';
             embed.addFields([{
                 name: `${icon} Depth`,
-                value: `**${diveSystem.formatDepth(depth)}** | O₂: ${player.oxygen ?? '?'}/${player.maxOxygen ?? '?'}`,
+                value: `**${diveSystem.formatDepth(depth)}** | O₂: ${player.oxygen ?? '?'}/${player.maxOxygen ?? '?'}` +
+                       `${tierLabel}\n${crashIcon} Crash Dive`,
                 inline: true
             }]);
         }
