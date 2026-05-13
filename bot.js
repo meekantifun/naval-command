@@ -18289,13 +18289,31 @@ class NavalWarfareBot {
         // ── Submarine dive tick ───────────────────────────────────────
         if (diveSystem.isSubmarine(player)) {
             const tick = diveSystem.processDiveTick(player);
-            if (tick.forcedSurface) {
+            if (tick.tookDamage) {
+                player.currentHealth = Math.max(0, player.currentHealth - tick.damageAmount);
+                totalDamage += tick.damageAmount;
                 messages.push(
-                    `⚠️ **${player.username || player.shipClass}** ran out of oxygen and was forced to surface!`
+                    `⚠️ **${player.username || player.characterAlias || player.shipClass}** is out of air! ` +
+                    `Taking **${tick.damageAmount} damage** from oxygen deprivation.`
                 );
+                if (player.currentHealth <= 0) player.alive = false;
+            }
+            // Clear per-turn transient flags
+            player.ballastBlewThisTurn = false;
+            diveSystem.clearWakeTracking(player);
+            // Apply crash dive AP debt from previous turn
+            if (player.crashDiveApDebt > 0) {
+                player.actionsThisTurn = Math.min(
+                    player.maxActions ?? 2,
+                    (player.actionsThisTurn ?? 0) + player.crashDiveApDebt
+                );
+                player.crashDiveApDebt = 0;
             }
         }
         // ─────────────────────────────────────────────────────────────
+
+        // Armor Break timer (applies to any ship type hit by torpedo crits)
+        diveSystem.decrementArmorBreak(player);
 
         // Process fire damage
         if (player.onFire && player.fireTimer > 0) {
