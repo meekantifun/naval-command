@@ -481,6 +481,26 @@ app.post('/api/game/:channelId/depthcharge', ensureAuthenticated, async (req, re
   }
 });
 
+app.post('/api/game/:channelId/ballastblow', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/ballastblow`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to blow ballast' });
+  }
+});
+
+app.post('/api/game/:channelId/crashdivetoggle', ensureAuthenticated, async (req, res) => {
+  try {
+    const r = await botAPI.post(`/api/game/${req.params.channelId}/crashdivetoggle`,
+      { ...req.body, userId: req.user.id });
+    res.json(r.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ error: error.response?.data?.error || 'Failed to toggle crash dive' });
+  }
+});
+
 app.post('/api/game/:channelId/gm-toggle', ensureAuthenticated, async (req, res) => {
   try {
     const r = await botAPI.post(`/api/game/${req.params.channelId}/gm-toggle`,
