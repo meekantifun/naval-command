@@ -466,11 +466,12 @@ function CharacterManager({ guildId, user }) {
           <p className="no-data">No characters found. Create one above!</p>
         ) : (
           <div className="character-list">
-            {characters.map((char, idx) => {
-              const isExpanded = expandedCards.has(idx);
+            {characters.map((char) => {
+              const cardKey = `${char.userId}:${char.name}`;
+              const isExpanded = expandedCards.has(cardKey);
               return (
-              <div key={idx} className={`character-card${isExpanded ? ' expanded' : ' collapsed'}`}>
-                <div className="character-header" onClick={() => toggleCard(idx)} style={{cursor:'pointer'}}>
+              <div key={cardKey} className={`character-card${isExpanded ? ' expanded' : ' collapsed'}`}>
+                <div className="character-header" onClick={() => toggleCard(cardKey)} style={{cursor:'pointer'}}>
                   <div className="character-title">
                     <h4>
                       {char.name}
