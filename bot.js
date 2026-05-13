@@ -8337,7 +8337,10 @@ class NavalWarfareBot {
         if (!player || !player.alive || player.actionPoints < 1) {
             return interaction.update({ content: '❌ Cannot shoot - not in game, dead, or no action points!', embeds: [], components: [] });
         }
-        
+        if (player.ballastBlewThisTurn) {
+            return interaction.update({ content: '❌ Cannot fire this turn — excessive pitching from Ballast Blow.', embeds: [], components: [] });
+        }
+
         // Find the target (check enemies, players, and aircraft)
         let target = game.enemies.get(targetId) || 
                     Array.from(game.players.values()).find(p => p.id === targetId) ||
@@ -8367,11 +8370,11 @@ class NavalWarfareBot {
         // Enforce attacker's own depth weapon restrictions (submarines)
         if (diveSystem.isSubmarine(player)) {
             const ownDepth = player.depth || 'surface';
-            if (ownDepth !== 'surface' && _weaponTypeStr === 'gun') {
-                return interaction.update({ content: '❌ Deck guns cannot be used while submerged.', embeds: [], components: [] });
+            if (ownDepth === 'runningDeep') {
+                return interaction.update({ content: '❌ Cannot fire weapons at Running Deep — surface to engage.', embeds: [], components: [] });
             }
-            if (ownDepth === 'veryDeep' && _weaponTypeStr === 'torpedo') {
-                return interaction.update({ content: '❌ Torpedoes cannot be fired at Very Deep depth.', embeds: [], components: [] });
+            if (ownDepth === 'periscope' && _weaponTypeStr === 'gun') {
+                return interaction.update({ content: '❌ Deck guns cannot be used while submerged.', embeds: [], components: [] });
             }
         }
 
@@ -8402,7 +8405,23 @@ class NavalWarfareBot {
             target.floodTimer = 10;
             specialEffects += ' 🌊 Target is flooding!';
         }
-        
+
+        // 9% crit chance on torpedo hit → Armor Break (stacks I→II→III)
+        if (weaponType === 'torpedoes' && result.hit && Math.random() < 0.09) {
+            const tier = diveSystem.applyArmorBreak(target);
+            const tierLabels = ['', 'I', 'II', 'III'];
+            specialEffects += ` 🔩 **Armor Break ${tierLabels[tier]}!** Target ARM −${tier * 3} for 2 turns.`;
+        }
+
+        // Wake tracking: torpedo hit reveals attacker submarine to target for 1 turn
+        if (weaponType === 'torpedoes' && result.hit && diveSystem.isSubmarine(player)) {
+            const targetId = target.id || target.userId;
+            if (targetId && game.hasVisionOf(player.position, 'ai')) {
+                diveSystem.addWakeTracking(player, targetId);
+                specialEffects += ' 🌊 *Wake detected — enemy has your bearing for 1 turn!*';
+            }
+        }
+
         if (shellType === 'he' && result.hit && Math.random() < 0.3) {
             target.onFire = true;
             target.fireTimer = 10;
