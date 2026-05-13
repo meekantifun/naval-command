@@ -5955,6 +5955,11 @@ class NavalWarfareBot {
             player.actionPoints = player.shipClass.includes('Carrier') ? 3 : 2;
             player.maxActions = player.actionPoints;
             player.actionsThisTurn = 0;
+            // Apply crash dive AP debt (submarine used crash dive last turn — costs 1 AP this turn)
+            if ((player.crashDiveApDebt ?? 0) > 0) {
+                player.actionsThisTurn = player.crashDiveApDebt;
+                player.crashDiveApDebt = 0;
+            }
             player.weaponsFiredThisTurn = new Set();
 
             // Reset action points for this player's deployed aircraft
@@ -18301,14 +18306,6 @@ class NavalWarfareBot {
             // Clear per-turn transient flags
             player.ballastBlewThisTurn = false;
             diveSystem.clearWakeTracking(player);
-            // Apply crash dive AP debt from previous turn
-            if (player.crashDiveApDebt > 0) {
-                player.actionsThisTurn = Math.min(
-                    player.maxActions ?? 2,
-                    (player.actionsThisTurn ?? 0) + player.crashDiveApDebt
-                );
-                player.crashDiveApDebt = 0;
-            }
         }
         // ─────────────────────────────────────────────────────────────
 
