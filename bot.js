@@ -528,21 +528,19 @@ class NavalWarfareBot {
 
             new SlashCommandBuilder()
                 .setName('dive')
-                .setDescription('Dive your submarine to a depth level (costs 1 AP)')
-                .addStringOption(opt =>
-                    opt.setName('depth')
-                        .setDescription('Target depth')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: 'Periscope', value: 'periscope' },
-                            { name: 'Deep',      value: 'deep'      },
-                            { name: 'Very Deep', value: 'veryDeep'  }
-                        )
-                ),
+                .setDescription('Descend your submarine 1 depth level (costs 1 AP)'),
 
             new SlashCommandBuilder()
                 .setName('surface')
-                .setDescription('Surface your submarine immediately (free action — no AP cost)'),
+                .setDescription('Ascend your submarine 1 depth level (costs 1 AP)'),
+
+            new SlashCommandBuilder()
+                .setName('ballastblow')
+                .setDescription('Emergency surface from any depth (1 AP, cannot fire this turn)'),
+
+            new SlashCommandBuilder()
+                .setName('crashdivetoggle')
+                .setDescription('Toggle auto crash-dive when targeted by an enemy (starts next turn with 1 fewer AP)'),
 
             // Add moderation commands
             ...this.moderationSystem.getCommands(),
@@ -1102,6 +1100,10 @@ class NavalWarfareBot {
             case 'roleplay':
                 await this.setRoleplayMode(interaction);
                 break;
+            case 'dive':             await this.executeDive(interaction); break;
+            case 'surface':          await this.executeSurface(interaction); break;
+            case 'ballastblow':      await this.executeBallastBlow(interaction); break;
+            case 'crashdivetoggle':  await this.executeCrashDiveToggle(interaction); break;
         }
     }
 
@@ -8769,8 +8771,7 @@ class NavalWarfareBot {
         if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can dive.', flags: MessageFlags.Ephemeral });
         if (player.actionPoints <= 0) return interaction.reply({ content: 'No action points remaining.', flags: MessageFlags.Ephemeral });
 
-        const targetDepth = interaction.options.getString('depth');
-        const result = diveSystem.dive(player, targetDepth);
+        const result = diveSystem.descend(player);
         if (!result.success) return interaction.reply({ content: `❌ ${result.message}`, flags: MessageFlags.Ephemeral });
 
         player.actionPoints -= result.apCost;
@@ -8786,12 +8787,51 @@ class NavalWarfareBot {
         const player = game.players.get(interaction.user.id);
         if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
         if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can surface.', flags: MessageFlags.Ephemeral });
+        if (player.actionPoints <= 0) return interaction.reply({ content: 'No action points remaining.', flags: MessageFlags.Ephemeral });
 
-        const result = diveSystem.surface(player);
+        const result = diveSystem.ascend(player);
         if (!result.success) return interaction.reply({ content: `❌ ${result.message}`, flags: MessageFlags.Ephemeral });
 
-        await interaction.reply({ content: `🌊 ${result.message}` });
+        player.actionPoints -= result.apCost;
+        await interaction.reply({
+            content: `🌊 ${result.message} | O₂: ${player.oxygen}/${player.maxOxygen} | AP: ${player.actionPoints}`
+        });
         await this.updateGameDisplay(game, interaction.channel);
+    }
+
+    async executeBallastBlow(interaction) {
+        const game = this.getGameForChannel(interaction.channelId);
+        if (!game) return interaction.reply({ content: 'No active battle.', flags: MessageFlags.Ephemeral });
+        const player = game.players.get(interaction.user.id);
+        if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
+        if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can blow ballast.', flags: MessageFlags.Ephemeral });
+        if (player.actionPoints <= 0) return interaction.reply({ content: 'No action points remaining.', flags: MessageFlags.Ephemeral });
+
+        const result = diveSystem.ballastBlow(player);
+        if (!result.success) return interaction.reply({ content: `❌ ${result.message}`, flags: MessageFlags.Ephemeral });
+
+        player.actionPoints -= result.apCost;
+        await interaction.reply({
+            content: `💨 ${result.message} | Cannot fire this turn. O₂: ${player.oxygen}/${player.maxOxygen} | AP: ${player.actionPoints}`
+        });
+        await this.updateGameDisplay(game, interaction.channel);
+    }
+
+    async executeCrashDiveToggle(interaction) {
+        const game = this.getGameForChannel(interaction.channelId);
+        if (!game) return interaction.reply({ content: 'No active battle.', flags: MessageFlags.Ephemeral });
+        const player = game.players.get(interaction.user.id);
+        if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
+        if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can use crash dive.', flags: MessageFlags.Ephemeral });
+
+        const result = diveSystem.toggleCrashDive(player);
+        const state = result.enabled ? '🟢 **ON**' : '🔴 **OFF**';
+        await interaction.reply({
+            content: `🚨 Crash Dive Toggle: ${state}\n` +
+                (result.enabled
+                    ? 'You will auto-dive to Running Deep when targeted by an enemy. Your next turn starts with 1 fewer AP.'
+                    : 'Auto crash dive disabled.')
+        });
     }
 
     calculateAccuracy(attacker, target, distance, weapon, weather) {
