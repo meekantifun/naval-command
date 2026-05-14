@@ -32,6 +32,11 @@ function downloadImage(url, maxRedirects = 5) {
         res.resume();
         return reject(new Error(`HTTP ${res.statusCode} downloading image`));
       }
+      const contentType = res.headers['content-type'] || '';
+      if (!contentType.startsWith('image/')) {
+        res.resume();
+        return reject(new Error(`Expected image, got ${contentType}`));
+      }
       const chunks = [];
       let totalSize = 0;
       const MAX_SIZE = 20 * 1024 * 1024; // 20MB
@@ -50,22 +55,35 @@ function downloadImage(url, maxRedirects = 5) {
 }
 
 async function generateWelcomeImage(backgroundUrl, avatarUrl, username, memberCount) {
-  // Download both images in parallel
-  const [bgBuf, avatarBuf] = await Promise.all([
+  // Download avatar (required) and background (optional — fall back to solid color)
+  const [bgResult, avatarBuf] = await Promise.allSettled([
     downloadImage(backgroundUrl),
     downloadImage(avatarUrl),
   ]);
 
-  // Background: cover-crop to 900×300
-  const background = await sharp(bgBuf)
-    .resize(900, 300, { fit: 'cover' })
-    .toBuffer();
+  if (avatarBuf.status === 'rejected') throw avatarBuf.reason;
+
+  // Background: cover-crop to 900×300, or solid navy if download failed
+  let background;
+  if (bgResult.status === 'fulfilled') {
+    try {
+      background = await sharp(bgResult.value).resize(900, 300, { fit: 'cover' }).toBuffer();
+    } catch {
+      background = null;
+    }
+  }
+  if (!background) {
+    console.warn(`Welcome: background unavailable for ${backgroundUrl}, using solid color`);
+    background = await sharp({
+      create: { width: 900, height: 300, channels: 3, background: { r: 23, g: 33, b: 48 } }
+    }).png().toBuffer();
+  }
 
   // Avatar: resize to 100×100, apply circular mask
   const circMask100 = Buffer.from(
     '<svg width="100" height="100"><circle cx="50" cy="50" r="50" fill="white"/></svg>'
   );
-  const circularAvatar = await sharp(avatarBuf)
+  const circularAvatar = await sharp(avatarBuf.value)
     .resize(100, 100)
     .composite([{ input: circMask100, blend: 'dest-in' }])
     .png()
