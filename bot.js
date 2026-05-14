@@ -8681,37 +8681,37 @@ class NavalWarfareBot {
             baseDamage = Math.round(baseDamage * 1.5); // 50% damage bonus for critical
         }
 
-        // Disabling hit roll: triggers only on crits, against surviving targets
         let disableMessage = '';
-        if (isCritical && target.currentHealth > 0) {
-            const roll = Math.random() * 100;
-            if (roll > 50 && roll <= 75) {
-                target.rudderDamaged = true;
-                target.rudderRepairTimer = 3;
-                disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **rudder** has been damaged — can only move forward or backward!`;
-            } else if (roll > 75 && roll <= 90) {
-                target.enginesDamaged = true;
-                target.enginesRepairTimer = 3;
-                disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **engines** have been disabled — cannot move!`;
-            } else if (roll > 90) {
-                const totalTurrets = this.getMainTurretCount(target);
-                if (totalTurrets > 0 && (target.disabledTurrets ?? 0) < totalTurrets) {
-                    target.disabledTurrets = (target.disabledTurrets ?? 0) + 1;
-                    target.turretRepairTimer = 3;
-                    const remaining = totalTurrets - target.disabledTurrets;
-                    const pct = Math.round((remaining / totalTurrets) * 100);
-                    disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **turret** has been knocked out! (${remaining}/${totalTurrets} operational — damage reduced to ${pct}%)`;
-                }
-            }
-        }
 
         if (Math.random() < penetrationChance) {
             finalDamage = baseDamage;
             penetrated = true;
-            
+
             if (ammoType === 'he' && Math.random() < 0.3) {
                 target.onFire = true;
                 target.fireTimer = 10;
+            }
+
+            if (isCritical && target.currentHealth > 0) {
+                const roll = Math.random() * 100;
+                if (roll > 50 && roll <= 75) {
+                    target.rudderDamaged = true;
+                    target.rudderRepairTimer = 3;
+                    disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **rudder** has been damaged — can only move forward or backward!`;
+                } else if (roll > 75 && roll <= 90) {
+                    target.enginesDamaged = true;
+                    target.enginesRepairTimer = 3;
+                    disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **engines** have been disabled — cannot move!`;
+                } else if (roll > 90) {
+                    const totalTurrets = this.getMainTurretCount(target);
+                    if (totalTurrets > 0 && (target.disabledTurrets ?? 0) < totalTurrets) {
+                        target.disabledTurrets = (target.disabledTurrets ?? 0) + 1;
+                        target.turretRepairTimer = 3;
+                        const remaining = totalTurrets - target.disabledTurrets;
+                        const pct = Math.round((remaining / totalTurrets) * 100);
+                        disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **turret** has been knocked out! (${remaining}/${totalTurrets} operational — damage reduced to ${pct}%)`;
+                    }
+                }
             }
         } else {
             finalDamage = Math.random() < 0.7 ? 0 : Math.floor(baseDamage * 0.1);
