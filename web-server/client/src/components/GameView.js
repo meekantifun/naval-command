@@ -4,6 +4,16 @@ import io from 'socket.io-client';
 import GameMap from './GameMap';
 import './GameView.css';
 
+const SUBMARINE_SURFACE_SPEED = 7;
+function getEffectiveSpeed(ship) {
+  const isSubmarine = ship.shipClass?.toLowerCase().includes('submarine') || ship.type === 'submarine';
+  if (!isSubmarine) return ship.stats?.speed || 3;
+  const base = ship.stats?.speed ?? 3;
+  const depth = ship.depth || 'surface';
+  if (depth === 'surface') return SUBMARINE_SURFACE_SPEED + base;
+  return Math.max(1, Math.floor(base * 0.5));
+}
+
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(e) { return { error: e }; }
@@ -387,10 +397,16 @@ function GameView({ channelId, user, onBack, onLogout }) {
       if (!pp.onFire   && p.onFire)   addE(`🔥 ${name} caught fire!`,         'status');
       if (!pp.flooding && p.flooding) addE(`💧 ${name} started flooding!`,     'status');
       if (!pp.bleeding && p.bleeding) addE(`🩸 ${name} is bleeding!`,           'status');
+      if (!pp.rudderDamaged  && p.rudderDamaged)  addE(`⚙️ ${name}'s rudder has been damaged!`,   'status');
+      if (!pp.enginesDamaged && p.enginesDamaged) addE(`⚙️ ${name}'s engines have been disabled!`, 'status');
+      if (!(pp.disabledTurrets > 0) && p.disabledTurrets > 0) addE(`💥 ${name}'s turret has been knocked out!`, 'status');
 
       // Status cleared
       if (pp.onFire   && !p.onFire   && !p.sunk) addE(`🔧 ${name}'s fire was extinguished`,    'status-clear');
       if (pp.flooding && !p.flooding && !p.sunk) addE(`🔧 ${name} stopped flooding`,            'status-clear');
+      if (pp.rudderDamaged  && !p.rudderDamaged  && !p.sunk) addE(`🔧 ${name}'s rudder has been repaired`,   'status-clear');
+      if (pp.enginesDamaged && !p.enginesDamaged && !p.sunk) addE(`🔧 ${name}'s engines have been repaired`, 'status-clear');
+      if ((pp.disabledTurrets > 0) && !(p.disabledTurrets > 0) && !p.sunk) addE(`🔧 ${name}'s turrets have been repaired`, 'status-clear');
     }
 
     // Enemy events
@@ -453,7 +469,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (gameState?.phase !== 'battle') return [];
     if (!selectedPlayer || selectedPlayer.sunk || selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions) return [];
     if (selectedPlayer.x == null || selectedPlayer.y == null) return [];
-    const speed = selectedPlayer.stats?.speed || 3;
+    const speed = getEffectiveSpeed(selectedPlayer);
     const result = [];
     for (let dx = -speed; dx <= speed; dx++) {
       for (let dy = -speed; dy <= speed; dy++) {
@@ -485,11 +501,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
     }).map(e => ({ x: e.x, y: e.y }));
   }, [selectedPlayer, gameState]);
 
-  const AIRCRAFT_MOVE_RANGES = { fighter: 10, dive_bomber: 8, torpedo_bomber: 5 };
+  const AIRCRAFT_MOVE_RANGES = { fighter: 20, dive_bomber: 18, torpedo_bomber: 15 };
 
   const aircraftMoveHighlights = useMemo(() => {
     if (!selectedAircraft || (selectedAircraft.actionPoints ?? 0) <= 0) return [];
-    const range = AIRCRAFT_MOVE_RANGES[selectedAircraft.type] || 8;
+    const range = AIRCRAFT_MOVE_RANGES[selectedAircraft.type] || 15;
     const result = [];
     for (let dx = -range; dx <= range; dx++) {
       for (let dy = -range; dy <= range; dy++) {
@@ -497,7 +513,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
         if (Math.sqrt(dx * dx + dy * dy) > range) continue;
         const nx = selectedAircraft.x + dx;
         const ny = selectedAircraft.y + dy;
-        if (nx < 0 || ny < 0 || nx >= 75 || ny >= 75) continue;
+        if (nx < 0 || ny < 0 || nx >= 100 || ny >= 100) continue;
         result.push({ x: nx, y: ny });
       }
     }
@@ -1025,7 +1041,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const enemies = (gameState.enemies || []).filter(e => (e.visible || isGM) && e.x === x && e.y === y);
     const isLand = landSet.has(`${x},${y}`);
     const isSpawnCell = spawnSet.has(`${x},${y}`);
-    const moveSpeed = selectedPlayer?.stats?.speed || 3;
+    const moveSpeed = selectedPlayer ? getEffectiveSpeed(selectedPlayer) : 3;
     const inMoveRange = selectedPlayer && selectedPlayer.x != null && selectedPlayer.y != null
       ? Math.sqrt((x - selectedPlayer.x) ** 2 + (y - selectedPlayer.y) ** 2) <= moveSpeed
       : true;
@@ -1040,7 +1056,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     const otherAircraftHere = allAircraftHere.filter(ac => ac.carrierID !== user.id);
     const inAircraftRange = selectedAircraft &&
       (x !== selectedAircraft.x || y !== selectedAircraft.y) &&
-      Math.sqrt((x - selectedAircraft.x) ** 2 + (y - selectedAircraft.y) ** 2) <= (AIRCRAFT_MOVE_RANGES[selectedAircraft.type] || 8);
+      Math.sqrt((x - selectedAircraft.x) ** 2 + (y - selectedAircraft.y) ** 2) <= (AIRCRAFT_MOVE_RANGES[selectedAircraft.type] || 15);
 
     // Determine terrain/infrastructure label
     const TERRAIN_LABELS = { island: '🏝️ Island', reef: '🪸 Reef', spawn: '⚓ Spawn Zone', city: '🏙️ City', town: '🏘️ Town', minefield: '💣 Minefield' };
@@ -1156,6 +1172,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   {p.onFire && <span className="unit-status">🔥</span>}
                   {p.flooding && <span className="unit-status">💧</span>}
                   {p.bleeding && <span className="unit-status">🩸</span>}
+                  {p.rudderDamaged && <span className="unit-status" title="Rudder Damaged">⚙️</span>}
+                  {p.enginesDamaged && <span className="unit-status" title="Engines Out">⚙️</span>}
+                  {(p.disabledTurrets ?? 0) > 0 && <span className="unit-status" title={`Turret Damaged (${p.disabledTurrets} out)`}>💥</span>}
                 </div>
               );
             })}
@@ -1428,9 +1447,12 @@ function GameView({ channelId, user, onBack, onLogout }) {
                         />
                         <span className="scs-name">{player.characterAlias || player.shipClass}</span>
                         <span className="scs-status">
-                          {player.onFire   && '🔥'}
-                          {player.flooding && '💧'}
-                          {player.bleeding && '🩸'}
+                          {player.onFire        && '🔥'}
+                          {player.flooding      && '💧'}
+                          {player.bleeding      && '🩸'}
+                          {player.rudderDamaged && '⚙️'}
+                          {player.enginesDamaged && '⚙️'}
+                          {(player.disabledTurrets ?? 0) > 0 && '💥'}
                         </span>
                       </div>
                       <div className="scs-hp-bar">
@@ -1504,7 +1526,8 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       className="btn btn-warning"
                       disabled={
                         (selectedPlayer.damageControlCooldown ?? 0) > 0 ||
-                        (!selectedPlayer.onFire && !selectedPlayer.flooding && !selectedPlayer.bleeding) ||
+                        (!selectedPlayer.onFire && !selectedPlayer.flooding && !selectedPlayer.bleeding &&
+                         !selectedPlayer.rudderDamaged && !selectedPlayer.enginesDamaged && !(selectedPlayer.disabledTurrets > 0)) ||
                         selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions
                       }
                       onClick={handleDamageControl}
