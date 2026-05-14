@@ -8704,12 +8704,24 @@ class NavalWarfareBot {
                     disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **engines** have been disabled — cannot move!`;
                 } else if (roll > 90) {
                     const totalTurrets = this.getMainTurretCount(target);
-                    if (totalTurrets > 0 && (target.disabledTurrets ?? 0) < totalTurrets) {
-                        target.disabledTurrets = (target.disabledTurrets ?? 0) + 1;
-                        target.turretRepairTimer = 3;
-                        const remaining = totalTurrets - target.disabledTurrets;
-                        const pct = Math.round((remaining / totalTurrets) * 100);
-                        disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **turret** has been knocked out! (${remaining}/${totalTurrets} operational — damage reduced to ${pct}%)`;
+                    const totalOut = (target.disabledTurrets ?? 0) + (target.ammoRackTurrets ?? 0);
+                    if (totalTurrets > 0 && totalOut < totalTurrets) {
+                        if (Math.random() < 0.05) {
+                            target.ammoRackTurrets = (target.ammoRackTurrets ?? 0) + 1;
+                            target.onFire = true;
+                            target.fireTimer = 10;
+                            target.flooding = true;
+                            target.floodTimer = 10;
+                            finalDamage = Math.round(target.maxHealth * 0.25);
+                            const remaining = totalTurrets - (target.disabledTurrets ?? 0) - target.ammoRackTurrets;
+                            disableMessage = `\n💥 **AMMO RACK DETONATION!** ${targetName}'s **turret** has been catastrophically destroyed! (${remaining}/${totalTurrets} operational — requires AX to repair)`;
+                        } else {
+                            target.disabledTurrets = (target.disabledTurrets ?? 0) + 1;
+                            target.turretRepairTimer = 3;
+                            const remaining = totalTurrets - target.disabledTurrets;
+                            const pct = Math.round((remaining / totalTurrets) * 100);
+                            disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **turret** has been knocked out! (${remaining}/${totalTurrets} operational — damage reduced to ${pct}%)`;
+                        }
                     }
                 }
             }
