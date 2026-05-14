@@ -3768,19 +3768,19 @@ class NavalWarfareBot {
             const defaultOptions = [
                 {
                     label: 'Fighter Squadron',
-                    description: 'Air superiority fighters - Range: 10, Anti-aircraft specialist',
+                    description: 'Air superiority fighters - Range: 20, Anti-aircraft specialist',
                     value: 'fighters',
                     emoji: '✈️'
                 },
                 {
                     label: 'Dive Bomber Squadron',
-                    description: 'Dive bombers - Range: 8, Precision strikes on ships',
+                    description: 'Dive bombers - Range: 18, Precision strikes on ships',
                     value: 'dive_bombers',
                     emoji: '💣'
                 },
                 {
                     label: 'Torpedo Bomber Squadron',
-                    description: 'Torpedo bombers - Range: 6, Heavy damage vs ships',
+                    description: 'Torpedo bombers - Range: 15, Heavy damage vs ships',
                     value: 'torpedo_bombers',
                     emoji: '🚀'
                 }
@@ -3944,7 +3944,7 @@ class NavalWarfareBot {
                     name: `${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Squadron ${index + 1}`,
                     count: squadronSize,
                     maxCount: squadronSize,
-                    range: selectedType.includes('fighter') ? 10 : selectedType.includes('torpedo') ? 7 : 8,
+                    range: selectedType.includes('fighter') ? 20 : selectedType.includes('torpedo') ? 15 : 18,
                     damage: selectedType.includes('torpedo') ? 120 : selectedType.includes('bomber') ? 80 : 45,
                     quality: 'Standard',
                     specialAbility: selectedType.includes('fighter') ? 'fighter' : selectedType.includes('torpedo') ? 'torpedo' : 'bomb',
@@ -4082,7 +4082,7 @@ class NavalWarfareBot {
                         // If it's just a string, create a proper aircraft object
                         aircraftInfo = {
                             name: value,
-                            range: 10, // Default range
+                            range: 15, // Default range
                             damage: 50, // Default damage
                             quality: 'Standard',
                             specialAbility: 'None'
@@ -4091,7 +4091,7 @@ class NavalWarfareBot {
                         // If invalid data, create default
                         aircraftInfo = {
                             name: `${key.charAt(0).toUpperCase() + key.slice(1)} Aircraft`,
-                            range: 10,
+                            range: 15,
                             damage: 50,
                             quality: 'Standard',
                             specialAbility: 'None'
@@ -5896,7 +5896,7 @@ class NavalWarfareBot {
                 guildId: game.guildId,
                 phase: 'ended',
                 currentTurn: game.turnNumber || game.currentTurn,
-                mapSize: 75,
+                mapSize: 100,
                 weather: game.weather,
                 players: Array.from(game.players.values()).map(p => ({
                     userId: p.userId || p.id,
@@ -6882,8 +6882,8 @@ class NavalWarfareBot {
         if (!aiNums) return ai.position;
         const angle = Math.random() * Math.PI * 2;
         const dist  = 8 + Math.floor(Math.random() * 10); // 8-17 cells
-        const tx = Math.max(0, Math.min(74, Math.round(aiNums.x + Math.cos(angle) * dist)));
-        const ty = Math.max(1, Math.min(75, Math.round(aiNums.y + Math.sin(angle) * dist)));
+        const tx = Math.max(0, Math.min(99, Math.round(aiNums.x + Math.cos(angle) * dist)));
+        const ty = Math.max(1, Math.min(100, Math.round(aiNums.y + Math.sin(angle) * dist)));
         return game.generateExtendedCoordinate(tx, ty);
     }
 
@@ -6925,7 +6925,7 @@ class NavalWarfareBot {
             for (let dy = -searchRadius; dy <= searchRadius; dy++) {
                 const cx = aiNums.x + dx;
                 const cy = aiNums.y + dy;
-                if (cx < 0 || cx >= 75 || cy < 1 || cy > 75) continue;
+                if (cx < 0 || cx >= 100 || cy < 1 || cy > 100) continue;
 
                 const cellCoord = game.generateExtendedCoordinate(cx, cy);
                 const cell = game.getMapCell(cellCoord);
@@ -6939,7 +6939,7 @@ class NavalWarfareBot {
                 const adjacentToIsland = [
                     [cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]
                 ].some(([nx, ny]) => {
-                    if (nx < 0 || nx >= 75 || ny < 1 || ny > 75) return false;
+                    if (nx < 0 || nx >= 100 || ny < 1 || ny > 100) return false;
                     const nc = game.getMapCell(game.generateExtendedCoordinate(nx, ny));
                     return nc && nc.type === 'island';
                 });
@@ -7822,7 +7822,7 @@ class NavalWarfareBot {
                 const newX = currentPos.x + dx;
                 const newY = currentPos.y + dy;
 
-                if (newX < 0 || newX >= 75 || newY < 1 || newY > 75) continue;
+                if (newX < 0 || newX >= 100 || newY < 1 || newY > 100) continue;
 
                 const coordinate = game.generateExtendedCoordinate(newX, newY);
 
@@ -7841,14 +7841,36 @@ class NavalWarfareBot {
 
     isValidMovementDestination(player, game, destination) {
         const cell = game.getMapCell(destination);
-        
+
         if (cell.type === 'island') return false;
         if (cell.type === 'reef' && this.hasReefRestrictions(player)) return false;
-        
+
+        if (diveSystem.isSubmarine(player) && player.depth !== 'surface' && player.position) {
+            if (this.hasReefAlongPath(game, player.position, destination)) return false;
+        }
+
         const occupant = GameUtils.getEntityAtPosition(game, destination);
         if (occupant && occupant.type !== 'mine') return false;
-        
+
         return true;
+    }
+
+    hasReefAlongPath(game, fromCoord, toCoord) {
+        const from = this.coordToNumbers(fromCoord);
+        const to = this.coordToNumbers(toCoord);
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const steps = Math.max(Math.abs(dx), Math.abs(dy));
+        if (steps === 0) return false;
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const x = Math.round(from.x + dx * t);
+            const y = Math.round(from.y + dy * t);
+            const coord = game.generateExtendedCoordinate(x, y);
+            const cell = game.getMapCell(coord);
+            if (cell?.type === 'reef') return true;
+        }
+        return false;
     }
 
     hasReefRestrictions(player) {
@@ -8134,6 +8156,25 @@ class NavalWarfareBot {
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║                                 COMBAT SYSTEM                                ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
+
+    getMainTurretCount(ship) {
+        const weaponsArr = Array.isArray(ship.weapons)
+            ? ship.weapons
+            : Object.values(ship.weapons || {});
+        const mainWeapon = weaponsArr.find(w => w.type === 'main');
+        if (!mainWeapon || !mainWeapon.mountGroups) return 0;
+        return mainWeapon.mountGroups.reduce((sum, g) => sum + (g.count || 0), 0);
+    }
+
+    isAlongFacing(player, dx, dy) {
+        if (dx === 0 && dy === 0) return false;
+        if (player.direction == null) return true;
+        const rounded = (Math.round(player.direction / 45) * 45) % 360;
+        const idx = rounded / 45;
+        const ux = [1, 1, 0, -1, -1, -1, 0, 1][idx];
+        const uy = [0, 1, 1, 1, 0, -1, -1, -1][idx];
+        return (dx * uy - dy * ux) === 0;
+    }
 
     async handleShoot(interaction, player, game) {
        if (player.actionPoints < 1) return interaction.reply({ content: 'Not enough Action Points!', flags: MessageFlags.Ephemeral });
@@ -8823,6 +8864,8 @@ class NavalWarfareBot {
         if (!player || !player.alive) return interaction.reply({ content: 'You are not in this battle.', flags: MessageFlags.Ephemeral });
         if (!diveSystem.isSubmarine(player)) return interaction.reply({ content: 'Only submarines can dive.', flags: MessageFlags.Ephemeral });
         if (player.actionPoints <= 0) return interaction.reply({ content: 'No action points remaining.', flags: MessageFlags.Ephemeral });
+        const diveCell = game.getMapCell(player.position);
+        if (diveCell?.type === 'reef') return interaction.reply({ content: '❌ Cannot dive while on a reef square.', flags: MessageFlags.Ephemeral });
 
         const result = diveSystem.descend(player);
         if (!result.success) return interaction.reply({ content: `❌ ${result.message}`, flags: MessageFlags.Ephemeral });
@@ -10559,7 +10602,7 @@ class NavalWarfareBot {
                 [...(game.aircraft?.values() || [])].filter(ac => ac.alive).map(ac => ac.position)
             );
             const candidates = [];
-            const mapSize = 75;
+            const mapSize = 100;
             for (let dx = -1; dx <= 1; dx++) {
                 for (let dy = -1; dy <= 1; dy++) {
                     if (dx === 0 && dy === 0) continue;
@@ -10681,7 +10724,7 @@ class NavalWarfareBot {
 
     async processAIAircraftTurn(aircraft, game, channel) {
         // Get movement range for this aircraft type
-        const moveRange = aircraft.stats?.range || 8;
+        const moveRange = aircraft.stats?.range || 15;
         let target = null;
         
         
@@ -10832,8 +10875,8 @@ class NavalWarfareBot {
             // Random patrol movement
             const currentPos = game.coordToNumbers(aircraft.position);
             const randomAngle = Math.random() * 2 * Math.PI;
-            const moveDistance = aircraft.stats?.range || 10;
-            
+            const moveDistance = aircraft.stats?.range || 15;
+
             const newX = Math.max(0, Math.min(99,
                 currentPos.x + Math.round(Math.cos(randomAngle) * moveDistance)
             ));
@@ -10925,7 +10968,7 @@ class NavalWarfareBot {
         if (distance <= 1) return; // Already close enough
         
         // Use provided moveRange or fall back to aircraft stats
-        const maxMove = moveRange || aircraft.stats?.range || 8;
+        const maxMove = moveRange || aircraft.stats?.range || 15;
         const moveDistance = Math.min(maxMove, distance);
         const moveRatio = moveDistance / distance;
         
@@ -11682,7 +11725,7 @@ class NavalWarfareBot {
 
             // Calculate distance
             const distance = game.calculateDistance(aircraft.position, targetPosition);
-            const maxRange = aircraft.stats?.range || 10;
+            const maxRange = aircraft.stats?.range || 15;
             
             if (distance > maxRange) {
                 return interaction.reply({ 
@@ -11800,7 +11843,7 @@ class NavalWarfareBot {
             const canLand = distanceToCarrier <= 2;
             return `**${aircraft.name}:**\n` +
                    `• Position: ${aircraft.position}\n` +
-                   `• Range: ${aircraft.stats?.range || 10} cells\n` +
+                   `• Range: ${aircraft.stats?.range || 15} cells\n` +
                    `• Distance to carrier: ${distanceToCarrier.toFixed(1)} cells\n` +
                    `• ${canLand ? '✅ Can land' : '❌ Too far to land'}`;
         }).join('\n\n');
@@ -11940,7 +11983,7 @@ class NavalWarfareBot {
         const embed = new EmbedBuilder()
             .setTitle(`✈️ Move ${aircraft.name}`)
             .setDescription(`**Current Position:** ${aircraft.position}\n` +
-                           `**Movement Range:** ${aircraft.stats?.range || 10} cells\n` +
+                           `**Movement Range:** ${aircraft.stats?.range || 15} cells\n` +
                            `**Distance to Carrier:** ${distanceToCarrier.toFixed(1)} cells\n` +
                            `**Can Land:** ${canLand ? '✅ Yes (use button below)' : '❌ No (too far)'}\n` +
                            `**Ammo:** ${aircraft.ammo}/${aircraft.maxAmmo}\n\n` +
@@ -12103,7 +12146,7 @@ class NavalWarfareBot {
         const embed = new EmbedBuilder()
             .setTitle(`✈️ Move ${aircraft.name}`)
             .setDescription(`**Current Position:** ${aircraft.position}\n` +
-                           `**Movement Range:** ${aircraft.stats?.range || 10} cells\n` +
+                           `**Movement Range:** ${aircraft.stats?.range || 15} cells\n` +
                            `**Distance to Carrier:** ${distanceToCarrier.toFixed(1)} cells\n` +
                            `${canLand ? '✅ **Can land on carrier**' : '❌ **Too far from carrier to land**'}\n\n` +
                            `Click a coordinate to move there:`)
@@ -12364,7 +12407,7 @@ class NavalWarfareBot {
                 const newX = currentPos.x + dx;
                 const newY = currentPos.y + dy;
                 
-                if (newX < 0 || newX >= 75 || newY < 1 || newY > 75) continue;
+                if (newX < 0 || newX >= 100 || newY < 1 || newY > 100) continue;
                 
                 const coordinate = game.generateExtendedCoordinate(newX, newY);
                 
@@ -12394,7 +12437,7 @@ class NavalWarfareBot {
         
         // Adjust these bounds based on your actual map size
         const maxCol = 526; // Adjust based on your max column (AA = 26, AAA = 702, etc.)
-        const maxRow = 75; // Adjust based on your max row
+        const maxRow = 100; // Adjust based on your max row
         
         return coords.x >= 0 && coords.x <= maxCol && coords.y >= 1 && coords.y <= maxRow;
     }
@@ -12479,7 +12522,7 @@ class NavalWarfareBot {
     }
 
     async spawnCivilianEntities(game, channel) {
-        const mapSize = 75;
+        const mapSize = 100;
 
         // Spawn civilian boats (3% chance per turn)
         if (Math.random() < 0.03 && game.civilianBoats.size < 5) {
@@ -12635,7 +12678,7 @@ class NavalWarfareBot {
                 }
 
                 // Ensure we stay in bounds
-                if (newX >= 0 && newX < 75 && newY >= 1 && newY <= 75) {
+                if (newX >= 0 && newX < 100 && newY >= 1 && newY <= 100) {
                     boat.position = game.coordinateToString(newX, newY);
                 }
             }
@@ -12677,7 +12720,7 @@ class NavalWarfareBot {
                 }
 
                 // Ensure we stay in bounds
-                if (newX >= 0 && newX < 75 && newY >= 1 && newY <= 75) {
+                if (newX >= 0 && newX < 100 && newY >= 1 && newY <= 100) {
                     aircraft.position = game.coordinateToString(newX, newY);
                 }
             }
@@ -12750,7 +12793,7 @@ class NavalWarfareBot {
         // Search in a 10-cell radius for infrastructure
         for (let x = currentCoords.x - 10; x <= currentCoords.x + 10; x++) {
             for (let y = currentCoords.y - 10; y <= currentCoords.y + 10; y++) {
-                if (x >= 0 && x < 75 && y >= 1 && y <= 75) {
+                if (x >= 0 && x < 100 && y >= 1 && y <= 100) {
                     const coord = game.coordinateToString(x, y);
                     const cell = game.getMapCell(coord);
 
@@ -12845,7 +12888,7 @@ class NavalWarfareBot {
         const path = require('path');
         const puppeteer = require('puppeteer');
 
-        const mapSize = 75;
+        const mapSize = 100;
         const cellSize = 40; // Increased from 20 to 40 for better detail
         const gridWidth = mapSize * cellSize;
         const gridHeight = mapSize * cellSize;
@@ -18623,9 +18666,14 @@ class NavalWarfareBot {
                 return interaction.update({ content: '❌ You are not in this game!', embeds: [], components: [] });
             }
 
-            const enemies = Array.from(game.enemies.values()).filter(e => e.alive);
+            const AIR_SUPPORT_RANGE = 15;
+            const enemies = Array.from(game.enemies.values()).filter(e => {
+                if (!e.alive) return false;
+                const dist = game.calculateDistance(player.position, e.position);
+                return dist <= AIR_SUPPORT_RANGE;
+            });
             if (enemies.length === 0) {
-                return interaction.update({ content: '❌ No enemies to target!', embeds: [], components: [] });
+                return interaction.update({ content: `❌ No enemies within range (${AIR_SUPPORT_RANGE} tiles)!`, embeds: [], components: [] });
             }
 
             const buttons = [];
@@ -18654,7 +18702,7 @@ class NavalWarfareBot {
                 embeds: [
                     new EmbedBuilder()
                         .setTitle('✈️ Air Support — Select Target')
-                        .setDescription('Choose an enemy for the B-17 bombers to target.\nThe bombers will arrive in **1–5 turns**.')
+                        .setDescription('Choose an enemy for the B-17 bombers to target.\nThe bombers will arrive in **1–5 turns**.\n**Range:** 15 tiles from your position.')
                         .setColor(0xFF8800)
                 ],
                 components: rows
@@ -18678,6 +18726,11 @@ class NavalWarfareBot {
             const target = game.enemies.get(targetId);
             if (!target || !target.alive) {
                 return interaction.update({ content: '❌ Target not found or already destroyed!', embeds: [], components: [] });
+            }
+
+            const airSuppDist = game.calculateDistance(player.position, target.position);
+            if (airSuppDist > 15) {
+                return interaction.update({ content: `❌ Target is out of range! (${airSuppDist.toFixed(1)} / 15 tiles)`, embeds: [], components: [] });
             }
 
             // Consume item
@@ -18787,7 +18840,7 @@ class NavalWarfareBot {
         if (!game.activeB17s) game.activeB17s = [];
         if (game.pendingAirSupport.length === 0 && game.activeB17s.length === 0) return [];
 
-        const MAP_SIZE = 75;
+        const MAP_SIZE = 100;
         const B17_SPEED = 18;
         const spawnSide = game.spawnSide || 'bottom';
 
@@ -21103,7 +21156,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 let infrastructure = game.infrastructureData || null;
                 if (!infrastructure && game.map) {
                     infrastructure = [];
-                    const infraMapSize = 75;
+                    const infraMapSize = 100;
                     const islandGroupsFallback = this.identifyIslandGroups(game, infraMapSize);
                     for (const islandGroup of islandGroupsFallback) {
                         if (islandGroup.length < 3) continue;
@@ -21217,7 +21270,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 res.json({
                     channelId,
                     guildId: game.guildId,
-                    mapSize: 75,
+                    mapSize: 100,
                     currentTurn: game.turnNumber || game.currentTurn,
                     phase: game.phase,
                     weather: game.weather,
@@ -21347,7 +21400,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 // Check movement range (Euclidean distance — circular radius)
                 if (player.x != null && player.y != null) {
                     const dist = Math.sqrt((x - player.x) ** 2 + (y - player.y) ** 2);
-                    const maxSpeed = player.stats?.speed || 3;
+                    const maxSpeed = diveSystem.isSubmarine(player)
+                        ? diveSystem.getEffectiveSpeed(player)
+                        : (player.stats?.speed || 3);
                     if (dist > maxSpeed) {
                         return res.status(400).json({ error: `Too far! Max movement: ${maxSpeed}, Distance: ${dist.toFixed(1)}` });
                     }
@@ -21360,6 +21415,16 @@ Use \`/stats\` during a battle to view your current ship statistics!
 
                 if (isLand) {
                     return res.status(400).json({ error: 'Cannot move onto land' });
+                }
+
+                // Submerged submarines cannot land on or path through reef squares
+                if (diveSystem.isSubmarine(player) && player.depth !== 'surface') {
+                    if (destCell?.type === 'reef') {
+                        return res.status(400).json({ error: 'Submerged submarines cannot move onto reef squares.' });
+                    }
+                    if (player.position && this.hasReefAlongPath(game, player.position, destCoord)) {
+                        return res.status(400).json({ error: 'Submerged submarines cannot move through reef squares.' });
+                    }
                 }
 
                 // Track distance travelled before updating position
@@ -21892,7 +21957,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                         [...(game.aircraft?.values() || [])].filter(ac => ac.alive).map(ac => ac.position)
                     );
                     const candidates = [];
-                    const mapSize = 75;
+                    const mapSize = 100;
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             if (dx === 0 && dy === 0) continue;
@@ -21972,7 +22037,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (aircraft.mission === 'returning') return res.status(400).json({ error: 'Squadron is returning to carrier and cannot be redirected' });
                 if ((aircraft.actionPoints ?? 0) <= 0) return res.status(400).json({ error: 'No action points remaining' });
 
-                const RANGES = { fighter: 10, dive_bomber: 8, torpedo_bomber: 5 };
+                const RANGES = { fighter: 20, dive_bomber: 18, torpedo_bomber: 15 };
                 const range = RANGES[aircraft.type] || 8;
                 let currentX = null, currentY = null;
                 try {
@@ -22068,7 +22133,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 }
 
                 // Check attack range
-                const RANGES = { fighter: 10, dive_bomber: 8, torpedo_bomber: 5 };
+                const RANGES = { fighter: 20, dive_bomber: 18, torpedo_bomber: 15 };
                 const range = RANGES[aircraft.type] || 8;
                 let ax = null, ay = null;
                 try {
@@ -22266,6 +22331,9 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const target = game.enemies.get(targetId);
                 if (!target || !target.alive) return res.status(400).json({ error: 'Target not found or already sunk' });
 
+                const airSuppDist = game.calculateDistance(player.position, target.position);
+                if (airSuppDist > 15) return res.status(400).json({ error: `Target out of range (${airSuppDist.toFixed(1)} / 15 tiles)` });
+
                 const invWeb = this.getPlayerInventory(game.guildId, userId);
                 if (count - 1 <= 0) invWeb.delete('air_support_marker');
                 else invWeb.set('air_support_marker', count - 1);
@@ -22316,6 +22384,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!player.alive) return res.status(400).json({ error: 'Ship has been sunk' });
                 if (!diveSystem.isSubmarine(player)) return res.status(400).json({ error: 'Only submarines can dive' });
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+                const diveCell = game.getMapCell(player.position);
+                if (diveCell?.type === 'reef') return res.status(400).json({ error: 'Cannot dive while on a reef square.' });
                 const result = diveSystem.descend(player);
                 if (!result.success) return res.status(400).json({ error: result.message });
                 this.consumeAction(player);
@@ -22658,7 +22728,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     guildId: game.guildId,
                     phase: 'ended',
                     currentTurn: game.turnNumber || game.currentTurn,
-                    mapSize: 75,
+                    mapSize: 100,
                     weather: game.weather,
                     players: Array.from(game.players.values()).map(p => ({
                         userId: p.userId || p.id,
@@ -24460,8 +24530,8 @@ class NavalBattle {
         const map = new Map();
 
         // Initialize FULL 100x100 grid with ocean
-        for (let x = 0; x < 75; x++) {
-            for (let y = 1; y <= 75; y++) {
+        for (let x = 0; x < 100; x++) {
+            for (let y = 1; y <= 100; y++) {
                 const coord = GameUtils.generateExtendedCoordinate(x, y);
                 map.set(coord, { type: 'ocean', occupant: null });
             }
@@ -24510,8 +24580,8 @@ class NavalBattle {
     generateCustomMap(customMapData) {
         const map = new Map();
 
-        const mapWidth  = customMapData.size?.width  ?? 75;
-        const mapHeight = customMapData.size?.height ?? 75;
+        const mapWidth  = customMapData.size?.width  ?? 100;
+        const mapHeight = customMapData.size?.height ?? 100;
 
         // Initialize with ocean cells
         for (let x = 0; x < mapWidth; x++) {
@@ -24644,7 +24714,7 @@ class NavalBattle {
                     const edgeVariation = (Math.random() - 0.5) * 0.8;
                     const actualRadius = blobRadius + edgeVariation;
                     
-                    if (distance <= actualRadius && x >= 0 && x < 75 && y >= 1 && y <= 75) {
+                    if (distance <= actualRadius && x >= 0 && x < 100 && y >= 1 && y <= 100) {
                         const coord = GameUtils.generateExtendedCoordinate(x, y);
                         if (map.has(coord)) {
                             map.set(coord, { type: 'island', occupant: null });
@@ -24763,7 +24833,7 @@ class NavalBattle {
     getSpawnCoordinatesForSide(side, width, height) {
         const coords = [];
         let startX, startY, maxX, maxY;
-        const mapSize = 75; // Assuming 75x75 map
+        const mapSize = 100;
 
         switch (side) {
             case 'left':
@@ -24827,7 +24897,7 @@ class NavalBattle {
                             const checkX = x + dx;
                             const checkY = y + dy;
                             
-                            if (checkX >= 0 && checkX < 75 && checkY >= 1 && checkY <= 75) {
+                            if (checkX >= 0 && checkX < 100 && checkY >= 1 && checkY <= 100) {
                                 const checkCoord = GameUtils.generateExtendedCoordinate(checkX, checkY);
                                 const checkCell = map.get(checkCoord);
                                 
@@ -24865,7 +24935,7 @@ class NavalBattle {
                         const reefX = coords.x + dx;
                         const reefY = coords.y + dy;
                         
-                        if (reefX >= 0 && reefX < 75 && reefY >= 1 && reefY <= 75) {
+                        if (reefX >= 0 && reefX < 100 && reefY >= 1 && reefY <= 100) {
                             const reefCoord = GameUtils.generateExtendedCoordinate(reefX, reefY);
                             const reefCell = map.get(reefCoord);
                             
@@ -24893,7 +24963,7 @@ class NavalBattle {
                         const x = centerX + dx;
                         const y = centerY + dy;
                         
-                        if (x >= 0 && x < 75 && y >= 1 && y <= 75) {
+                        if (x >= 0 && x < 100 && y >= 1 && y <= 100) {
                             const coord = GameUtils.generateExtendedCoordinate(x, y);
                             const cell = map.get(coord);
                             
@@ -24930,7 +25000,7 @@ class NavalBattle {
                     const checkX = centerX + dx;
                     const checkY = centerY + dy;
 
-                    if (checkX >= 0 && checkX < 75 && checkY >= 1 && checkY <= 75) {
+                    if (checkX >= 0 && checkX < 100 && checkY >= 1 && checkY <= 100) {
                         const coord = GameUtils.generateExtendedCoordinate(checkX, checkY);
                         const cell = map.get(coord);
 
@@ -24966,7 +25036,7 @@ class NavalBattle {
             const mineY = Math.round(centerY + Math.sin(angle) * distance);
 
             // Check if location is valid and not already used
-            if (mineX >= 0 && mineX < 75 && mineY >= 1 && mineY <= 75) {
+            if (mineX >= 0 && mineX < 100 && mineY >= 1 && mineY <= 100) {
                 const coord = GameUtils.generateExtendedCoordinate(mineX, mineY);
                 const cell = map.get(coord);
 
@@ -25044,8 +25114,8 @@ class NavalBattle {
         // Fallback: try anywhere on the map that's not an island or spawn zone
         attempts = 0;
         while (attempts < 200) {
-            const x = Math.floor(Math.random() * 75);
-            const y = Math.floor(Math.random() * 75) + 1;
+            const x = Math.floor(Math.random() * 100);
+            const y = Math.floor(Math.random() * 100) + 1;
             const coord = GameUtils.generateExtendedCoordinate(x, y);
             const cell = this.map.get(coord);
 
@@ -25150,7 +25220,7 @@ class NavalBattle {
             const newY = from.y + (dir.dy * speed);
             
             // Check bounds
-            if (newX < 0 || newX >= 75 || newY < 1 || newY > 75) continue;
+            if (newX < 0 || newX >= 100 || newY < 1 || newY > 100) continue;
             
             // Check if position is valid (not island, not occupied)
             const testCoord = GameUtils.generateExtendedCoordinate(newX, newY);
