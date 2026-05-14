@@ -668,7 +668,11 @@ class NavalWarfareBot {
                     }
                 }
             } catch (err) {
-                console.error(`Welcome: unexpected error for ${member.user.tag}:`, err);
+                if (err.code === 50013) {
+                    console.error(`Welcome: bot is missing Send Messages / Attach Files permission in #${channel?.name} (${welcome.channelId}) in "${member.guild.name}"`);
+                } else {
+                    console.error(`Welcome: unexpected error for ${member.user.tag}:`, err);
+                }
             }
         });
 
