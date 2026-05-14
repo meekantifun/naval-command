@@ -189,12 +189,14 @@ const requireAdmin = async (req, res, next) => {
     const response = await botAPI.get('/api/admin/check-permission', {
       params: { userId: req.user.id, guildId }
     });
-    if (!response.data.isAdmin) {
+    if (!response.data.hasPermission) {
       return res.status(403).json({ error: 'Administrator permission required' });
     }
     next();
-  } catch {
-    res.status(403).json({ error: 'Could not verify permissions' });
+  } catch (err) {
+    const botError = err.response?.data?.error || 'Could not verify permissions';
+    console.error(`requireAdmin failed for guild ${guildId}:`, err.response?.status, botError);
+    res.status(403).json({ error: botError });
   }
 };
 

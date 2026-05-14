@@ -741,8 +741,8 @@ function WelcomeMessageCard({ guildId, initial, channels, roles }) {
         message,
       });
       showFeedback('success', 'Saved!');
-    } catch {
-      showFeedback('error', 'Save failed.');
+    } catch (err) {
+      showFeedback('error', err.response?.data?.error || 'Save failed.');
     } finally {
       setSaving(false);
     }
