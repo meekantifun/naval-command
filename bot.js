@@ -8190,10 +8190,10 @@ class NavalWarfareBot {
 
     async handleShoot(interaction, player, game) {
        if (player.actionPoints < 1) return interaction.reply({ content: 'Not enough Action Points!', flags: MessageFlags.Ephemeral });
-       if ((player.disabledTurrets ?? 0) > 0) {
+       if ((player.disabledTurrets ?? 0) > 0 || (player.ammoRackTurrets ?? 0) > 0) {
            const totalTurrets = this.getMainTurretCount(player);
-           if (totalTurrets > 0 && player.disabledTurrets >= totalTurrets) {
-               return interaction.reply({ content: '❌ All turrets are disabled — main guns cannot fire!', flags: MessageFlags.Ephemeral });
+           if (totalTurrets > 0 && (player.disabledTurrets ?? 0) + (player.ammoRackTurrets ?? 0) >= totalTurrets) {
+               return interaction.reply({ content: '❌ All turrets are disabled or destroyed — main guns cannot fire!', flags: MessageFlags.Ephemeral });
            }
        }
 
@@ -8499,10 +8499,10 @@ class NavalWarfareBot {
         if (weaponType === 'main' && player.shipClass?.includes('Battleship') && player.weaponsFiredThisTurn.has('main')) {
             return interaction.update({ content: '❌ Battleship main guns can only be fired once per turn!', embeds: [], components: [] });
         }
-        if (weaponType === 'main' && (player.disabledTurrets ?? 0) > 0) {
+        if (weaponType === 'main' && ((player.disabledTurrets ?? 0) > 0 || (player.ammoRackTurrets ?? 0) > 0)) {
             const totalTurrets = this.getMainTurretCount(player);
-            if (totalTurrets > 0 && player.disabledTurrets >= totalTurrets) {
-                return interaction.update({ content: '❌ All turrets are disabled — main guns cannot fire!', embeds: [], components: [] });
+            if (totalTurrets > 0 && (player.disabledTurrets ?? 0) + (player.ammoRackTurrets ?? 0) >= totalTurrets) {
+                return interaction.update({ content: '❌ All turrets are disabled or destroyed — main guns cannot fire!', embeds: [], components: [] });
             }
         }
 
@@ -8619,11 +8619,11 @@ class NavalWarfareBot {
             : null;
         let baseDamage = weaponData ? weaponData.damage : this.getWeaponDamage(weapon, ammoType);
 
-        // Turret damage scaling: each disabled turret reduces main-gun output proportionally
-        if (weapon === 'main' && (attacker.disabledTurrets ?? 0) > 0) {
+        // Turret damage scaling: each disabled or destroyed turret reduces main-gun output proportionally
+        if (weapon === 'main' && ((attacker.disabledTurrets ?? 0) > 0 || (attacker.ammoRackTurrets ?? 0) > 0)) {
             const totalTurrets = this.getMainTurretCount(attacker);
             if (totalTurrets > 0) {
-                const operational = Math.max(0, totalTurrets - attacker.disabledTurrets);
+                const operational = Math.max(0, totalTurrets - (attacker.disabledTurrets ?? 0) - (attacker.ammoRackTurrets ?? 0));
                 baseDamage = Math.round(baseDamage * (operational / totalTurrets));
             }
         }
@@ -21674,10 +21674,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (weaponType === 'main' && player.shipClass?.includes('Battleship') && player.weaponsFiredThisTurn.has('main')) {
                     return res.status(400).json({ error: 'Battleship main guns can only be fired once per turn' });
                 }
-                if (weaponType === 'main' && (player.disabledTurrets ?? 0) > 0) {
+                if (weaponType === 'main' && ((player.disabledTurrets ?? 0) > 0 || (player.ammoRackTurrets ?? 0) > 0)) {
                     const totalTurrets = this.getMainTurretCount(player);
-                    if (totalTurrets > 0 && player.disabledTurrets >= totalTurrets) {
-                        return res.status(400).json({ error: 'All turrets are disabled — main guns cannot fire' });
+                    if (totalTurrets > 0 && (player.disabledTurrets ?? 0) + (player.ammoRackTurrets ?? 0) >= totalTurrets) {
+                        return res.status(400).json({ error: 'All turrets are disabled or destroyed — main guns cannot fire' });
                     }
                 }
 
