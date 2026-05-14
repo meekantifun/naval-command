@@ -538,6 +538,7 @@ function WelcomeImagesCard({ guildId, initial }) {
         label: newLabel.trim() || url,
       });
       setCustomImages(ci => [...ci, res.data.image]);
+      if (res.data.presetsDisabled) setPresets(ps => ps.map(p => ({ ...p, enabled: false })));
       setNewUrl('');
       setNewLabel('');
     } catch {
@@ -555,6 +556,7 @@ function WelcomeImagesCard({ guildId, initial }) {
       formData.append('label', uploadLabel.trim() || uploadFile.name);
       const res = await axios.post('/api/admin/config/welcome/upload', formData);
       setCustomImages(ci => [...ci, res.data.image]);
+      if (res.data.presetsDisabled) setPresets(ps => ps.map(p => ({ ...p, enabled: false })));
       setUploadFile(null);
       setUploadLabel('');
       if (fileInputRef.current) fileInputRef.current.value = '';

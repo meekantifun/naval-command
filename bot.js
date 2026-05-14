@@ -23937,8 +23937,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
             if (!config.welcome.customImages) config.welcome.customImages = [];
             const image = { id: randomUUID(), url, label: label || url };
             config.welcome.customImages.push(image);
+            if (!config.welcome.presets) config.welcome.presets = {};
+            for (const p of PRESETS) config.welcome.presets[p.id] = false;
             this.saveGuildConfig(guildId, config);
-            res.json({ success: true, image });
+            res.json({ success: true, image, presetsDisabled: true });
         });
 
         // DELETE /api/admin/config/welcome/custom — { guildId, id }
