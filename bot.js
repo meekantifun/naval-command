@@ -9325,13 +9325,20 @@ class NavalWarfareBot {
         if (player.actionPoints < 1) return interaction.reply({ content: 'Not enough Action Points!', flags: MessageFlags.Ephemeral });
         if (player.damageControlCooldown > 0) return interaction.reply({ content: `Damage Control on cooldown for ${player.damageControlCooldown} more turns!`, flags: MessageFlags.Ephemeral });
 
-        const hadStatusEffects = player.onFire || player.flooding || player.bleeding;
+        const hadStatusEffects = player.onFire || player.flooding || player.bleeding ||
+            player.rudderDamaged || player.enginesDamaged || (player.disabledTurrets ?? 0) > 0;
 
         player.onFire = false;
         player.flooding = false;
         player.bleeding = false;
         player.fireTimer = 0;
         player.floodTimer = 0;
+        player.rudderDamaged = false;
+        player.rudderRepairTimer = 0;
+        player.enginesDamaged = false;
+        player.enginesRepairTimer = 0;
+        player.disabledTurrets = 0;
+        player.turretRepairTimer = 0;
         player.damageControlCooldown = 8;
         this.consumeAction(player);
 
@@ -21920,7 +21927,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if ((player.damageControlCooldown ?? 0) > 0) {
                     return res.status(400).json({ error: `Damage control on cooldown (${player.damageControlCooldown} turns)` });
                 }
-                if (!player.onFire && !player.flooding && !player.bleeding) {
+                const hasComponentDamage = player.rudderDamaged || player.enginesDamaged || (player.disabledTurrets ?? 0) > 0;
+                if (!player.onFire && !player.flooding && !player.bleeding && !hasComponentDamage) {
                     return res.status(400).json({ error: 'No damage conditions to control' });
                 }
                 player.onFire = false;
@@ -21928,6 +21936,12 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 player.bleeding = false;
                 player.fireTimer = 0;
                 player.floodTimer = 0;
+                player.rudderDamaged = false;
+                player.rudderRepairTimer = 0;
+                player.enginesDamaged = false;
+                player.enginesRepairTimer = 0;
+                player.disabledTurrets = 0;
+                player.turretRepairTimer = 0;
                 player.damageControlCooldown = 8;
                 this.consumeAction(player);
                 const needsEndTurn = player.actionsThisTurn >= player.maxActions;
