@@ -474,6 +474,15 @@ function ConfigurationsPanel({ guildId }) {
         description="Set the channel for message edit/delete logging"
         initial={config.setmsglogchannel}
       />
+      <LogChannelCard
+        key={`setstatuschannel-${guildId}`}
+        guildId={guildId}
+        channels={metadata.channels}
+        apiPath="/api/admin/config/setstatuschannel"
+        title="/setstatuschannel"
+        description="Set the channel where bot status updates are posted"
+        initial={config.setstatuschannel}
+      />
       <WelcomeMessageCard
         key={`welcome-msg-${guildId}`}
         guildId={guildId}
@@ -495,8 +504,12 @@ function WelcomeImagesCard({ guildId, initial }) {
   const [customImages, setCustomImages] = useState(initial?.customImages ?? []);
   const [newUrl, setNewUrl] = useState('');
   const [newLabel, setNewLabel] = useState('');
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadLabel, setUploadLabel] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState(null);
   const timerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
@@ -529,6 +542,27 @@ function WelcomeImagesCard({ guildId, initial }) {
       setNewLabel('');
     } catch {
       showFeedback('error', 'Failed to add image.');
+    }
+  }
+
+  async function handleUpload() {
+    if (!uploadFile) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', uploadFile);
+      formData.append('guildId', guildId);
+      formData.append('label', uploadLabel.trim() || uploadFile.name);
+      const res = await axios.post('/api/admin/config/welcome/upload', formData);
+      setCustomImages(ci => [...ci, res.data.image]);
+      setUploadFile(null);
+      setUploadLabel('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      showFeedback('success', 'Image uploaded.');
+    } catch {
+      showFeedback('error', 'Upload failed.');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -622,9 +656,38 @@ function WelcomeImagesCard({ guildId, initial }) {
             className="config-add-btn"
             onClick={handleAddCustom}
             disabled={!newUrl.trim()}
-          >Add</button>
+          >Add URL</button>
         </div>
-        <div className="welcome-hint">Recommended size: 900×300px. Image must be publicly accessible.</div>
+        <div className="welcome-add-row">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => setUploadFile(e.target.files[0] || null)}
+          />
+          <button
+            type="button"
+            className="config-text-input welcome-file-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploadFile ? uploadFile.name : 'Choose file…'}
+          </button>
+          <input
+            type="text"
+            className="config-text-input welcome-label-input"
+            placeholder="Label (optional)"
+            value={uploadLabel}
+            onChange={e => setUploadLabel(e.target.value)}
+          />
+          <button
+            type="button"
+            className="config-add-btn"
+            onClick={handleUpload}
+            disabled={!uploadFile || uploading}
+          >{uploading ? 'Uploading…' : 'Upload'}</button>
+        </div>
+        <div className="welcome-hint">Recommended size: 900×300px.</div>
         {status && <CardFeedback status={status} />}
       </div>
       <div className="config-card-footer">

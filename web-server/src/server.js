@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
+const { randomUUID } = require('crypto');
 
 // Multer storage for shop item icons
 const shopIconStorage = multer.diskStorage({
@@ -38,6 +39,26 @@ const currencyIconStorage = multer.diskStorage({
   }
 });
 const uploadCurrencyIcon = multer({ storage: currencyIconStorage, limits: { fileSize: 1 * 1024 * 1024 } });
+
+const welcomeImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '../../public/welcome-uploads');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${randomUUID()}${ext}`);
+  }
+});
+const uploadWelcomeImage = multer({
+  storage: welcomeImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  }
+});
 
 // Path to bot's guild data (same server, different directory)
 const BOT_DATA_ROOT = path.join(__dirname, '../../servers');
@@ -170,6 +191,23 @@ const requireAdmin = async (req, res, next) => {
     });
     if (!response.data.isAdmin) {
       return res.status(403).json({ error: 'Administrator permission required' });
+    }
+    next();
+  } catch {
+    res.status(403).json({ error: 'Could not verify permissions' });
+  }
+};
+
+// Staff middleware — requires Discord Administrator OR staff role
+const requireStaff = async (req, res, next) => {
+  const guildId = req.body?.guildId || req.query?.guildId;
+  if (!guildId) return res.status(400).json({ error: 'guildId required' });
+  try {
+    const response = await botAPI.get('/api/admin/check-permission', {
+      params: { userId: req.user.id, guildId }
+    });
+    if (!response.data.hasPermission) {
+      return res.status(403).json({ error: 'Staff permission required' });
     }
     next();
   } catch {
@@ -884,6 +922,7 @@ app.get('/api/bot-invite', (req, res) => {
 // Serve shop icons static files (under /api/ so nginx proxies them to Express)
 app.use('/api/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
 app.use('/api/currency-icons', express.static(path.join(__dirname, '../../public/currency-icons')));
+app.use('/api/welcome-uploads', express.static(path.join(__dirname, '../../public/welcome-uploads')));
 
 // ── Admin Shop Item Proxy Routes ─────────────────────────────────────────────
 
@@ -989,7 +1028,7 @@ app.get('/api/admin/guild/:guildId/metadata', ensureAuthenticated, async (req, r
   }
 });
 
-app.post('/api/admin/config/aicanspeak', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/aicanspeak', ensureAuthenticated, requireStaff, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/aicanspeak', req.body);
     res.json(response.data);
@@ -998,7 +1037,7 @@ app.post('/api/admin/config/aicanspeak', ensureAuthenticated, async (req, res) =
   }
 });
 
-app.post('/api/admin/config/roleplay', ensureAuthenticated, requireAdmin, async (req, res) => {
+app.post('/api/admin/config/roleplay', ensureAuthenticated, requireStaff, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/roleplay', req.body);
     res.json(response.data);
@@ -1007,7 +1046,7 @@ app.post('/api/admin/config/roleplay', ensureAuthenticated, requireAdmin, async 
   }
 });
 
-app.post('/api/admin/config/setgm', ensureAuthenticated, async (req, res) => {
+app.post('/api/admin/config/setgm', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.post('/api/admin/config/setgm', req.body);
     res.json(response.data);
@@ -1016,9 +1055,18 @@ app.post('/api/admin/config/setgm', ensureAuthenticated, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/config/setgm', ensureAuthenticated, async (req, res) => {
+app.delete('/api/admin/config/setgm', ensureAuthenticated, requireAdmin, async (req, res) => {
   try {
     const response = await botAPI.delete('/api/admin/config/setgm', { data: req.body });
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/setstatuschannel', ensureAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const response = await botAPI.post('/api/admin/config/setstatuschannel', req.body);
     res.json(response.data);
   } catch (err) {
     res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
@@ -1076,6 +1124,24 @@ app.delete('/api/admin/config/welcome/custom', ensureAuthenticated, requireAdmin
     res.json(response.data);
   } catch (err) {
     res.status(err.response?.status || 500).json(err.response?.data || { error: 'Bot API error' });
+  }
+});
+
+app.post('/api/admin/config/welcome/upload', ensureAuthenticated, requireAdmin, uploadWelcomeImage.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+    const { guildId, label } = req.body;
+    if (!guildId) return res.status(400).json({ error: 'guildId required' });
+    const url = `https://${req.get('host')}/api/welcome-uploads/${req.file.filename}`;
+    const response = await botAPI.post('/api/admin/config/welcome/custom', {
+      guildId,
+      url,
+      label: label || req.file.originalname,
+    });
+    res.json(response.data);
+  } catch (err) {
+    console.error('Error uploading welcome image:', err.message);
+    res.status(err.response?.status || 500).json(err.response?.data || { error: 'Upload failed' });
   }
 });
 

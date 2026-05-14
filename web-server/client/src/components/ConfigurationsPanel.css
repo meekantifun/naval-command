@@ -429,3 +429,13 @@
 .welcome-label-input {
   width: 130px;
 }
+
+.welcome-file-btn {
+  flex: 1;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
