@@ -624,38 +624,51 @@ class NavalWarfareBot {
         });
 
         this.client.on('guildMemberAdd', async (member) => {
-            const conf = this.guildConfigs.get(member.guild.id) || {};
-            const welcome = conf.welcome;
-            if (!welcome?.enabled || !welcome?.channelId) return;
-
-            const channel = member.guild.channels.cache.get(welcome.channelId);
-            if (!channel) {
-                console.warn(`Welcome: configured channel ${welcome.channelId} not found in ${member.guild.id}`);
-                return;
-            }
-
-            const text = (welcome.message || '').replace(/@user/g, `<@${member.id}>`);
-
-            const activePresets = PRESETS.filter(p => welcome.presets?.[p.id] !== false);
-            const pool = [...activePresets, ...(welcome.customImages || [])];
-
-            const hasText = text.length > 0;
-
-            if (pool.length === 0) {
-                if (hasText) await channel.send(text);
-                return;
-            }
-
-            const selected = pool[Math.floor(Math.random() * pool.length)];
-            const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
-
+            console.log(`👤 guildMemberAdd: ${member.user.tag} joined ${member.guild.name} (${member.guild.id})`);
             try {
-                const imageBuffer = await generateWelcomeImage(selected.url, avatarUrl, member.user.username, member.guild.memberCount);
-                const attachment = new AttachmentBuilder(imageBuffer, { name: 'welcome.png' });
-                await channel.send({ ...(hasText ? { content: text } : {}), files: [attachment] });
+                const conf = this.guildConfigs.get(member.guild.id) || {};
+                const welcome = conf.welcome;
+                if (!welcome?.enabled || !welcome?.channelId) {
+                    console.log(`Welcome: skipping — enabled=${welcome?.enabled}, channelId=${welcome?.channelId}`);
+                    return;
+                }
+
+                const channel = member.guild.channels.cache.get(welcome.channelId);
+                if (!channel) {
+                    console.warn(`Welcome: configured channel ${welcome.channelId} not found in ${member.guild.id}`);
+                    return;
+                }
+
+                const text = (welcome.message || '').replace(/@user/g, `<@${member.id}>`);
+
+                const activePresets = PRESETS.filter(p => welcome.presets?.[p.id] !== false);
+                const pool = [...activePresets, ...(welcome.customImages || [])];
+
+                const hasText = text.length > 0;
+                console.log(`Welcome: pool=${pool.length}, hasText=${hasText}, channel=#${channel.name}`);
+
+                if (pool.length === 0) {
+                    if (hasText) await channel.send(text);
+                    return;
+                }
+
+                const selected = pool[Math.floor(Math.random() * pool.length)];
+                const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
+
+                try {
+                    const imageBuffer = await generateWelcomeImage(selected.url, avatarUrl, member.user.username, member.guild.memberCount);
+                    const attachment = new AttachmentBuilder(imageBuffer, { name: 'welcome.png' });
+                    await channel.send({ ...(hasText ? { content: text } : {}), files: [attachment] });
+                    console.log(`Welcome: sent image+text to #${channel.name}`);
+                } catch (err) {
+                    console.error('Welcome image generation failed:', err);
+                    if (hasText) {
+                        await channel.send(text);
+                        console.log(`Welcome: sent text-only fallback to #${channel.name}`);
+                    }
+                }
             } catch (err) {
-                console.error('Welcome image generation failed:', err);
-                if (hasText) await channel.send(text);
+                console.error(`Welcome: unexpected error for ${member.user.tag}:`, err);
             }
         });
 
