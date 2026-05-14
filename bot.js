@@ -18554,6 +18554,32 @@ class NavalWarfareBot {
             player.damageControlCooldown--;
         }
 
+        // Process component repair timers
+        if (player.rudderRepairTimer > 0) {
+            player.rudderRepairTimer--;
+            if (player.rudderRepairTimer <= 0) {
+                player.rudderDamaged = false;
+                const shipName = player.characterAlias || player.shipClass || 'Ship';
+                messages.push(`🔧 **${shipName}**'s **rudder** has been repaired.`);
+            }
+        }
+        if (player.enginesRepairTimer > 0) {
+            player.enginesRepairTimer--;
+            if (player.enginesRepairTimer <= 0) {
+                player.enginesDamaged = false;
+                const shipName = player.characterAlias || player.shipClass || 'Ship';
+                messages.push(`🔧 **${shipName}**'s **engines** have been repaired.`);
+            }
+        }
+        if (player.turretRepairTimer > 0) {
+            player.turretRepairTimer--;
+            if (player.turretRepairTimer <= 0 && (player.disabledTurrets ?? 0) > 0) {
+                player.disabledTurrets = 0;
+                const shipName = player.characterAlias || player.shipClass || 'Ship';
+                messages.push(`🔧 **${shipName}**'s **turrets** have been fully repaired.`);
+            }
+        }
+
         // Process item buff expiry
         if (player.smokeScreenTurns > 0) {
             player.smokeScreenTurns--;
