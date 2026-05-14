@@ -923,6 +923,7 @@ app.get('/api/bot-invite', (req, res) => {
 app.use('/api/shop-icons', express.static(path.join(__dirname, '../../public/shop-icons')));
 app.use('/api/currency-icons', express.static(path.join(__dirname, '../../public/currency-icons')));
 app.use('/api/welcome-uploads', express.static(path.join(__dirname, '../../public/welcome-uploads')));
+app.use('/api/welcome-bg', express.static(path.join(__dirname, '../../public/welcome-bg')));
 
 // ── Admin Shop Item Proxy Routes ─────────────────────────────────────────────
 
@@ -1127,7 +1128,7 @@ app.delete('/api/admin/config/welcome/custom', ensureAuthenticated, requireAdmin
   }
 });
 
-app.post('/api/admin/config/welcome/upload', ensureAuthenticated, requireAdmin, uploadWelcomeImage.single('image'), async (req, res) => {
+app.post('/api/admin/config/welcome/upload', ensureAuthenticated, uploadWelcomeImage.single('image'), requireAdmin, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file provided' });
     const { guildId, label } = req.body;
