@@ -7734,6 +7734,10 @@ class NavalWarfareBot {
             return interaction.reply({ content: '❌ Not enough Action Points!', flags: MessageFlags.Ephemeral });
         }
 
+        if (player.enginesDamaged) {
+            return interaction.reply({ content: '❌ Your engines are disabled — you cannot move!', flags: MessageFlags.Ephemeral });
+        }
+
         // Check if it's actually this player's turn
         if (!player.activeTurnMessageId) {
             return interaction.reply({ content: '❌ It\'s not your turn!', flags: MessageFlags.Ephemeral });
@@ -7792,6 +7796,14 @@ class NavalWarfareBot {
                 content: `❌ Too far! Max: ${maxMoveRange}, Distance: ${distance}`,
                 flags: MessageFlags.Ephemeral
             });
+        }
+
+        if (player.rudderDamaged) {
+            const dx = destPos.x - currentPos.x;
+            const dy = destPos.y - currentPos.y;
+            if (!this.isAlongFacing(player, dx, dy)) {
+                return interaction.reply({ content: '❌ Your rudder is damaged — you can only move forward or backward!', flags: MessageFlags.Ephemeral });
+            }
         }
 
         // Execute movement
@@ -21438,6 +21450,10 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     return res.status(400).json({ error: 'No actions remaining this turn' });
                 }
 
+                if (player.enginesDamaged) {
+                    return res.status(400).json({ error: 'Your engines are disabled — you cannot move' });
+                }
+
                 // Validate coordinates
                 if (x < 0 || x >= game.mapSize || y < 0 || y >= game.mapSize) {
                     return res.status(400).json({ error: 'Invalid coordinates' });
@@ -21470,6 +21486,14 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     }
                     if (player.position && this.hasReefAlongPath(game, player.position, destCoord)) {
                         return res.status(400).json({ error: 'Submerged submarines cannot move through reef squares.' });
+                    }
+                }
+
+                if (player.rudderDamaged && player.x != null && player.y != null) {
+                    const dx = x - player.x;
+                    const dy = y - player.y;
+                    if (!this.isAlongFacing(player, dx, dy)) {
+                        return res.status(400).json({ error: 'Your rudder is damaged — you can only move forward or backward' });
                     }
                 }
 
