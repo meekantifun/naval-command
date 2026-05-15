@@ -402,6 +402,8 @@ class EventHandler {
                 }
             } else if (customId.startsWith('gmai_attack_select_')) {
                 await this.bot.handleGMAITargetSelect(interaction);
+            } else if (customId.startsWith('repair_ally_select_')) {
+                await this.bot.handleStringSelectMenu(interaction);
             } else {
                 await interaction.reply({ content: 'Unknown select menu interaction!', flags: MessageFlags.Ephemeral });
             }

@@ -1683,7 +1683,20 @@ class NavalWarfareBot {
                 await this.handleCharacterSelection(interaction);
                 return;
             }
-            
+
+            // AX repair ally target selection
+            if (interaction.customId.startsWith('repair_ally_select_')) {
+                const game = this.games.get(interaction.channelId);
+                if (!game) return interaction.update({ content: '❌ No active game.', components: [] });
+                const playerId = interaction.customId.replace('repair_ally_select_', '');
+                const player = game.players.get(playerId);
+                const target = game.players.get(interaction.values[0]);
+                if (!player || !target) return interaction.update({ content: '❌ Player not found.', components: [] });
+                await interaction.update({ content: '✅ Processing repair...', components: [] });
+                await this.executeRepairAlly(interaction, player, target, game);
+                return;
+            }
+
             // Add other string select menu handlers here as needed
             
             if (!interaction.replied && !interaction.deferred) {
@@ -6359,6 +6372,26 @@ class NavalWarfareBot {
             );
         }
 
+        // Add Repair Ally button for AX ships with valid nearby targets
+        if (player.shipClass === 'AX' && game) {
+            const hasRepairTargets = Array.from(game.players.values()).some(p =>
+                p.id !== player.id &&
+                !p.isOPFOR &&
+                (p.ammoRackTurrets ?? 0) > 0 &&
+                (p.ammoRackRepairTimer ?? 0) === 0 &&
+                p.x != null && p.y != null &&
+                player.x != null && player.y != null &&
+                Math.max(Math.abs(p.x - player.x), Math.abs(p.y - player.y)) <= 3
+            );
+            if (hasRepairTargets) {
+                buttons.splice(-1, 0, new ButtonBuilder()
+                    .setCustomId('repair_ally')
+                    .setLabel('🔧 Repair Ally')
+                    .setStyle(ButtonStyle.Success)
+                );
+            }
+        }
+
         // Add Use Item button if player has an Air Support Marker
         const hasAirSupport = game
             ? this.getInventoryCount(game.guildId, player.userId || player.id, 'air_support_marker') > 0
@@ -6460,6 +6493,9 @@ class NavalWarfareBot {
                     break;
                 case 'dmg_control':
                     await this.handleDamageControl(interaction, player, game);
+                    break;
+                case 'repair_ally':
+                    await this.handleRepairAlly(interaction, player, game);
                     break;
                 case 'use_item':
                     await this.showItemSelection(interaction, player, game);
@@ -9367,6 +9403,62 @@ class NavalWarfareBot {
 
         // Sync web dashboard
         this.broadcastGameUpdate(game.channelId).catch(() => {});
+    }
+
+    async handleRepairAlly(interaction, player, game) {
+        if (player.actionPoints < 1) {
+            return interaction.reply({ content: '❌ Not enough Action Points!', flags: MessageFlags.Ephemeral });
+        }
+        if (player.shipClass !== 'AX') {
+            return interaction.reply({ content: '❌ Only AX ships can perform turret repairs!', flags: MessageFlags.Ephemeral });
+        }
+        const allPlayers = Array.from(game.players.values());
+        const targets = allPlayers.filter(p =>
+            p.id !== player.id &&
+            !p.isOPFOR &&
+            (p.ammoRackTurrets ?? 0) > 0 &&
+            (p.ammoRackRepairTimer ?? 0) === 0 &&
+            p.x != null && p.y != null &&
+            player.x != null && player.y != null &&
+            Math.max(Math.abs(p.x - player.x), Math.abs(p.y - player.y)) <= 3
+        );
+        if (targets.length === 0) {
+            return interaction.reply({ content: '❌ No allies with ammo rack damage within 3 tiles!', flags: MessageFlags.Ephemeral });
+        }
+        if (targets.length === 1) {
+            return this.executeRepairAlly(interaction, player, targets[0], game);
+        }
+        const options = targets.map(t => ({
+            label: (t.characterAlias || t.shipClass || 'Ship').slice(0, 100),
+            description: `${t.ammoRackTurrets} turret(s) destroyed`,
+            value: t.id
+        }));
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId(`repair_ally_select_${player.id}`)
+            .setPlaceholder('Select ally to repair')
+            .addOptions(options);
+        await interaction.reply({
+            content: '🔧 Select an ally to begin turret repairs:',
+            components: [new ActionRowBuilder().addComponents(menu)],
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    async executeRepairAlly(interaction, player, target, game) {
+        target.ammoRackRepairTimer = 3;
+        this.consumeAction(player);
+        const axName = player.characterAlias || player.displayName || player.username || 'AX';
+        const targetName = target.characterAlias || target.displayName || target.username || 'Ship';
+        await this.broadcastGameUpdate(game.channelId);
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({ content: `✅ Repair started on **${targetName}**! (3 turns)`, flags: MessageFlags.Ephemeral });
+        } else {
+            await interaction.reply({ content: `✅ Repair started on **${targetName}**! (3 turns)`, flags: MessageFlags.Ephemeral });
+        }
+        const channel = this.client.channels.cache.get(game.channelId);
+        if (channel) {
+            channel.send({ content: `🔧 **${axName}** has begun emergency repairs on **${targetName}**'s turret! (3 turns remaining)` }).catch(() => {});
+        }
     }
 
     getRangeModifier(distance, maxRange) {
