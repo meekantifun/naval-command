@@ -6376,7 +6376,7 @@ class NavalWarfareBot {
         }
 
         // Add Repair Ally button for AX ships with valid nearby targets
-        if (player.shipClass === 'AX' && game) {
+        if (player.shipClass === 'Auxiliary' && game) {
             const hasRepairTargets = Array.from(game.players.values()).some(p =>
                 p.id !== player.id &&
                 !p.isOPFOR &&
@@ -9412,7 +9412,7 @@ class NavalWarfareBot {
         if (player.actionPoints < 1) {
             return interaction.reply({ content: '❌ Not enough Action Points!', flags: MessageFlags.Ephemeral });
         }
-        if (player.shipClass !== 'AX') {
+        if (player.shipClass !== 'Auxiliary') {
             return interaction.reply({ content: '❌ Only AX ships can perform turret repairs!', flags: MessageFlags.Ephemeral });
         }
         const allPlayers = Array.from(game.players.values());
@@ -22127,7 +22127,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 const player = game.players.get(userId);
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
                 if (player.sunk || !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
-                if (player.shipClass !== 'AX') return res.status(400).json({ error: 'Only AX ships can perform turret repairs' });
+                if (player.shipClass !== 'Auxiliary') return res.status(400).json({ error: 'Only AX ships can perform turret repairs' });
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
                 const target = game.players.get(targetId);
                 if (!target) return res.status(404).json({ error: 'Target not found in game' });

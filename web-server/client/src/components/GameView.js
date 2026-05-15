@@ -1551,9 +1551,9 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       🔧 Damage Control
                       {(selectedPlayer.damageControlCooldown ?? 0) > 0 && ` (${selectedPlayer.damageControlCooldown}t)`}
                     </button>
-                    {selectedPlayer.shipClass === 'AX' && (() => {
+                    {selectedPlayer.shipClass === 'Auxiliary' && (() => {
                       const axTargets = (gameState.players || []).filter(p =>
-                        !p.sunk && p.id !== selectedPlayer.id &&
+                        !p.sunk && p.userId !== selectedPlayer.userId &&
                         (p.ammoRackTurrets ?? 0) > 0 && (p.ammoRackRepairTimer ?? 0) === 0 &&
                         p.x != null && p.y != null &&
                         selectedPlayer.x != null && selectedPlayer.y != null &&
@@ -1565,7 +1565,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                           <button
                             className="btn btn-warning"
                             disabled={selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}
-                            onClick={() => handleAxRepair(axTargets[0].id)}
+                            onClick={() => handleAxRepair(axTargets[0].userId)}
                           >
                             🔧 Repair Ally
                           </button>
@@ -1573,10 +1573,10 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       }
                       return axTargets.map(target => (
                         <button
-                          key={target.id}
+                          key={target.userId}
                           className="btn btn-warning"
                           disabled={selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}
-                          onClick={() => handleAxRepair(target.id)}
+                          onClick={() => handleAxRepair(target.userId)}
                         >
                           🔧 Repair {target.characterAlias || target.shipClass}
                         </button>
