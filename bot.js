@@ -1692,6 +1692,9 @@ class NavalWarfareBot {
                 const player = game.players.get(playerId);
                 const target = game.players.get(interaction.values[0]);
                 if (!player || !target) return interaction.update({ content: '❌ Player not found.', components: [] });
+                if (player.actionPoints < 1) return interaction.update({ content: '❌ No Action Points remaining.', components: [] });
+                if ((target.ammoRackRepairTimer ?? 0) > 0) return interaction.update({ content: '❌ Target is already being repaired.', components: [] });
+                if ((target.ammoRackTurrets ?? 0) === 0) return interaction.update({ content: '❌ Target no longer has ammo rack damage.', components: [] });
                 await interaction.update({ content: '✅ Processing repair...', components: [] });
                 await this.executeRepairAlly(interaction, player, target, game);
                 return;
@@ -9458,6 +9461,9 @@ class NavalWarfareBot {
         const channel = this.client.channels.cache.get(game.channelId);
         if (channel) {
             channel.send({ content: `🔧 **${axName}** has begun emergency repairs on **${targetName}**'s turret! (3 turns remaining)` }).catch(() => {});
+        }
+        if (player.actionPoints <= 0) {
+            this.endPlayerTurn(player);
         }
     }
 
