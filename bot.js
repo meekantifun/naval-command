@@ -18591,6 +18591,14 @@ class NavalWarfareBot {
                 messages.push(`🔧 **${shipName}**'s **turrets** have been fully repaired.`);
             }
         }
+        if (player.ammoRackRepairTimer > 0) {
+            player.ammoRackRepairTimer--;
+            if (player.ammoRackRepairTimer <= 0 && (player.ammoRackTurrets ?? 0) > 0) {
+                player.ammoRackTurrets = Math.max(0, player.ammoRackTurrets - 1);
+                const shipName = player.characterAlias || player.shipClass || 'Ship';
+                messages.push(`🔧 **${shipName}**'s destroyed turret has been restored by AX repair.`);
+            }
+        }
 
         // Process item buff expiry
         if (player.smokeScreenTurns > 0) {
