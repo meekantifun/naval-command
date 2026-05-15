@@ -21196,6 +21196,8 @@ Use \`/stats\` during a battle to view your current ship statistics!
                     rudderDamaged: p.rudderDamaged ?? false,
                     enginesDamaged: p.enginesDamaged ?? false,
                     disabledTurrets: p.disabledTurrets ?? 0,
+                    ammoRackTurrets: p.ammoRackTurrets ?? 0,
+                    ammoRackRepairTimer: p.ammoRackRepairTimer ?? 0,
                     weapons: p.weapons,
                     aircraftSquadrons: p.aircraftSquadrons,
                     actionsThisTurn: p.actionsThisTurn ?? 0,
