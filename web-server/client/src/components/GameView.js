@@ -400,6 +400,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
       if (!pp.rudderDamaged  && p.rudderDamaged)  addE(`⚙️ ${name}'s rudder has been damaged!`,   'status');
       if (!pp.enginesDamaged && p.enginesDamaged) addE(`⚙️ ${name}'s engines have been disabled!`, 'status');
       if (!(pp.disabledTurrets > 0) && p.disabledTurrets > 0) addE(`💥 ${name}'s turret has been knocked out!`, 'status');
+      if (!(pp.ammoRackTurrets > 0) && p.ammoRackTurrets > 0) addE(`💥 ${name}'s ammo rack has been detonated!`, 'status');
 
       // Status cleared
       if (pp.onFire   && !p.onFire   && !p.sunk) addE(`🔧 ${name}'s fire was extinguished`,    'status-clear');
@@ -407,6 +408,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
       if (pp.rudderDamaged  && !p.rudderDamaged  && !p.sunk) addE(`🔧 ${name}'s rudder has been repaired`,   'status-clear');
       if (pp.enginesDamaged && !p.enginesDamaged && !p.sunk) addE(`🔧 ${name}'s engines have been repaired`, 'status-clear');
       if ((pp.disabledTurrets > 0) && !(p.disabledTurrets > 0) && !p.sunk) addE(`🔧 ${name}'s turrets have been repaired`, 'status-clear');
+      if ((pp.ammoRackTurrets > 0) && !(p.ammoRackTurrets > 0) && !p.sunk) addE(`🔧 ${name}'s turret has been restored by AX repair`, 'status-clear');
     }
 
     // Enemy events
@@ -636,6 +638,18 @@ function GameView({ channelId, user, onBack, onLogout }) {
       );
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to perform damage control');
+    }
+  };
+
+  const handleAxRepair = async (targetId) => {
+    if (!selectedPlayer) return;
+    try {
+      await axios.post(`${API_URL}/api/game/${channelId}/ax-repair`,
+        { userId: selectedPlayer.id, targetId },
+        { withCredentials: true }
+      );
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to perform AX repair');
     }
   };
 
@@ -1175,6 +1189,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                   {p.rudderDamaged && <span className="unit-status" title="Rudder Damaged">⚙️</span>}
                   {p.enginesDamaged && <span className="unit-status" title="Engines Out">⚙️</span>}
                   {(p.disabledTurrets ?? 0) > 0 && <span className="unit-status" title={`Turret Damaged (${p.disabledTurrets} out)`}>💥</span>}
+                  {(p.ammoRackTurrets ?? 0) > 0 && <span className="unit-status" title={`Ammo Rack (${p.ammoRackTurrets} destroyed — AX repair required)`}>💥</span>}
                 </div>
               );
             })}
@@ -1453,6 +1468,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
                           {player.rudderDamaged && '⚙️'}
                           {player.enginesDamaged && '⚙️'}
                           {(player.disabledTurrets ?? 0) > 0 && '💥'}
+                          {(player.ammoRackTurrets ?? 0) > 0 && '💥'}
                         </span>
                       </div>
                       <div className="scs-hp-bar">
@@ -1535,6 +1551,33 @@ function GameView({ channelId, user, onBack, onLogout }) {
                       🔧 Damage Control
                       {(selectedPlayer.damageControlCooldown ?? 0) > 0 && ` (${selectedPlayer.damageControlCooldown}t)`}
                     </button>
+                    {selectedPlayer.shipClass === 'AX' && (() => {
+                      const axTargets = (gameState.players || []).filter(p =>
+                        !p.sunk && (p.ammoRackTurrets ?? 0) > 0 && (p.ammoRackRepairTimer ?? 0) === 0
+                      );
+                      if (axTargets.length === 0) return null;
+                      if (axTargets.length === 1) {
+                        return (
+                          <button
+                            className="btn btn-warning"
+                            disabled={selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}
+                            onClick={() => handleAxRepair(axTargets[0].id)}
+                          >
+                            🔧 Repair Ally
+                          </button>
+                        );
+                      }
+                      return axTargets.map(target => (
+                        <button
+                          key={target.id}
+                          className="btn btn-warning"
+                          disabled={selectedPlayer.actionsThisTurn >= selectedPlayer.maxActions}
+                          onClick={() => handleAxRepair(target.id)}
+                        >
+                          🔧 Repair {target.characterAlias || target.shipClass}
+                        </button>
+                      ));
+                    })()}
                     <button
                       className="btn btn-info"
                       onClick={() => setShowInventory(v => !v)}
