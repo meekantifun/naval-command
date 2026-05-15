@@ -645,7 +645,7 @@ function GameView({ channelId, user, onBack, onLogout }) {
     if (!selectedPlayer) return;
     try {
       await axios.post(`${API_URL}/api/game/${channelId}/ax-repair`,
-        { userId: selectedPlayer.id, targetId },
+        { targetId },
         { withCredentials: true }
       );
     } catch (err) {
@@ -1553,7 +1553,11 @@ function GameView({ channelId, user, onBack, onLogout }) {
                     </button>
                     {selectedPlayer.shipClass === 'AX' && (() => {
                       const axTargets = (gameState.players || []).filter(p =>
-                        !p.sunk && (p.ammoRackTurrets ?? 0) > 0 && (p.ammoRackRepairTimer ?? 0) === 0
+                        !p.sunk && p.id !== selectedPlayer.id &&
+                        (p.ammoRackTurrets ?? 0) > 0 && (p.ammoRackRepairTimer ?? 0) === 0 &&
+                        p.x != null && p.y != null &&
+                        selectedPlayer.x != null && selectedPlayer.y != null &&
+                        Math.max(Math.abs(p.x - selectedPlayer.x), Math.abs(p.y - selectedPlayer.y)) <= 3
                       );
                       if (axTargets.length === 0) return null;
                       if (axTargets.length === 1) {
