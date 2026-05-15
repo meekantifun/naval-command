@@ -22126,7 +22126,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 const player = game.players.get(userId);
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
-                if (player.sunk ?? !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
+                if (player.sunk || !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
                 if (player.shipClass !== 'AX') return res.status(400).json({ error: 'Only AX ships can perform turret repairs' });
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
                 const target = game.players.get(targetId);
