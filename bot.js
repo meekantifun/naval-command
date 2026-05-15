@@ -8740,7 +8740,13 @@ class NavalWarfareBot {
                 } else if (roll > 75 && roll <= 90) {
                     target.enginesDamaged = true;
                     target.enginesRepairTimer = 3;
-                    disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **engines** have been disabled — cannot move!`;
+                    let engineFireSuffix = '';
+                    if (Math.random() < 0.25) {
+                        target.onFire = true;
+                        target.fireTimer = 10;
+                        engineFireSuffix = ' Fuel vapors have ignited — ship is on fire!';
+                    }
+                    disableMessage = `\n⚙️ **DISABLING HIT!** ${targetName}'s **engines** have been disabled — cannot move!${engineFireSuffix}`;
                 } else if (roll > 90) {
                     const totalTurrets = this.getMainTurretCount(target);
                     const totalOut = (target.disabledTurrets ?? 0) + (target.ammoRackTurrets ?? 0);
