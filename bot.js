@@ -22171,7 +22171,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 const player = game.players.get(userId);
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
-                if (player.sunk ?? !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
+                if (player.sunk || !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
                 if (!player.reconAircraft) return res.status(400).json({ error: 'No recon aircraft configured' });
                 if (player.reconActive) return res.status(400).json({ error: 'Recon aircraft is already airborne' });
                 if ((player.reconCooldown ?? 0) > 0) return res.status(400).json({ error: `Recon aircraft on cooldown (${player.reconCooldown} turns remaining)` });
@@ -22213,7 +22213,7 @@ Use \`/stats\` during a battle to view your current ship statistics!
                 if (!game) return res.status(404).json({ error: 'Game not found' });
                 const player = game.players.get(userId);
                 if (!player) return res.status(404).json({ error: 'Player not found in game' });
-                if (player.sunk ?? !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
+                if (player.sunk || !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
                 if (!player.shipClass?.includes('Carrier')) return res.status(400).json({ error: 'Only carriers can launch aircraft' });
                 if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
 
