@@ -22117,6 +22117,51 @@ Use \`/stats\` during a battle to view your current ship statistics!
             }
         });
 
+        // AX turret repair action
+        app.post('/api/game/:channelId/ax-repair', authenticateAPIKey, async (req, res) => {
+            try {
+                const { channelId } = req.params;
+                const { userId, targetId } = req.body;
+                const game = this.games.get(channelId);
+                if (!game) return res.status(404).json({ error: 'Game not found' });
+                const player = game.players.get(userId);
+                if (!player) return res.status(404).json({ error: 'Player not found in game' });
+                if (player.sunk ?? !player.alive) return res.status(400).json({ error: 'Ship is sunk' });
+                if (player.shipClass !== 'AX') return res.status(400).json({ error: 'Only AX ships can perform turret repairs' });
+                if (player.actionsThisTurn >= player.maxActions) return res.status(400).json({ error: 'No actions remaining this turn' });
+                const target = game.players.get(targetId);
+                if (!target) return res.status(404).json({ error: 'Target not found in game' });
+                if (target.id === player.id) return res.status(400).json({ error: 'Cannot repair yourself' });
+                if (target.isOPFOR) return res.status(400).json({ error: 'Cannot repair enemy ships' });
+                if ((target.ammoRackTurrets ?? 0) === 0) return res.status(400).json({ error: 'Target has no ammo rack damage' });
+                if ((target.ammoRackRepairTimer ?? 0) > 0) return res.status(400).json({ error: 'Target already being repaired' });
+                if (player.x == null || player.y == null || target.x == null || target.y == null) {
+                    return res.status(400).json({ error: 'Position data unavailable' });
+                }
+                const dist = Math.max(Math.abs(target.x - player.x), Math.abs(target.y - player.y));
+                if (dist > 3) return res.status(400).json({ error: `Target is out of repair range (${dist} tiles, max 3)` });
+                target.ammoRackRepairTimer = 3;
+                this.consumeAction(player);
+                const needsEndTurn = player.actionsThisTurn >= player.maxActions;
+                if (needsEndTurn) player.actionPoints = 0;
+                await this.broadcastGameUpdate(channelId);
+                res.json({ success: true });
+                const axName = player.characterAlias || player.displayName || player.username || 'AX';
+                const targetName = target.characterAlias || target.displayName || target.username || 'Ship';
+                this.client.channels.fetch(channelId)
+                    .then(ch => {
+                        if (!ch) return;
+                        ch.send({ content: `🔧 **${axName}** has begun emergency repairs on **${targetName}**'s turret! (3 turns remaining)` })
+                            .then(() => { if (needsEndTurn) this.endPlayerTurn(player); })
+                            .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+                    })
+                    .catch(() => { if (needsEndTurn) this.endPlayerTurn(player); });
+            } catch (error) {
+                console.error('Error performing AX repair:', error);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
         // Launch recon aircraft (non-CV players with a configured reconAircraft)
         app.post('/api/game/:channelId/launch-recon', authenticateAPIKey, async (req, res) => {
             try {
